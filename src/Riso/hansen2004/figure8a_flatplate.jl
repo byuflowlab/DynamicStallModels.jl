@@ -1,0 +1,103 @@
+using Plots, Statistics, DelimitedFiles, Roots
+
+include("../Riso.jl")
+
+k = 0.2 #given
+u = 1.0 #Assumed
+c = 1.0 #Assumed
+
+omega = k*2*u/c #implied
+
+function U(t)
+    return u
+end
+
+function Udot(t)
+    return 0.0
+end
+
+function V(t)
+    return 0.0
+end
+
+function alpha(t)
+    # k = 0.1 #given
+    # u = 50 #Assumed
+    # c = 1.0 #Assumed
+
+    # omega = k*2*u/c #implied
+
+    amp = 2
+    shift = 5
+
+    alpha = amp*sin(omega*t) + shift
+    return alpha*(pi/180)
+end
+
+function alphadot(t)
+    # k = 0.1 #given
+    # u = 50 #Assumed
+    # c = 1.0 #Assumed
+
+    # omega = k*2*u/c #implied
+
+    amp = 2
+    shift = 5
+
+    alphadot = amp*omega*cos(omega*t)
+
+    return alphadot*(pi/180)
+end
+
+polar = readdlm("/Users/adamcardoza/Box/research/FLOW/bladeopt/experimentaldata/Hansen2004/figure8_flatplate/static.csv", ',')
+
+plr = deepcopy(polar)
+plr[:,1] = plr[:,1].*(pi/180)
+# liftfit = Akima(plr[:,1], plr[:,2])
+
+dcldalpha = 2*pi
+alpha0 = 0.0 #find_zero(liftfit, 0.0)
+
+yintercept = -alpha0*dcldalpha
+
+linearlift(alpha) = dcldalpha*alpha + yintercept
+linearcl = linearlift.(plr[:,1])
+
+staticplt = plot(legend=:topleft, title="Static Lift Plot") #, xlim=(-0.07,0.25))
+scatter!(plr[:,1], plr[:,2], lab="Static")
+plot!(plr[:,1], linearcl, lab="Linear")
+# display(staticplt)
+
+
+A = [0.165, 0.335] #From the Hansen 2004 paper, for flat plate
+b = [0.0455, 0.3000] # "" ""
+# A = [ 0.3, 0.7] #Leishman 1990
+# b = [0.14, 0.53] # "" "" 
+Tp = 3.0 # "" "" 
+Tf = 6.0 # "" "" 
+
+
+
+x0 = zeros(4)
+p = [c, A, b, Tp, Tf, dcldalpha, linearlift, U, Udot, V, alpha, alphadot, alpha0]
+tspan = (0.0, 80.0)
+
+prob = ODEProblem(states!, x0, tspan, p)
+sol = solve(prob, dtmax=0.1)
+
+Cld1, u1, f1 = parsesolution(sol, p)
+alphavec = alpha.(sol.t)
+
+expdata = readdlm("/Users/adamcardoza/Box/research/FLOW/bladeopt/experimentaldata/Hansen2004/figure8_flatplate/indicial.csv", ',')
+
+
+clplt = plot(legend=:topleft, title="Cyclic Alpha", yaxis="Cl", xaxis="Alpha (deg)")
+scatter!(expdata[:,1], expdata[:,2], lab="Paper Values")
+plot!(alphavec.*(180/pi), Cld1, lab="My Values")
+plot!(alphavec.*(180/pi), linearlift.(alphavec), lab="Static")
+display(clplt)
+# savefig("/Users/adamcardoza/Box/research/FLOW/bladeopt/experimentaldata/Hansen2004/figure8_flatplate/recreatefig8a.png")
+
+
+
+nothing
