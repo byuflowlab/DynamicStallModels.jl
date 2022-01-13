@@ -1,0 +1,144 @@
+using DelimitedFiles, Plots, Statistics
+
+include("Riso.jl")
+
+expdata = readdlm("/Users/adamcardoza/Box/research/FLOW/bladeopt/experimentaldata/Larsen2007/riso1.csv", ',')
+
+middle = (maximum(expdata[:,1])+minimum(expdata[:,1]))/2
+delalpha = maximum(expdata[:,1])-middle
+
+
+function U(t)
+    return 60
+end
+
+function Udot(t)
+    return 0
+end
+
+function alpha(t)
+    k = 0.062
+    v = 60
+    c = 1.5
+
+    amp = 4.91
+    shift = 7.33
+
+    omega = 2*k*v/c
+
+    alfa =  amp*cos(omega*t) + shift
+    return alfa*pi/180
+end
+
+function alphadot(t)
+    k = 0.062
+    v = 60
+    c = 1.5
+
+    amp = 4.91
+    shift = 7.33
+
+    omega = 2*k*v/c
+
+    alfadot =  -amp*sin(omega*t)/omega
+    return alfadot*pi/180
+end
+
+# function alpha(t) #step
+#     if t<150
+#         return 4.0*pi/180
+#     else
+#         return 15.0*pi/180
+#     end
+# end
+
+# function alphadot(t)
+#     if t<149.5
+#         return 0.0
+#     elseif 149.5<t<150.5
+#         return 22.0*pi/180
+#     else
+#         return 0.0
+#     end
+# end
+
+function alpha34(t) #Assuming that the aoa at the three-quarters point is the same as the aoa for now, but it really shouldn't be. 
+    return alpha(t)
+end
+
+#Enviroment
+V = 60
+
+#Geometry
+c = 1.5
+# polar = readdlm("/Users/adamcardoza/Box/research/FLOW/learning/exampledata/xf-v23010-il-200000-n5.csv", ','; skipstart=12)
+# liftfit = Akima(polar[:,1].*(pi/180), polar[:,2])
+polar = readdlm("/Users/adamcardoza/Box/research/FLOW/bladeopt/data/polars/extendedVertol 23010-1.58.dat", ',')
+polar2 = readdlm("/Users/adamcardoza/Box/research/FLOW/bladeopt/experimentaldata/Larsen2007/vertol_lowaoa_static.csv", ',')
+polar2[:,1] = polar2[:,1].*(pi/180)
+# liftfit = Akima(polar[:,1], polar[:,2])
+liftfit = Akima(polar[:,1], polar[:,2])
+dcldalpha = 2*pi*1.05
+alpha0 = 0.014 # -0.019
+
+#Constants
+A = [0.165, 0.335] #Todo: I haven't checked these out. 
+b = [0.0455, 0.3]
+Tp = 1/0.4125
+Tf = 1/0.0875
+
+#Finding separation angles of attack
+# alphas = findsepalpha(liftfit, dcldalpha, alpha0)
+# aoa = polar[:,1].*(pi/180)
+# cli = dcldalpha.*(aoa.-alpha0) #./4
+# cli2 = dcldalpha.*(aoa.-alpha0)./4
+# plot(aoa, polar[:,2], leg=false)
+# plot!(aoa, cli)
+# plot!(aoa, cli2)
+
+
+#Initialize 
+x0 = zeros(4)
+p = [c, A, b, Tp, Tf, dcldalpha, liftfit, U, Udot, alpha, alphadot, alpha0]
+tspan = (0.0, 3.0)
+
+prob = ODEProblem(states!,x0,tspan,p)
+sol = solve(prob)
+
+statesplt = plot(sol,linewidth=2,xaxis="t",label=["x1" "x2" "x3" "x4"],layout=(4,1))
+display(statesplt)
+
+
+Cld, f = parsesolution(sol, p)
+alphavec = alpha.(sol.t)
+Cls = liftfit.(alphavec)
+alfavec = alphavec.*(180/pi)
+
+clplt = plot(sol.t, Cld, lab="dynamic", leg=:bottomright)
+plot!(sol.t, Cls, lab="static") #TODO: note that the static data only goes to around 15 degrees and so as the aoa oscillates, it is oscillating out of the region of provided data. 
+xlabel!("time (s)")
+ylabel!("Coefficient of Lift")
+# display(clplt)
+# savefig("/Users/adamcardoza/Box/research/FLOW/bladeopt/figures/dynamicstall/riso/Cld_stepaoa.png")
+
+fplt = plot(sol.t, f, leg=false)
+xlabel!("time (s)")
+ylabel!("Separation factor")
+# display(fplt)
+
+cycleplt = plot(legend=false)
+plot!(alfavec, Cld, lab="Riso")
+scatter!(expdata[:,1], expdata[:,2], lab="Experimental")
+display(cycleplt)
+
+alfaplt = plot(sol.t, alfavec)
+# display(alfaplt)
+
+b = - alpha0*dcldalpha
+yvals = dcldalpha.*polar2[:,1] .+ b
+
+staticplt = plot(polar2[:,1], polar2[:,2], legend=:topleft)
+plot!(polar2[:,1], yvals)
+# display(staticplt)
+
+nothing
