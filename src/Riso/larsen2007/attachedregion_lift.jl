@@ -1,8 +1,8 @@
 using DelimitedFiles, Plots, Statistics
 
-include("../../Riso.jl")
+include("../Riso.jl")
 
-expdata = readdlm("/Users/adamcardoza/Box/research/FLOW/bladeopt/experimentaldata/Larsen2007/riso1.csv", ',')
+expdata = readdlm("/Users/adamcardoza/Library/CloudStorage/Box-Box/research/FLOW/projects/bladeopt/experimentaldata/Larsen2007/riso1.csv", ',')
 
 middle = (maximum(expdata[:,1])+minimum(expdata[:,1]))/2
 delalpha = maximum(expdata[:,1])-middle
@@ -78,8 +78,8 @@ c = 1.5
 # polar = readdlm("/Users/adamcardoza/Box/research/FLOW/learning/exampledata/xf-v23010-il-200000-n5.csv", ','; skipstart=12)
 # liftfit = Akima(polar[:,1].*(pi/180), polar[:,2])
 # polar = readdlm("/Users/adamcardoza/Box/research/FLOW/bladeopt/data/polars/extendedVertol 23010-1.58.dat", ',')
-polar = readdlm("/Users/adamcardoza/Box/research/FLOW/bladeopt/experimentaldata/Larsen2007/vertol_lowaoa_static.csv", ',') #Todo: Polar 1 is a actually a little off from the experimental data in Larsen's paper. 
-polar[:,1] = polar[:,1].*(pi/180)
+polar = readdlm("/Users/adamcardoza/Library/CloudStorage/Box-Box/research/FLOW/projects/bladeopt/data/polars/extendedVertol 23010-1.58.dat", ',') #Todo: Polar 1 is a actually a little off from the experimental data in Larsen's paper. 
+# polar[:,1] = polar[:,1].*(pi/180)
 
 polar = hcat(polar, zeros(length(polar[:,1])), zeros(length(polar[:,1])))
 
