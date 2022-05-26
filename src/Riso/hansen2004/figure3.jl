@@ -1,26 +1,46 @@
 using Plots, DelimitedFiles, FLOWMath, Roots
 
-"""
-11/5/21 Adam Cardoza
+#=
+Recreating figure 3 from Hansen's 2004 paper.
 
-Dr. Ning said that I should be able to completely recreate figure 3 from Hansen's 2004 paper. Exactly. So we'll do that, hopefully really quickly. 
-"""
+Seeking to make the seperation point function more robust. 
 
-include("../Riso.jl")
+##### Problems
+Todo. The Seperation point function has an odd dip between -20 and 0. That shouldn't be there. -> The dip is due to the value of dcldalpha. It doesn't behave nicely if the slope is too high. Question: But if the slopw is too low, then won't the inviscid lift under predict? 
 
-polar = readdlm("/Users/adamcardoza/Box/research/FLOW/bladeopt/experimentaldata/Hansen2004/figure3_separationfunction/static.csv", ',')
+Todo: The seperation point function looks like it states at 1 from about -10 degrees to about 7.5 degrees. Mine might be that way, but it looks like it isn't quite. 
+
+
+
+
+
+###### Solved Problems. 
+
+Todo. The seperation point function doesn't have any discontinuities in the paper. I have one at both the positive and negative angles of stall. -> I was artificially setting the function value to zero when the aoa was outside of afm and afp as suggested by the paper. The function natrually drives to zero.
+
+#Todo. There is a jump in my fully seperated lift, whereas Hansen's doesn't have that. -> Due to the discontinuity in the seperation point function. 
+=#
+
+include("../riso.jl")
+
+polar = readdlm("../../experimentaldata/Hansen2004/figure3_separationfunction/static.csv", ',')
 
 polar[:,1] = polar[:,1].*(pi/180)
 
 liftfit = Akima(polar[:,1], polar[:,2])
 
 alpha0 = find_zero(liftfit, 0.0)
-dcldalpha = 2*pi*1.02
+dcldalpha = 2*pi*1.0
+clmin, clmin_idx = findmin(polar[:,2])
+clmax, clmax_idx = findmax(polar[:,2])
+afm = polar[clmin_idx, 1] 
+afp = polar[clmax_idx, 1]
 linearlift(alpha) = dcldalpha*(alpha-alpha0)
 
 
 
-alfavec = collect(-40:0.1:40)
+
+alfavec = collect(-40:0.05:40)
 alphavec = alfavec.*(pi/180)
 n = length(alphavec)
 
@@ -29,13 +49,13 @@ clsvec = zeros(n)
 clivec = zeros(n)
 fvec = zeros(n)
 for i = 1:n
-    clvec[i] = Clfs(alphavec[i], liftfit, dcldalpha, alpha0)
+    clvec[i] = Clfs(alphavec[i], liftfit, dcldalpha, alpha0, afm, afp)
     clsvec[i] = liftfit(alphavec[i])
     clivec[i] = linearlift(alphavec[i])
-    fvec[i] = fst(alphavec[i], liftfit, dcldalpha, alpha0)
+    fvec[i] = seperationpoint(alphavec[i], afm, afp, liftfit, dcldalpha, alpha0)
 end
 
-plt = plot(legend=:topleft, xaxis="Angle of Attack (deg)", ylim=(-1.5, 1.5))
+plt = plot(legend=:bottomright, xaxis="Angle of Attack (deg)", ylim=(-1.5, 1.5))
 plot!(alfavec, clsvec, lab="Static Lift")
 plot!(alfavec, clivec, lab="Inviscid Lift")
 plot!(alfavec, clvec, lab="Fully Separated Lift")

@@ -61,7 +61,7 @@ clmin, clminidx = findmin(polar[1:clmaxidx,2])
 afm = polar[clminidx,1]
 
 #Constants
-A = [0.165, 0.335] #Todo: I haven't checked these out. 
+A = [0.165, 0.335] 
 b = [0.0455, 0.3]
 Tp = 1/0.4125
 Tf = 1/0.0875
