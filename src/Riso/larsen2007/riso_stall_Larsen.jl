@@ -1,10 +1,12 @@
-using DifferentialEquations, Plots, DelimitedFiles, FLOWMath
+using DifferentialEquations, Plots, DelimitedFiles, FLOWMath, Roots
 
 
-include("../riso_2.0.jl")
+include("../riso.jl")
 
+#=
+Use the attached region experimental data and results from Larsen's 2007 paper, to replicate results and validate my model. 
+=#
 
-# expdata = readdlm("/Users/adamcardoza/Library/CloudStorage/Box-Box/research/FLOW/projects/bladeopt/experimentaldata/Larsen2007/riso1.csv", ',')
 expdata = readdlm("../../../experimentaldata/Larsen2007/Riso/stall/riso_stall_experimental_Larsen2007.csv", ',')
 paperdata = readdlm("../../../experimentaldata/Larsen2007/Riso/stall/riso_stall_paper_Larsen2007.csv", ',')
 
@@ -47,18 +49,16 @@ V = 60
 
 #Geometry
 c = 1.5
-polar = readdlm("/Users/adamcardoza/Library/CloudStorage/Box-Box/research/FLOW/projects/bladeopt/data/polars/extendedVertol 23010-1.58.dat", ',')
+polar = readdlm("../../../polars/extendedVertol 23010-1.58.dat", ',')
 liftfit = Akima(polar[:,1], polar[:,2])
 dragfit = Akima(polar[:,1], polar[:,3])
 dcldalpha = 2*pi*1.05
 alpha0 = 0.014 # -0.019
 Cd0 = dragfit(alpha0)
 
-clmax, clmaxidx = findmax(polar[:,2])
-afp = polar[clmaxidx,1]
-
-clmin, clminidx = findmin(polar[1:clmaxidx,2])
-afm = polar[clminidx,1]
+alphas = [find_seperation_alpha(liftfit, dcldalpha, alpha0)...]
+afm = alphas[2]
+afp = alphas[1]
 
 #Constants
 A = [0.165, 0.335] 

@@ -1,7 +1,7 @@
 using DifferentialEquations, Plots, DelimitedFiles, FLOWMath
 
 
-include("../riso_2.0.jl")
+include("../riso.jl")
 
 
 # expdata = readdlm("/Users/adamcardoza/Library/CloudStorage/Box-Box/research/FLOW/projects/bladeopt/experimentaldata/Larsen2007/riso1.csv", ',')
