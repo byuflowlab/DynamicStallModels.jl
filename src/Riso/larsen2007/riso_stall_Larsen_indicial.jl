@@ -1,12 +1,17 @@
 using DifferentialEquations, Plots, DelimitedFiles, FLOWMath, Roots
 
-cd("/Users/adamcardoza/Library/CloudStorage/Box-Box/research/FLOW/projects/dynamicstallmodels/src/Riso/larsen2007")
 
+path = 
+
+path = dirname(@__FILE__)
+cd(path)
 
 include("../riso.jl")
+include("../indicialriso.jl")
 
 #=
-Use the attached region experimental data and results from Larsen's 2007 paper, to replicate results and validate my model. 
+Adam Cardoza 7/26/22
+Use the attached region experimental data and results from Larsen's 2007 paper, to replicate results and validate my model. Compare the indicial model and the state space model. 
 =#
 
 expdata = readdlm("../../../experimentaldata/Larsen2007/Riso/stall/riso_stall_experimental_Larsen2007.csv", ',')
@@ -81,9 +86,17 @@ sol = solve(prob)
 
 states = Array(sol)'
 
-stateplot = plot(sol.t, states[:,end-3:end])
+
+statesindicial = indicialsolve(sol.t, U, Udot, alpha, alphadot, c, dcldalpha, alpha0, afm, afp, A, b, Tp, Tf, liftfit, x0)
+
+
+stateplot = plot(sol.t, states[:,end-3:end], linestyle=:dash, linewidth=3)
+plot!(sol.t, statesindicial)
 display(stateplot)
 
+#=
+Well hey ha, howdy do. The indicial model gives the exact same solution as the state space model given the same time steps... which I suppose is super cool. That tells me that they match... which suggests that my state space model ain't broke... I suppose I need to try this at different ranges of aoa and windspeeds. 
+=#
 
 
 # clvec, cdvec, t = parsesolution(sol, p, dragfit, Cd0)

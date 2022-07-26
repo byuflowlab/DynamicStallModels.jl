@@ -21,6 +21,8 @@ Todo. The seperation point function doesn't have any discontinuities in the pape
 #Todo. There is a jump in my fully seperated lift, whereas Hansen's doesn't have that. -> Due to the discontinuity in the seperation point function. 
 =#
 
+cd("/Users/adamcardoza/Library/CloudStorage/Box-Box/research/FLOW/projects/dynamicstallmodels/src/Riso/hansen2004")
+
 include("../riso.jl")
 
 polar = readdlm("../../../experimentaldata/Hansen2004/figure3_separationfunction/static.csv", ',')

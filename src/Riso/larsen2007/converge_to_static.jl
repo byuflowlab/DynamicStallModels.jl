@@ -1,5 +1,7 @@
 using DelimitedFiles, Plots, Statistics, FLOWMath, DifferentialEquations, Roots
 
+cd("/Users/adamcardoza/Library/CloudStorage/Box-Box/research/FLOW/projects/dynamicstallmodels/src/Riso/larsen2007")
+
 include("../riso.jl")
 
 expdata = readdlm("../../../experimentaldata/Larsen2007/Riso/stall/riso_stall_experimental_Larsen2007.csv", ',')

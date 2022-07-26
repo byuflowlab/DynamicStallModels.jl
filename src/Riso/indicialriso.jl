@@ -37,7 +37,7 @@ function seperationpoint(alpha, afm, afp, clfit, dcldalpha, alpha0)
     return f
 end
 
-function take_step!(xj, xjm, deltat, uj, ujm, udotj, udotjm, alphaj, alphajm, alphadotj, alphadotjm, c, dcldalpha, alpha0, A1, A2, b1, b2, Tp, Tf)
+function take_step!(xj, xjm, deltat, uj, ujm, udotj, udotjm, alphaj, alphajm, alphadotj, alphadotjm, c, dcldalpha, alpha0, afm, afp, A1, A2, b1, b2, Tp, Tf, clfit)
     Pi = b1*((uj + ujm)/c) + (udotj + udotjm)/(uj + ujm)
     Qi = b1*A1*(ujm*alphajm + uj*alphaj)/c 
     Ci = exp(-Pi*deltat)
@@ -61,14 +61,29 @@ function take_step!(xj, xjm, deltat, uj, ujm, udotj, udotjm, alphaj, alphajm, al
     Ii = Qi*(1-Ci)/Pi
     xj[3] = Ci*xjm[3] + Ii
 
-    alphafj = 1 #Todo: Working right here. 
-    alphafjm = 1
-    fj = 1
-    fjm = 1
+    alphafj = xj[3]/dcldalpha + alpha0 
+    alphafjm = xjm[3]/dcldalpha + alpha0 
+    fj = seperationpoint(alphafj, afm, afp, clfit, dcldalpha, alpha0)
+    fjm = seperationpoint(alphafjm, afm, afp, clfit, dcldalpha, alpha0)
 
     Pi = 1/Tf
     Qi = (fj + fjm)/(2*Tf)
     Ci = exp(-Pi*deltat)
     Ii = Qi*(1-Ci)/Pi
     xj[4] = Ci*xjm[4] + Ii
+    return xj
+end
+
+function indicialsolve(tvec, u, udot, alpha, alphadot, c, dcldalpha, alpha0, afm, afp, A, b, Tp, Tf, clfit, x0)
+    nt = length(tvec)
+    states = zeros(nt, 4)
+    states[1,:] = x0
+
+    for i = 2:nt
+        dt = tvec[i]-tvec[i-1]
+
+        states[i,:] = take_step!(states[i,:], states[i-1,:], dt, u(tvec[i]), u(tvec[i-1]), udot(tvec[i]), udot(tvec[i-1]), alpha(tvec[i]), alpha(tvec[i-1]), alphadot(tvec[i]), alphadot(tvec[i-1]), c, dcldalpha, alpha0, afm, afp, A[1], A[2], b[1], b[2], Tp, Tf, clfit)
+    end
+
+    return states
 end
