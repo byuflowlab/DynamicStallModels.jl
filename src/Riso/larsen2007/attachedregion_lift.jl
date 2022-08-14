@@ -1,8 +1,19 @@
-using DelimitedFiles, Plots, Statistics
+using DelimitedFiles, Plots, Statistics, FLOWMath, DifferentialEquations, Roots
 
-include("../Riso.jl")
+#=
+Validate the Riso model's ability to simulate experimental data from Larsen's 2007 paper. 
 
-expdata = readdlm("/Users/adamcardoza/Library/CloudStorage/Box-Box/research/FLOW/projects/bladeopt/experimentaldata/Larsen2007/riso1.csv", ',')
+
+Adam Cardoza
+7/27/22
+=#
+
+include("../riso.jl")
+include("../indicialriso.jl")
+
+# expdata = readdlm("/Users/adamcardoza/Library/CloudStorage/Box-Box/research/FLOW/projects/bladeopt/experimentaldata/Larsen2007/riso1.csv", ',') #Todo: Move this to a relative reference (inside the repo). 
+
+expdata = readdlm("../../../experimentaldata/Larsen2007/Riso/stall/riso1.csv", ',')
 
 middle = (maximum(expdata[:,1])+minimum(expdata[:,1]))/2
 delalpha = maximum(expdata[:,1])-middle
@@ -48,27 +59,6 @@ function alphadot(t)
     return alfadot*pi/180
 end
 
-# function alpha(t) #step
-#     if t<150
-#         return 4.0*pi/180
-#     else
-#         return 15.0*pi/180
-#     end
-# end
-
-# function alphadot(t)
-#     if t<149.5
-#         return 0.0
-#     elseif 149.5<t<150.5
-#         return 22.0*pi/180
-#     else
-#         return 0.0
-#     end
-# end
-
-function alpha34(t) #Assuming that the aoa at the three-quarters point is the same as the aoa for now, but it really shouldn't be. 
-    return alpha(t)
-end
 
 #Enviroment
 v = 60
@@ -83,65 +73,69 @@ polar = readdlm("/Users/adamcardoza/Library/CloudStorage/Box-Box/research/FLOW/p
 
 polar = hcat(polar, zeros(length(polar[:,1])), zeros(length(polar[:,1])))
 
-# liftfit = Akima(polar[:,1], polar[:,2])
 liftfit = Akima(polar[:,1], polar[:,2])
 dcldalpha = 2*pi*1.05
 alpha0 = 0.014 # -0.019
 
-#Constants
-A = [0.165, 0.335] #Todo: I haven't checked these out. 
-b = [0.0455, 0.3] #.*(c/(2*V)) #Adding on the c/2u seems to have made things worse. 
+alphas = [find_seperation_alpha(liftfit, dcldalpha, alpha0)...]
+afm = alphas[2]
+afp = alphas[1]
+
+### Airfoil Constants
+A = [0.165, 0.335] #Todo: I haven't checked these out. -> They seem to be doing well. 
+b = [0.0455, 0.3] 
 Tp = 1/0.4125
 Tf = 1/0.0875
 
-#Finding separation angles of attack
-# alphas = findsepalpha(liftfit, dcldalpha, alpha0)
-# aoa = polar[:,1].*(pi/180)
-# cli = dcldalpha.*(aoa.-alpha0) #./4
-# cli2 = dcldalpha.*(aoa.-alpha0)./4
-# plot(aoa, polar[:,2], leg=false)
-# plot!(aoa, cli)
-# plot!(aoa, cli2)
 
-
-#Initialize 
+### Initialize 
 x0 = zeros(4)
 x0[4] = 0.98
-p = [c, A, b, Tp, Tf, dcldalpha, liftfit, U, Udot, V, alpha, alphadot, alpha0]
+p = [U, Udot, alpha, alphadot, c, A[1], A[2], b[1], b[2], dcldalpha, alpha0, Tp, Tf, liftfit, afm, afp]
 tspan = (0.0, 20.0)
 
-prob = ODEProblem(states!,x0,tspan,p)
+prob = ODEProblem(riso_ode!,x0,tspan,p)
 sol = solve(prob)
 
-statesplt = plot(sol,linewidth=2,xaxis="t",label=["x1" "x2" "x3" "x4"],layout=(4,1))
-display(statesplt)
 
+### Solve using the indicial method #Todo: 
+states = indicialsolve(sol.t, U, Udot, alpha, alphadot, c, dcldalpha, alpha0, afm, afp, A, b, Tp, Tf, liftfit, x0)
 
+########### Parse the solution ############
 Cld, Cdd, Cmd, u, t = parsesolution(sol, p, polar)
+Cldi, Cddi, Cmdi = parseindicialsolution(states, p, polar)
+
+
+
 alphavec = alpha.(sol.t)
 Cls = liftfit.(alphavec)
 alfavec = alphavec.*(180/pi)
+staticcl = liftfit.(alphavec)
 
+
+######### Plotting #############
+
+### Plot the states
+statesplt = plot(sol,linewidth=2,xaxis="t",label=["x1" "x2" "x3" "x4"],layout=(4,1))
+plot!(sol.t, states)
+# display(statesplt)
+
+### Plot the lift as a function of time. 
 clplt = plot(sol.t, Cld, lab="dynamic", leg=:bottomright)
-plot!(sol.t, Cls, lab="static") #TODO: note that the static data only goes to around 15 degrees and so as the aoa oscillates, it is oscillating out of the region of provided data. 
+plot!(sol.t, Cls, lab="static") 
 xlabel!("time (s)")
 ylabel!("Coefficient of Lift")
 # display(clplt)
-# savefig("/Users/adamcardoza/Box/research/FLOW/bladeopt/figures/dynamicstall/riso/Cld_stepaoa.png")
 
-# fplt = plot(sol.t, f, leg=false)
-# xlabel!("time (s)")
-# ylabel!("Separation factor")
-# display(fplt)
 
-staticcl = liftfit.(alphavec)
 
+### Plot the lift as a function of angle of attack. 
 cycleplt = plot(legend=:topleft)
 plot!(alfavec, Cld, lab="Riso")
 scatter!(expdata[:,1], expdata[:,2], lab="Experimental")
 plot!(alfavec, staticcl, lab="Static")
+plot!(alfavec, Cldi, lab="Indicial Riso")
 display(cycleplt)
-# savefig("/Users/adamcardoza/Box/research/FLOW/bladeopt/figures/dynamicstall/riso/larsen/attachedregion_lift.png")
 
 
 nothing

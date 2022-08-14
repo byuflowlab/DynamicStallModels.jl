@@ -87,3 +87,53 @@ function indicialsolve(tvec, u, udot, alpha, alphadot, c, dcldalpha, alpha0, afm
 
     return states
 end
+
+function parseindicialsolution(u, p, polar)
+    n,m = size(u)
+    
+    U, Udot, alpha, alphadot, c, A[1], A[2], b[1], b[2], dcldalpha, alpha0, Tp, Tf, liftfit, afm, afp = p
+
+    dragfit = Akima(polar[:,1], polar[:,3])
+    momentfit = Akima(polar[:,1], polar[:,4])
+
+    ### Find a^st, the distance between the center of pressure and the quarter chord. #Todo: Use this to get coefficient of moment in riso_coefficients. 
+    alphavec = polar[:,1]
+    nn = length(alphavec)
+    fvec = zeros(nn)
+    astvec = zeros(nn)
+    for i=1:nn 
+        fvec[i] = seperationpoint(alphavec[i], afm, afp, liftfit, dcldalpha, alpha0)
+        astvec[i] = (momentfit(alphavec[i])-momentfit(alpha0))/liftfit(alphavec[i])
+    end
+
+    
+    mat = hcat(reverse(fvec), reverse(astvec))
+    mat = uniquemat!(mat)
+    
+    affit = Akima(mat[:,1], mat[:,2])
+
+
+    
+    Cl = zeros(n)
+    Cd = zeros(n)
+    Cm = zeros(n)
+    
+    for i = 1:n
+        t = sol.t[i]
+
+        a34 = alpha(t)
+        ae = a34*(1-A[1]-A[2]) + u[i,1] + u[i,2]
+        Tu = c/(2*U(t))
+        
+        clfs = Clfs(ae, liftfit, dcldalpha, alpha0) 
+        
+        Cl[i] = dcldalpha*(ae-alpha0)*u[i,4] + clfs*(1-u[i,4]) + pi*Tu*alphadot(t) 
+        fae = seperationpoint(ae, afm, afp, liftfit, dcldalpha, alpha0)
+        fterm = (sqrt(fae)-sqrt(u[i,4]))/2 - (fae-u[i,4])/4
+        Cd[i] = dragfit(ae) + (alpha(t)-ae)*Cl[i] + (dragfit(ae)-dragfit(alpha0))*fterm
+        aterm = affit(u[i,4]) - affit(seperationpoint(ae, afm, afp, liftfit, dcldalpha, alpha0))
+        # println(aterm)
+        Cm[i] = momentfit(ae) + Cl[i]*(aterm) - pi*Tu*alphadot(t)/2
+    end
+    return Cl, Cd, Cm
+end

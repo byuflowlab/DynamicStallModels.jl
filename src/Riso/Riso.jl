@@ -155,7 +155,7 @@ function parsesolution(sol, p, polar)
     u = reduce(hcat, sol.u)'
     n,m = size(u)
     
-    c, A, b, Tp, Tf, dcldalpha, liftfit, U, Udot, V, alpha, alphadot, alpha0 = p
+    U, Udot, alpha, alphadot, c, A[1], A[2], b[1], b[2], dcldalpha, alpha0, Tp, Tf, liftfit, afm, afp = p
 
     dragfit = Akima(polar[:,1], polar[:,3])
     momentfit = Akima(polar[:,1], polar[:,4])
@@ -165,8 +165,8 @@ function parsesolution(sol, p, polar)
     nn = length(alphavec)
     fvec = zeros(nn)
     astvec = zeros(nn)
-    for i=1:nn
-        fvec[i] = fst(alphavec[i], liftfit, dcldalpha, alpha0)
+    for i=1:nn 
+        fvec[i] = seperationpoint(alphavec[i], afm, afp, liftfit, dcldalpha, alpha0)
         astvec[i] = (momentfit(alphavec[i])-momentfit(alpha0))/liftfit(alphavec[i])
     end
 
@@ -191,11 +191,11 @@ function parsesolution(sol, p, polar)
         
         clfs = Clfs(ae, liftfit, dcldalpha, alpha0) 
         
-        Cl[i] = dcldalpha*(ae-alpha0)*u[i,4] + clfs*(1-u[i,4]) + pi*Tu*alphadot(t)
-        fae = fst(ae, liftfit, dcldalpha, alpha0)
+        Cl[i] = dcldalpha*(ae-alpha0)*u[i,4] + clfs*(1-u[i,4]) + pi*Tu*alphadot(t) 
+        fae = seperationpoint(ae, afm, afp, liftfit, dcldalpha, alpha0)
         fterm = (sqrt(fae)-sqrt(u[i,4]))/2 - (fae-u[i,4])/4
         Cd[i] = dragfit(ae) + (alpha(t)-ae)*Cl[i] + (dragfit(ae)-dragfit(alpha0))*fterm
-        aterm = affit(u[i,4]) - affit(fst(ae, liftfit, dcldalpha, alpha0))
+        aterm = affit(u[i,4]) - affit(seperationpoint(ae, afm, afp, liftfit, dcldalpha, alpha0))
         # println(aterm)
         Cm[i] = momentfit(ae) + Cl[i]*(aterm) - pi*Tu*alphadot(t)/2
     end
