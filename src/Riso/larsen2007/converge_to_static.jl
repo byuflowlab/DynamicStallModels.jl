@@ -1,11 +1,12 @@
-using DelimitedFiles, Plots, Statistics
+using DelimitedFiles, Plots, Statistics, FLOWMath, DifferentialEquations, Roots
 
-include("../../Riso.jl")
+cd("/Users/adamcardoza/Library/CloudStorage/Box-Box/research/FLOW/projects/dynamicstallmodels/src/Riso/larsen2007")
 
-expdata = readdlm("/Users/adamcardoza/Box/research/FLOW/bladeopt/experimentaldata/Larsen2007/riso1.csv", ',')
+include("../riso.jl")
 
-middle = (maximum(expdata[:,1])+minimum(expdata[:,1]))/2
-delalpha = maximum(expdata[:,1])-middle
+expdata = readdlm("../../../experimentaldata/Larsen2007/Riso/stall/riso_stall_experimental_Larsen2007.csv", ',')
+paperdata = readdlm("../../../experimentaldata/Larsen2007/Riso/stall/riso_stall_paper_Larsen2007.csv", ',')
+
 
 
 function U(t)
@@ -14,10 +15,6 @@ end
 
 function Udot(t)
     return 0
-end
-
-function V(t)
-    return 0.0
 end
 
 function alphadot(t)
@@ -31,19 +28,18 @@ v = 60
 
 #Geometry
 c = 1.5
-# polar = readdlm("/Users/adamcardoza/Box/research/FLOW/learning/exampledata/xf-v23010-il-200000-n5.csv", ','; skipstart=12)
-# liftfit = Akima(polar[:,1].*(pi/180), polar[:,2])
-# polar = readdlm("/Users/adamcardoza/Box/research/FLOW/bladeopt/data/polars/extendedVertol 23010-1.58.dat", ',')
-# polar = readdlm("/Users/adamcardoza/Box/research/FLOW/bladeopt/experimentaldata/Larsen2007/vertol_lowaoa_static.csv", ',') 
-polar = readdlm("/Users/adamcardoza/Box/research/FLOW/bladeopt/experimentaldata/Larsen2007/fullpolar.csv", ',') 
-# polar[:,1] = polar[:,1].*(pi/180)
-
-polar = hcat(polar, zeros(length(polar[:,1])), zeros(length(polar[:,1])))
-
-# liftfit = Akima(polar[:,1], polar[:,2])
+polar = readdlm("../../../polars/extendedVertol 23010-1.58.dat", ',')
 liftfit = Akima(polar[:,1], polar[:,2])
+dragfit = Akima(polar[:,1], polar[:,3])
 dcldalpha = 2*pi*1.05
-alpha0 = 0.014 # -0.019
+alpha0 = -0.019
+Cd0 = dragfit(alpha0)
+
+Cli(alpha) = dcldalpha*(alpha-alpha0)
+
+alphas = [find_seperation_alpha(liftfit, dcldalpha, alpha0)...]
+afm = alphas[2]
+afp = alphas[1]
 
 #Constants
 A = [0.165, 0.335] 
@@ -55,33 +51,61 @@ Tf = 1/0.0875
 
 tspan = (0.0, 300.0)
 
-clvec = zeros(length(polar[:,1]))
+aoavec = -50:0.5:50
+alphavec = aoavec.*(pi/180)
 
-for i = 1:length(clvec)
+nn = length(aoavec)
+clvec = zeros(nn)
+
+for i = 1:nn
     
-    alpha(t) = polar[i,1]
+    alpha(t) = alphavec[i]
 
     x0 = zeros(4)
-    p = [c, A, b, Tp, Tf, dcldalpha, liftfit, U, Udot, V, alpha, alphadot, alpha0]
+    x0[4] = 0.98
+    p = [U, Udot, alpha, alphadot, c, A[1], A[2], b[1], b[2], dcldalpha, alpha0, Tp, Tf, liftfit, afm, afp]
+    
 
-    prob = ODEProblem(states!,x0,tspan,p)
+    prob = ODEProblem(riso_ode!,x0,tspan,p)
     sol = solve(prob)
 
-    Cld, Cdd, Cmd, u, t = parsesolution(sol, p, polar)
-    if i==length(clvec)
-        plt = plot(t, Cld)
-        display(plt)
+
+    Cld, cdvec, t = parsesolution(sol, p, dragfit, Cd0)
+
+    if i==nn
+        # @show alpha(0)
+        # plt = plot(t, Cld)
+        # display(plt)
+        # @show sol[end]
+        plt2 = plot(sol)
+        display(plt2)
     end
     clvec[i] = Cld[end]
 end
 
-alphavec = polar[:,1].*(180/pi)
+clivec = Cli.(alphavec)
 
-staticplt = plot(legend=:topleft)
-plot!(alphavec, clvec, lab="Riso")
-plot!(alphavec, polar[:,2], lab="Static")
+
+### Test the final point to find what's going on in the solution. 
+# alpha2(t) = alphavec[end]
+# x02 = zeros(4)
+
+# #Todo: The fourth state should descend to zero, because we are well in the stall region. 
+# # x02[4] = 0.98
+# p2 = [U, Udot, alpha2, alphadot, c, A[1], A[2], b[1], b[2], dcldalpha, alpha0, Tp, Tf, liftfit, afm, afp]
+
+# prob2 = ODEProblem(riso_ode!,x02,tspan,p2)
+# sol2 = solve(prob2)
+
+# Cld2, cdvec2, t2 = parsesolution(sol2, p2, dragfit, Cd0)
+
+staticplt = plot(legend=:topleft, xlim=(-50,50), ylim=(-1.0,1.5))
+plot!(aoavec, clvec, lab="Riso")
+plot!(polar[:,1].*(180/pi), polar[:,2], lab="Static")
+plot!(aoavec, clivec, lab="Inviscid")
+vline!(alphas.*(180/pi), lab="Seperation Angles")
 display(staticplt)
-# savefig("/Users/adamcardoza/Box/research/FLOW/bladeopt/figures/dynamicstall/riso/larsen/convergedstatic_lift.png")
+
 
 
 nothing

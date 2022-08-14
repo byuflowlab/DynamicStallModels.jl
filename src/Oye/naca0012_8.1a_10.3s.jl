@@ -3,7 +3,7 @@ using DelimitedFiles
 using FLOWMath
 using Polynomials
 
-include("../Oye.jl")
+include("Oye.jl")
 
 function nearestto(xvec, x)
     mins = abs.(xvec.-x)
@@ -12,7 +12,7 @@ function nearestto(xvec, x)
     return minval, minidx
 end
 
-polar = readdlm("/Users/adamcardoza/Box/research/FLOW/bladeopt/experimentaldata/Leishman1989/leishman1989staticdata_fig1.csv", ',')
+polar = readdlm("/Users/adamcardoza/Library/CloudStorage/Box-Box/research/FLOW/bladeopt/experimentaldata/Leishman1989/leishman1989staticdata_fig1.csv", ',')
 polar[:,1] = polar[:,1].*(pi/180)
 cl = Akima(polar[:,1], polar[:,2])
 
@@ -80,7 +80,7 @@ Clst = cl.(alphavec)
 mat = hcat(alfavec, Cld)
 # writedlm("/Users/adamcardoza/Box/research/FLOW/bladeopt/outputs/leishman1989/naca0012_8.1_10.3s_Cdn_Oye.csv", mat, ',')
 
-exppolar = readdlm("/Users/adamcardoza/Box/research/FLOW/bladeopt/experimentaldata/Leishman1989/leishman1989fig8Cn.csv", ',')
+exppolar = readdlm("/Users/adamcardoza/Library/CloudStorage/Box-Box/research/FLOW/bladeopt/experimentaldata/Leishman1989/leishman1989fig8Cn.csv", ',')
 
 
 cycleplt = plot(leg=:topleft)

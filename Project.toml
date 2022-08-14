@@ -1,0 +1,4 @@
+name = "dynamicstallmodels"
+uuid = "1fe18b12-a608-438b-96ea-7dfa0357455b"
+authors = ["cardoza2 <adam@cardoza.one>"]
+version = "0.1.0"
