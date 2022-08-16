@@ -1,5 +1,11 @@
 module dynamicstallmodels
 
-greet() = print("Hello World!")
+using FLOWMath, StaticArrays, Roots, DifferentialEquations, CurveFit
+
+DE = DifferentialEquations
+
+include("./utils.jl")
+include("./types.jl")
+include("./Riso/Riso.jl")
 
 end # module

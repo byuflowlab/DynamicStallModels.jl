@@ -1,3 +1,38 @@
+#=
+
+
+    #X[1] - 
+    #X[2] - 
+    #X[3] - 
+    #X[4] - 
+    # u - 
+    # theta - Angle of attack
+
+    # dcldalpha = airfoil.dcldalpha
+    # alpha0 = airfoil.alpha0
+    # liftfit = airfoil.cl
+    # A1 = airfoil.A[1]
+    # A2 = airfoil.A[2]
+    # b1 = airfoil.b[1]
+    # b2 = airfoil.b[2]
+    # Tp = airfoil.T[1]
+    # Tf = airfoil.T[2] 
+
+=#
+
+
+function fst(alpha, liftfit, dcdalpha, alpha0)
+    
+    f =  (2*sqrt(abs(liftfit(alpha)/(dcdalpha*(alpha-alpha0)))) - 1)^2
+    if f>= 1 || isnan(f)
+        return 1.0
+    elseif f<0
+        return 0.0
+    else
+        return f
+    end
+    
+end
 
 function seperationpoint(alpha, afm, afp, clfit, dcldalpha, alpha0)
     #TODO: I'm not really sure that using the minimum of these two is really the way to avoid the problem of this blowing up to infinity. (When alpha=alpha0) (This check happens in the if statement.)
@@ -36,6 +71,38 @@ end
 
 
 
+
+function riso_state_rates(X, U, Udot, alpha, alphadot, c, dcldalpha, alpha0, afm, afp, liftfit, A1, A2, b1, b2, Tp, Tf) 
+
+    ### Calculate constants
+    Tu = c/(2*U) #Todo: This will go to NaN if U=0
+    # println(typeof(X[1]))
+    # @show U, Tu, c
+    # @show X[1]
+    # @show Tp
+    
+    ### Calculate the state rates
+    dx1 = (b1*A1*alpha/Tu) - X[1]*(b1+ (c*Udot/(2*(U)^2)))/Tu 
+
+    dx2 = (b2*A2*alpha/Tu) - X[2]*(b2+ (c*Udot/(2*(U)^2)))/Tu
+
+    ae = alpha*(1-A1-A2) + X[1] + X[2] #Effective Angle of Attack
+    # @show dcldalpha, ae, alpha0, Tu, alphadot, Tp, X[3]
+    dx3 = (dcldalpha*(ae-alpha0) + pi*Tu*alphadot)/Tp - X[3]/Tp #TODO: Should this be able to go negative? 
+
+    alphaf = (X[3]/dcldalpha)+alpha0 #Seperation Angle of Attack
+    fp = fst(alphaf, liftfit, dcldalpha, alpha0) #Todo: Should I be using the fst function or the seperationpoint function? 
+    dx4 = fp/Tf - X[4]/Tf 
+
+    # @show dx1, dx2, dx3, dx4
+
+    return SVector(dx1, dx2, dx3, dx4)
+end
+
+
+
+
+#Todo: I need to add the checks and balances from above. 
 function riso_state_rates!(dx, x, U, Udot, alpha, alphadot, c, A1, A2, b1, b2, dcldalpha, alpha0, Tp, Tf, clfit, afm, afp)
 
     # @show alpha
@@ -51,13 +118,120 @@ function riso_state_rates!(dx, x, U, Udot, alpha, alphadot, c, A1, A2, b1, b2, d
     dx[4] = -x[4]/Tf + fst/Tf
 end
 
-function riso_ode!(dx, x, p, t)
+
+
+
+
+function riso_residual(dx, x, y, p, t, airfoil)  
+
+    ### Extract inputs
+    u, udot, v, vdot, theta, thetadot = y
+
+    # println(y)
+
+    ### Extract parameters
+    c = p 
+
+    ### Calculate Aero state rates and factors for BEM 
+    d_X = riso_state_rates(x, u, udot, v, vdot, theta, thetadot, c, airfoil)
+
+    ### Dynamic Stall Model State Rate Residuals
+    r1 = dx[1] - d_X[1]
+    r2 = dx[2] - d_X[2]
+    r3 = dx[3] - d_X[3]
+    r4 = dx[4] - d_X[4] 
+    
+    if isnan(r1)
+        println("riso residual: ", [r1, r2, r3, r4])
+        error("Nan in Riso")
+    elseif isnan(r2)
+        println("riso residual: ", [r1, r2, r3, r4])
+        error("Nan in Riso")
+    elseif isnan(r3)
+        println("riso residual: ", [r1, r2, r3, r4])
+        error("Nan in Riso")
+    elseif isnan(r4)
+        println("riso residual: ", [r1, r2, r3, r4])
+        error("Nan in Riso")
+    end
+    # println("riso residual: ", [r1, r2, r3, r4])
+    return SVector(r1, r2, r3, r4)
+end
+
+
+function get_riso_y(twist, env, frequency, amplitude, t)  
+
+    u = env.Vinf(t)
+    udot = env.Vinfdot(t)
+
+    v = 0.0
+    vdot = 0.0
+
+    theta = twist + amplitude*cos(frequency*t)
+    thetadot = -amplitude*frequency*sin(frequency*t)
+
+    return [u, udot, v, vdot, theta, thetadot]
+end
+
+#Todo: Maybe make a riso ode function that takes in a p for a given time step. So with the intent of augmenting p every iteration. 
+
+
+# Out-of-place ODE dispatch
+function (model::Riso)(x, p, t)
+    return riso_ode(model.detype, model, x, p, t)
+end
+
+# function riso_ode(detype::Iterative, x, p, t)
+#     u, udot, v, vdot, theta, thetadot, c, dcldalpha, alpha0, afm, afp, liftfit, A1, A2, b1, b2, Tp, Tf = p
+
+#     return riso_state_rates(x, u, udot, v, vdot, theta, thetadot, c, dcldalpha, alpha0, afm, afp, liftfit, A1, A2, b1, b2, Tp, Tf)
+# end
+
+function riso_ode(detype::Iterative, model, x, p, t)
+    n = model.n
+
+    #p = [u, udot, alpha, alphadot, c]
+    u = view(p, 1:n)
+    udot = view(p, n+1:2n)
+    alpha = view(p, 2n+1:3n)
+    alphadot = view(p, 3n+1:4n)
+    c = view(p, 4n+1:5n)
+
+
+    dx = Array{eltype(x), 1}(undef, 4*model.n)
+    
+    for i = 1:model.n
+        idx = 4*(i-1)
+
+        # @show u[i]
+
+        xs = view(x, idx+1:idx+4)
+
+        dx[idx+1:idx+4] = riso_state_rates(xs, u[i], udot[i], alpha[i], alphadot[i], c[i], model.airfoils[i].dcldalpha, model.airfoils[i].alpha0, model.airfoils[i].alphasep[1], model.airfoils[i].alphasep[2], model.airfoils[i].cl, model.airfoils[i].A[1], model.airfoils[i].A[2], model.airfoils[i].b[1], model.airfoils[i].b[2], model.airfoils[i].T[1], model.airfoils[i].T[2])
+    end
+
+    return dx
+end
+
+
+# Inplace ODE dispatch
+function (model::Riso)(dx, x, p, t)
+    return riso_ode!(model.detype::DEType, dx, x, p, t)
+end
+
+
+# Inplace, functional ode form of the Riso Model. 
+function riso_ode!(detype::Functional, dx, x, p, t) 
     U, Udot, alpha, alphadot, c, A1, A2, b1, b2, dcldalpha, alpha0, Tp, Tf, clfit, afm, afp = p
 
     riso_state_rates!(dx, x, U(t), Udot(t), alpha(t), alphadot(t), c, A1, A2, b1, b2, dcldalpha, alpha0, Tp, Tf, clfit, afm, afp)
 end
 
-function static_riso_dae!(resids, dx, x, p, t)
+
+
+
+
+function static_riso_dae!(resids, dx, x, p, t) #Todo: I'm not sure this is correct. 
     U, Udot, alpha, alphadot, c, A1, A2, b1, b2, dcldalpha, alpha0, Tp, Tf, clfit, afm, afp = p
     @show typeof(x)
 
@@ -69,18 +243,31 @@ function static_riso_dae!(resids, dx, x, p, t)
     resids[4] = dx[4]
 end
 
-function Clfs(alpha, clfit, dcldalpha, alpha0, afm, afp)
-    fst = seperationpoint(alpha, afm, afp, clfit, dcldalpha, alpha0)
+
+
+
+
+
+
+
+
+
+# function Clfs(alpha, clfit, dcldalpha, alpha0, afm, afp)
+#     fst = seperationpoint(alpha, afm, afp, clfit, dcldalpha, alpha0)
     
-    clst = clfit(alpha)
-    # @show fst
-    # if fst>=1 #Todo. This is supposed to happen automagically. 
-    #     return clst/2
-    # else
-    #     return (clst - dcldalpha*(alpha - alpha0)*fst)/(1-fst)
-    # end  
-    return (clst - dcldalpha*(alpha - alpha0)*fst)/(1-fst)
-end
+#     clst = clfit(alpha)
+#     # @show fst
+#     # if fst>=1 #Todo. This is supposed to happen automagically. 
+#     #     return clst/2
+#     # else
+#     #     return (clst - dcldalpha*(alpha - alpha0)*fst)/(1-fst)
+#     # end  
+#     return (clst - dcldalpha*(alpha - alpha0)*fst)/(1-fst)
+# end
+
+
+
+
 
 """
     Clfs(alpha, clfit, dcldalpha, alpha0)
@@ -93,16 +280,46 @@ The fully seperated coefficient of lift. The function has the seperation point f
 - dcldalpha - The slope of the attached region of the coefficient of lift vs alpha curve (1/radians). 
 - alpha0 - The zero lift angle of attack (radians)
 """
-function Clfs(alpha, clfit, dcldalpha, alpha0)
+function Clfs(alpha, clfit, dcldalpha, alpha0) #Todo. Determine which of these three functions to keep. I think I reworked the math so this one doesn't have issues. -> I think this is the one with the math worked differently. 
     cl = clfit(alpha)
     a = alpha - alpha0
     am = a*dcldalpha
     term = am*sqrt(abs(cl/(am))) - 3*cl
+
+    # @show am
     return -am*term/(4*cl)
 end
 
-function riso_coefficients(x, U, alpha, alphadot, c, clfit, cdfit, dcldalpha, Cd0, alpha0, A1, A2, afm, afp)
-    #Todo: Consider creating functions to get the lift, drag and moment seperately. -> Although, the drag depends on the lift. Same with the moment. 
+# function Clfs(alpha, liftfit, dcldalpha, alpha0)
+#     f = fst(alpha, liftfit, dcldalpha, alpha0)
+#     Cl = 0.0
+#     if f>= 1.0 
+#         Cl =  liftfit(alpha)/2
+#     else
+#         Cl = (liftfit(alpha) - (dcldalpha*(alpha-alpha0))*f)/(1-f)  
+#     end
+
+#     if isnan(Cl)
+#         Cl = liftfit(alpha)/2
+#     end
+
+#     return Cl
+# end
+
+
+
+
+
+
+
+function riso_coefficients(x, U, alpha, alphadot, c, airfoil::Airfoil)
+    return riso_coefficients(x, U, alpha, alphadot, c, airfoil.cl, airfoil.cd, airfoil.dcldalpha, airfoil.alpha0, airfoil.A[1], airfoil.A[2], airfoil.alphasep[1], airfoil.alphasep[2])
+end
+
+
+function riso_coefficients(x, U, alpha, alphadot, c, clfit, cdfit, dcldalpha, alpha0, A1, A2, afm, afp)
+
+    Cd0 = cdfit(alpha0)
 
     Tu = c/(2*U)
     alpha_E = alpha*(1 - A1 - A2) + x[1] + x[2]
@@ -126,9 +343,45 @@ function riso_coefficients(x, U, alpha, alphadot, c, clfit, cdfit, dcldalpha, Cd
     end
     t1 = (sqrt(fst) - sqrt(fpp))/2 #TODO: Here is the square root that causes problems when the fourth state is negative. 
     t2 = (fst - x[4])/4
+    # fterm = (sqrt(fae)-sqrt(fpp))/2 - (fae-fpp)/4
     Cd_dyn = cdst + (alpha - alpha_E)*Cl_dyn + (cdst - Cd0)*(t1 - t2)
     return Cl_dyn, Cd_dyn
 end
+
+
+
+
+
+
+
+
+function parsesolution(dsmodel::Riso, xds, p)
+    n = dsmodel.n
+
+    u = view(p, 1:n) #Todo. I should just change u, and v to U... since that's what the model intakes. Why change about so much? -> But it allows me to have inflow and heaving. -> Why not just create a function that handles that? 
+    # udot = view(p, n+1:2n)
+    alpha = view(p, 2n+1:3n)
+    alphadot = view(p, 3n+1:4n)
+    c = view(p, 4n+1:5n)
+
+    cl = zeros(dsmodel.n)
+    cd = zeros(dsmodel.n)
+
+    for i = 1:dsmodel.n
+
+        idx = 4*(i-1)
+        x_section = xds[idx+1:idx+4]
+        # y = [u[i], udot[i], v[i], vdot[i], theta[i], thetadot[i]] 
+        # @show y
+        # @show c
+        cl[i], cd[i] = riso_coefficients(x_section, u[i], alpha[i], alphadot[i], c[i], dsmodel.airfoils[i])
+        # cl[i], cd[i] = riso_coefs(x_section, y, c[i], dsmodel.airfoils[i])
+    end
+    
+    return cl, cd
+end
+
+
 
 function parsesolution(sol, p, cdfit, Cd0)
 
@@ -150,6 +403,33 @@ function parsesolution(sol, p, cdfit, Cd0)
 
     return clvec, cdvec, t
 end
+
+
+
+# function parsesolution(blade::Blade, env::Environment, p, sol, twistvec, frequency, amplitude)
+#     u = Array(sol)'
+#     t = sol.t
+#     m = length(t)
+#     n = length(blade.airfoils)
+#     Cl = zeros(m, n)
+#     Cd = zeros(m, n)
+
+#     for j = 1:m
+#         ut = u[j,:]
+#         for i = 1:n
+#             idx = 4*(i-1)
+#             xs = ut[1+idx:idx+4]
+#             ps = p[i]
+#             ys = get_riso_y(twistvec[i], env, frequency, amplitude, t[i]) 
+    
+#             Cl[j, i], Cd[j, i] = riso_coefs(xs, ys, ps, blade.airfoils[i])
+#         end
+#     end
+#     return t, Cl, Cd
+# end
+
+
+
 
 function parsesolution(sol, p, polar)
     u = reduce(hcat, sol.u)'
@@ -203,6 +483,14 @@ function parsesolution(sol, p, polar)
     return Cl, Cd, Cm, u, t
 end
 
+
+
+
+
+
+
+
+
 function find_seperation_alpha(liftfit, dcldalpha, alpha0; n=10)
 
     ### Create a residual function to solve. 
@@ -235,21 +523,8 @@ function find_seperation_alpha(liftfit, dcldalpha, alpha0; n=10)
     return alpha_positive, alpha_negative
 end
 
-function remove!(a, item)
-    deleteat!(a, findall(x->x==item, a))
-end
 
-function uniquemat!(mat;column=1)
-    n, m = size(mat)
-    if column>m
-        error("uniquemat!: You must choose a column within the matrix.")
-    end
-    listofindices = Int[]
-    for i=1:length(mat[:,1])
-        value = mat[i,column]
-        index = findfirst(x->x==value,mat[:,column])
-        push!(listofindices, index)
-    end
-    unique!(listofindices)
-    return mat[listofindices,:]
-end
+
+
+
+

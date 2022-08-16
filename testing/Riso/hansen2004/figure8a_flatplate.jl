@@ -1,6 +1,5 @@
-using Plots, Statistics, DelimitedFiles, Roots
+using Plots, Statistics, DelimitedFiles, Roots, dynamicstallmodels, DifferentialEquations
 
-include("../Riso.jl")
 
 k = 0.2 #given
 u = 1.0 #Assumed
@@ -49,7 +48,7 @@ function alphadot(t)
     return alphadot*(pi/180)
 end
 
-polar = readdlm("/Users/adamcardoza/Box/research/FLOW/bladeopt/experimentaldata/Hansen2004/figure8_flatplate/static.csv", ',')
+polar = readdlm("./data/Hansen2004/figure8_flatplate/static.csv", ',')
 
 plr = deepcopy(polar)
 plr[:,1] = plr[:,1].*(pi/180)
@@ -75,12 +74,19 @@ b = [0.0455, 0.3000] # "" ""
 # b = [0.14, 0.53] # "" "" 
 Tp = 3.0 # "" "" 
 Tf = 6.0 # "" "" 
+T = [Tp, Tf]
 
 
+m, n = size(polar)
+newpolar = hcat(polar, zeros(m), zeros(m))
+afs = [complexairfoil(newpolar; A, b, T)]
 
 x0 = zeros(4)
-p = [c, A, b, Tp, Tf, dcldalpha, linearlift, U, Udot, V, alpha, alphadot, alpha0]
+x0[3] = 1.0
+# p = [c, A, b, Tp, Tf, dcldalpha, linearlift, U, Udot, V, alpha, alphadot, alpha0]
 tspan = (0.0, 80.0)
+
+dsmodel = riso(afs)
 
 prob = ODEProblem(states!, x0, tspan, p)
 sol = solve(prob, dtmax=0.1)
@@ -88,7 +94,7 @@ sol = solve(prob, dtmax=0.1)
 Cld1, u1, f1 = parsesolution(sol, p)
 alphavec = alpha.(sol.t)
 
-expdata = readdlm("/Users/adamcardoza/Box/research/FLOW/bladeopt/experimentaldata/Hansen2004/figure8_flatplate/indicial.csv", ',')
+expdata = readdlm("./data/Hansen2004/figure8_flatplate/indicial.csv", ',')
 
 
 clplt = plot(legend=:topleft, title="Cyclic Alpha", yaxis="Cl", xaxis="Alpha (deg)")
