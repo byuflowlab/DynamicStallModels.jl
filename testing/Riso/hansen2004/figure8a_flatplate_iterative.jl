@@ -68,7 +68,7 @@ T = [Tp, Tf]
 
 m, n = size(polar)
 newpolar = hcat(polar, zeros(m), zeros(m))
-afs = [complexairfoil(newpolar; A, b, T)]
+afs = [airfoil(newpolar; A, b, T)]
 
 x0 = zeros(4)
 x0[4] = 1.0
@@ -95,7 +95,7 @@ xds[1,:] = x0
 cl = zeros(nt)
 cd = zeros(nt)
 
-cl_i, cd_i = ds.parsesolution(dsmodel, xds[1,:], integrator.p)
+cl_i, cd_i = ds.parsestates(dsmodel, xds[1,:], integrator.p)
 cl[1] = cl_i[1]
 cd[1] = cd_i[1]
 
@@ -110,7 +110,7 @@ for i = 2:nt
     DifferentialEquations.step!(integrator, dt_local, true)
     xds[i,:] = integrator.u
 
-    cl_local, cd_local = ds.parsesolution(dsmodel, xds[i,:], integrator.p)
+    cl_local, cd_local = ds.parsestates(dsmodel, xds[i,:], integrator.p)
 
     cl[i] = cl_local[1]
     cd[i] = cd_local[1]

@@ -1,14 +1,17 @@
 
 
+function nearestto(xvec, x) 
+    mins = abs.(xvec.-x)
+    minval, minidx = findmin(mins)
+    minval = xvec[minidx]
+    return minval, minidx
+end
+
 
 
 function remove!(a, item)
     deleteat!(a, findall(x->x==item, a))
 end
-
-
-
-
 
 
 

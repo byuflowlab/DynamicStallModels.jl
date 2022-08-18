@@ -216,15 +216,20 @@ end
 
 # Inplace ODE dispatch
 function (model::Riso)(dx, x, p, t)
-    return riso_ode!(model.detype::DEType, dx, x, p, t)
+    return riso_ode!(model.detype::DEType, model, dx, x, p, t)
 end
 
 
 # Inplace, functional ode form of the Riso Model. 
-function riso_ode!(detype::Functional, dx, x, p, t) 
-    U, Udot, alpha, alphadot, c, A1, A2, b1, b2, dcldalpha, alpha0, Tp, Tf, clfit, afm, afp = p
-
-    riso_state_rates!(dx, x, U(t), Udot(t), alpha(t), alphadot(t), c, A1, A2, b1, b2, dcldalpha, alpha0, Tp, Tf, clfit, afm, afp)
+function riso_ode!(detype::Functional, model, dx, x, p, t) 
+    U, Udot, alpha, alphadot = p[1:4]
+    cvec = view(p, 5:model.n+4)
+    for i = 1:model.n
+        idx = (i-1)*4
+        xs = view(x, idx+1:idx+4)
+        dxs = view(dx, idx+1:idx+4)
+        riso_state_rates!(dxs, xs, U(t), Udot(t), alpha(t), alphadot(t), cvec[i], model.airfoils[i].A[1], model.airfoils[i].A[2], model.airfoils[i].b[1], model.airfoils[i].b[2], model.airfoils[i].dcldalpha, model.airfoils[i].alpha0, model.airfoils[i].T[1], model.airfoils[i].T[2], model.airfoils[i].cl, model.airfoils[i].alphasep[1], model.airfoils[i].alphasep[2])
+    end
 end
 
 
@@ -353,9 +358,9 @@ end
 
 
 
+export parsesolution
 
-
-function parsesolution(dsmodel::Riso, xds, p)
+function parsestates(dsmodel::Riso, xds, p)
     n = dsmodel.n
 
     u = view(p, 1:n) #Todo. I should just change u, and v to U... since that's what the model intakes. Why change about so much? -> But it allows me to have inflow and heaving. -> Why not just create a function that handles that? 
@@ -383,22 +388,26 @@ end
 
 
 
-function parsesolution(sol, p, cdfit, Cd0)
+function parsesolution(dsmodel::Riso, sol, p)
 
     ### Unpack
     x = Array(sol)'
     t = sol.t
-    U, Udot, alpha, alphadot, c, A1, A2, b1, b2, dcldalpha, alpha0, Tp, Tf, clfit, afm, afp = p
+    U, Udot, alpha, alphadot = p[1:4]
+
+    cvec = view(p, 5:dsmodel.n+4)
 
     nt = length(t)
 
-    clvec = zeros(nt)
-    cdvec = zeros(nt)
+    clvec = zeros(nt, dsmodel.n)
+    cdvec = zeros(nt, dsmodel.n)
 
     ### run through the time steps and calculate the dynamic lift and drag (based on the states)
     for i = 1:nt
         ti = t[i]
-        clvec[i], cdvec[i] = riso_coefficients(x[i,:], U(ti), alpha(ti), alphadot(ti), c, clfit, cdfit, dcldalpha, Cd0, alpha0, A1, A2, afm, afp)
+        for j = 1:dsmodel.n
+            clvec[i,j], cdvec[i,j] = riso_coefficients(x[i,:], U(ti), alpha(ti), alphadot(ti), cvec[j], dsmodel.airfoils[j])
+        end
     end
 
     return clvec, cdvec, t
@@ -406,82 +415,62 @@ end
 
 
 
-# function parsesolution(blade::Blade, env::Environment, p, sol, twistvec, frequency, amplitude)
-#     u = Array(sol)'
-#     t = sol.t
-#     m = length(t)
-#     n = length(blade.airfoils)
-#     Cl = zeros(m, n)
-#     Cd = zeros(m, n)
 
-#     for j = 1:m
-#         ut = u[j,:]
-#         for i = 1:n
-#             idx = 4*(i-1)
-#             xs = ut[1+idx:idx+4]
-#             ps = p[i]
-#             ys = get_riso_y(twistvec[i], env, frequency, amplitude, t[i]) 
+
+
+
+### Includes moment. 
+# function parsesolution(sol, p, polar)
+#     u = reduce(hcat, sol.u)'
+#     n,m = size(u)
     
-#             Cl[j, i], Cd[j, i] = riso_coefs(xs, ys, ps, blade.airfoils[i])
-#         end
+#     U, Udot, alpha, alphadot, c, A[1], A[2], b[1], b[2], dcldalpha, alpha0, Tp, Tf, liftfit, afm, afp = p
+
+#     dragfit = Akima(polar[:,1], polar[:,3])
+#     momentfit = Akima(polar[:,1], polar[:,4])
+
+#     ### Find a^st, the distance between the center of pressure and the quarter chord. #Todo: Use this to get coefficient of moment in riso_coefficients. 
+#     alphavec = polar[:,1]
+#     nn = length(alphavec)
+#     fvec = zeros(nn)
+#     astvec = zeros(nn)
+#     for i=1:nn 
+#         fvec[i] = seperationpoint(alphavec[i], afm, afp, liftfit, dcldalpha, alpha0)
+#         astvec[i] = (momentfit(alphavec[i])-momentfit(alpha0))/liftfit(alphavec[i])
 #     end
-#     return t, Cl, Cd
+
+    
+#     mat = hcat(reverse(fvec), reverse(astvec))
+#     mat = uniquemat!(mat)
+    
+#     affit = Akima(mat[:,1], mat[:,2])
+
+
+    
+#     Cl = zeros(n)
+#     Cd = zeros(n)
+#     Cm = zeros(n)
+    
+#     for i = 1:n
+#         t = sol.t[i]
+
+#         a34 = alpha(t)
+#         ae = a34*(1-A[1]-A[2]) + u[i,1] + u[i,2]
+#         Tu = c/(2*U(t))
+        
+#         clfs = Clfs(ae, liftfit, dcldalpha, alpha0) 
+        
+#         Cl[i] = dcldalpha*(ae-alpha0)*u[i,4] + clfs*(1-u[i,4]) + pi*Tu*alphadot(t) 
+#         fae = seperationpoint(ae, afm, afp, liftfit, dcldalpha, alpha0)
+#         fterm = (sqrt(fae)-sqrt(u[i,4]))/2 - (fae-u[i,4])/4
+#         Cd[i] = dragfit(ae) + (alpha(t)-ae)*Cl[i] + (dragfit(ae)-dragfit(alpha0))*fterm
+#         aterm = affit(u[i,4]) - affit(seperationpoint(ae, afm, afp, liftfit, dcldalpha, alpha0))
+#         # println(aterm)
+#         Cm[i] = momentfit(ae) + Cl[i]*(aterm) - pi*Tu*alphadot(t)/2
+#     end
+#     t = sol.t
+#     return Cl, Cd, Cm, u, t
 # end
-
-
-
-
-function parsesolution(sol, p, polar)
-    u = reduce(hcat, sol.u)'
-    n,m = size(u)
-    
-    U, Udot, alpha, alphadot, c, A[1], A[2], b[1], b[2], dcldalpha, alpha0, Tp, Tf, liftfit, afm, afp = p
-
-    dragfit = Akima(polar[:,1], polar[:,3])
-    momentfit = Akima(polar[:,1], polar[:,4])
-
-    ### Find a^st, the distance between the center of pressure and the quarter chord. #Todo: Use this to get coefficient of moment in riso_coefficients. 
-    alphavec = polar[:,1]
-    nn = length(alphavec)
-    fvec = zeros(nn)
-    astvec = zeros(nn)
-    for i=1:nn 
-        fvec[i] = seperationpoint(alphavec[i], afm, afp, liftfit, dcldalpha, alpha0)
-        astvec[i] = (momentfit(alphavec[i])-momentfit(alpha0))/liftfit(alphavec[i])
-    end
-
-    
-    mat = hcat(reverse(fvec), reverse(astvec))
-    mat = uniquemat!(mat)
-    
-    affit = Akima(mat[:,1], mat[:,2])
-
-
-    
-    Cl = zeros(n)
-    Cd = zeros(n)
-    Cm = zeros(n)
-    
-    for i = 1:n
-        t = sol.t[i]
-
-        a34 = alpha(t)
-        ae = a34*(1-A[1]-A[2]) + u[i,1] + u[i,2]
-        Tu = c/(2*U(t))
-        
-        clfs = Clfs(ae, liftfit, dcldalpha, alpha0) 
-        
-        Cl[i] = dcldalpha*(ae-alpha0)*u[i,4] + clfs*(1-u[i,4]) + pi*Tu*alphadot(t) 
-        fae = seperationpoint(ae, afm, afp, liftfit, dcldalpha, alpha0)
-        fterm = (sqrt(fae)-sqrt(u[i,4]))/2 - (fae-u[i,4])/4
-        Cd[i] = dragfit(ae) + (alpha(t)-ae)*Cl[i] + (dragfit(ae)-dragfit(alpha0))*fterm
-        aterm = affit(u[i,4]) - affit(seperationpoint(ae, afm, afp, liftfit, dcldalpha, alpha0))
-        # println(aterm)
-        Cm[i] = momentfit(ae) + Cl[i]*(aterm) - pi*Tu*alphadot(t)/2
-    end
-    t = sol.t
-    return Cl, Cd, Cm, u, t
-end
 
 
 
