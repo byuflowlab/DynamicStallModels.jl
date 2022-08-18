@@ -278,7 +278,7 @@ p2 = [Ufun2, Udotfun2, alphafun2, alphadotfun2, c2, dCndalpha, alpha1, Cn1, A, b
 prob2 = ODEProblem(states!, u0, tspan, p2)
 sol2 = solve(prob2;dtmax=0.0001)
 
-t2, u2, du2, Cnt2, Cnp2, Cdrag2, Cfchord2m Cntt2 = parsesolution2(sol2, p2)
+t2, u2, du2, Cnt2, Cnp2, Cdrag2, Cfchord2m, Cntt2 = parsesolution2(sol2, p2)
 
 
 alphavec2 = alphafun2.(t2)

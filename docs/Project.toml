@@ -1,11 +1,11 @@
-name = "DynamicStallModels"
-uuid = "1fe18b12-a608-438b-96ea-7dfa0357455b"
-authors = ["cardoza2 <adam@cardoza.one>"]
-version = "0.1.0"
-
 [deps]
+Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
 CurveFit = "5a033b19-8c74-5913-a970-47c3779ef25c"
 DifferentialEquations = "0c46a032-eb83-5123-abaf-570d42b7fbaa"
 FLOWMath = "6cb5d3fb-0fe8-4cc2-bd89-9fe0b19a99d3"
 Roots = "f2b01f46-fcfa-551c-844a-d8ac1e96c665"
 StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
+
+
+[compat]
+Documenter = "0.27"

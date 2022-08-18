@@ -1,4 +1,4 @@
-module dynamicstallmodels
+module DynamicStallModels
 
 using FLOWMath, StaticArrays, Roots, DifferentialEquations, CurveFit
 
