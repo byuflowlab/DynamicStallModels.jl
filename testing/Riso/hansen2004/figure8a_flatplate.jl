@@ -1,4 +1,4 @@
-using Plots, Statistics, DelimitedFiles, Roots, dynamicstallmodels, DifferentialEquations
+using Plots, Statistics, DelimitedFiles, Roots, DynamicStallModels, DifferentialEquations
 
 
 k = 0.2 #given
@@ -48,30 +48,18 @@ function alphadot(t)
     return alphadot*(pi/180)
 end
 
-polar = readdlm("./data/Hansen2004/figure8_flatplate/static.csv", ',')
 
-plr = deepcopy(polar)
-plr[:,1] = plr[:,1].*(pi/180)
-# liftfit = Akima(plr[:,1], plr[:,2])
+aoa = -pi:0.01:pi
+lift = 2*pi.*(aoa)
+drag = zero(aoa)
+polar = hcat(aoa, lift, drag)
 
-dcldalpha = 2*pi
-alpha0 = 0.0 #find_zero(liftfit, 0.0)
 
-yintercept = -alpha0*dcldalpha
-
-linearlift(alpha) = dcldalpha*alpha + yintercept
-linearcl = linearlift.(plr[:,1])
-
-staticplt = plot(legend=:topleft, title="Static Lift Plot") #, xlim=(-0.07,0.25))
-scatter!(plr[:,1], plr[:,2], lab="Static")
-plot!(plr[:,1], linearcl, lab="Linear")
-# display(staticplt)
 
 
 A = [0.165, 0.335] #From the Hansen 2004 paper, for flat plate
 b = [0.0455, 0.3000] # "" ""
-# A = [ 0.3, 0.7] #Leishman 1990
-# b = [0.14, 0.53] # "" "" 
+
 Tp = 3.0 # "" "" 
 Tf = 6.0 # "" "" 
 T = [Tp, Tf]
@@ -79,30 +67,35 @@ T = [Tp, Tf]
 
 m, n = size(polar)
 newpolar = hcat(polar, zeros(m), zeros(m))
-afs = [complexairfoil(newpolar; A, b, T)]
+afs = [airfoil(newpolar; A, b, T)]
+
+dsmodel = Riso(Functional(), length(afs), afs)
 
 x0 = zeros(4)
 x0[3] = 1.0
-# p = [c, A, b, Tp, Tf, dcldalpha, linearlift, U, Udot, V, alpha, alphadot, alpha0]
+
+p = [U, Udot, alpha, alphadot, c]
+
 tspan = (0.0, 80.0)
 
-dsmodel = riso(afs)
 
-prob = ODEProblem(states!, x0, tspan, p)
+prob = ODEProblem(dsmodel, x0, tspan, p)
 sol = solve(prob, dtmax=0.1)
 
-Cld1, u1, f1 = parsesolution(sol, p)
+Cl, Cd, t =  parsesolution(dsmodel, sol, p)
+
+
+
 alphavec = alpha.(sol.t)
 
 expdata = readdlm("./data/Hansen2004/figure8_flatplate/indicial.csv", ',')
 
 
 clplt = plot(legend=:topleft, title="Cyclic Alpha", yaxis="Cl", xaxis="Alpha (deg)")
-scatter!(expdata[:,1], expdata[:,2], lab="Paper Values")
-plot!(alphavec.*(180/pi), Cld1, lab="My Values")
+scatter!(expdata[:,1], expdata[:,2], lab="Hansen 2004")
+plot!(alphavec.*(180/pi), Cl, lab="Riso")
 plot!(alphavec.*(180/pi), linearlift.(alphavec), lab="Static")
 display(clplt)
-# savefig("/Users/adamcardoza/Box/research/FLOW/bladeopt/experimentaldata/Hansen2004/figure8_flatplate/recreatefig8a.png")
 
 
 

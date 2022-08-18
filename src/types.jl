@@ -1,5 +1,20 @@
-export simpleairfoil,  complexairfoil, riso
+export simpleairfoil, airfoil, riso
 
+"""
+    Airfoil(polar, cl, cd, cm, dcldalpha, alpha0, alphasep, A, b, T)
+
+### Inputs
+- polar::Array{TF, 2} - A matrix of floats describing the airfoil polar. This includes the angle of attack (radians), and coefficients of lift, drag, and moment. 
+- cl::Tfit - A fit of the coefficient of lift as a function of the angle of attack (radians). 
+- cd::Tfit - A fit of the coefficient of drag as a function of the angle of attack (radians). 
+- cm::Tfit - A fit of the coefficient of moment as a function of the angle of attack (radians). 
+- dcldalpha::TF - The lift curve slope in the linear region (1/radians). Typically near 2 pi. 
+- alpha0::TF - The zero lift angle of attack (radians). 
+- alphasep::Array{TF, 1} - A vector of floats holding the angles of attack at which flow fully seperates from the airfoil. In order from least to greatest. 
+- A::Array{TF, 1} - A vector of floats holding the A dynamic constants for the airfoil. 
+- b::Array{TF, 1} - A vector of floats holding the b dynamic constants for the airfoil. 
+- T::Array{TF, 1} - A vector of floats holding the time constants for the airfoil. 
+"""
 struct Airfoil{TF, Tfit}
     polar::Array{TF, 2}
     cl::Tfit
@@ -13,7 +28,21 @@ struct Airfoil{TF, Tfit}
     T::Array{TF,1}
 end
 
+"""
+    simpleairfoil(polar)
 
+A function that takes a simple airfoil polar to make a dynamic airfoil.
+This function makes some gross assumptions.
+
+### Inputs
+- polar::Array{TF, 2} - A simple airfoil polar including alpha, lift, and drag.
+
+### Outputs
+- Airfoil
+
+### Notes
+- The function assumes that the lift curve slope is 2 pi, that the zero lift angle of attack is zero, and uses AeroDyn's default dynamic airfoil coefficients. The seperation angles of attack are the angles of attack at the minimum and maximum lift. 
+"""
 function simpleairfoil(polar)
     cl = Akima(polar[:,1], polar[:,2])
     cd = Akima(polar[:,1], polar[:,3])
@@ -31,14 +60,22 @@ function simpleairfoil(polar)
     return Airfoil(polar, cl, cd, cm, dcldalpha, alpha0, alphasep, A, b, T)
 end
 
-function nearestto(xvec, x) #TODO: Move to a utilities file. 
-    mins = abs.(xvec.-x)
-    minval, minidx = findmin(mins)
-    minval = xvec[minidx]
-    return minval, minidx
-end
 
-function complexairfoil(polar; A = [0.3, 0.7], b = [0.14, 0.53], T = [1.7, 3.0])
+"""
+    airfoil(polar; A = [0.3, 0.7], b = [0.14, 0.53], T = [1.7, 3.0])
+
+A slightly more complex version of simpleairfoil. Takes a polar and numberically finds some characteristics. 
+
+### Inputs
+- polar::Array{TF, 2}
+- A::Array{TF, 1}
+- b::Array{TF, 1}
+- T::Array{TF, 1}
+
+### Outputs
+- Airfoil
+"""
+function airfoil(polar; A = [0.3, 0.7], b = [0.14, 0.53], T = [1.7, 3.0])
     #Todo: Need some sort of behavior when the provided polar is too small. 
 
     cl = Akima(polar[:,1], polar[:,2])
@@ -71,7 +108,7 @@ end
 
 
 
-
+export Functional, Iterative
 
 abstract type DEType end #Is the model designed to be solved in one go, or iteratively, updating p ever iteration. 
 
@@ -82,7 +119,7 @@ struct Iterative <: DEType
 end
 
 
-
+export Riso
 
 abstract type DSModel end
 
@@ -92,9 +129,9 @@ struct Riso <: DSModel
     airfoils::Array{Airfoil,1}
 end
 
-function riso(airfoils) #::Array{Airfoil,1} #Todo: I'm not sure how to type this. 
+function riso(airfoils; detype::DEType=Iterative()) #::Array{Airfoil,1} #TODO: I'm not sure how to type this. 
     n = length(airfoils)
-    return Riso(Iterative(), n, airfoils)
+    return Riso(detype, n, airfoils)
 end
 
 struct IndicialRiso <: DSModel
