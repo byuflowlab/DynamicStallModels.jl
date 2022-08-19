@@ -123,6 +123,10 @@ export Riso
 
 abstract type DSModel end
 
+
+"""
+    Riso(detype, n, airfoils)
+"""
 struct Riso <: DSModel
     detype::DEType 
     n::Int #Number of airfoils simulated
