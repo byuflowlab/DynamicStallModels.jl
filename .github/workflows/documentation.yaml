@@ -4,6 +4,7 @@ on:
   push:
     paths:
       -'docs/**'
+  pull_request:
 
 jobs:
   build:

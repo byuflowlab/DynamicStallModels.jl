@@ -1,4 +1,7 @@
+push!(LOAD_PATH,"../src/")
+
 using Documenter, DynamicStallModels
+
 
 makedocs(
         modules = [DynamicStallModels],
