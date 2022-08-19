@@ -23,8 +23,8 @@ jobs:
           julia --project=docs -e '
             using Documenter: DocMeta, doctest
             using DynamicStallModels
-            DocMeta.setdocmeta!(DynamicStallModels, :DocTestSetup, :(using DynamicStallModels); recursive=true)'
-            # doctest(DuctTAPE)'
+            DocMeta.setdocmeta!(DynamicStallModels, :DocTestSetup, :(using DynamicStallModels); recursive=true)
+            doctest(DuctTAPE)'
             
             
 #   build:
