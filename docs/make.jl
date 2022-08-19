@@ -1,4 +1,4 @@
-push!(LOAD_PATH,"../src/")
+# push!(LOAD_PATH,"../src/") #This did nothing. It's not getting to this step. It's still installing dependencies. 
 
 using Documenter, DynamicStallModels
 
