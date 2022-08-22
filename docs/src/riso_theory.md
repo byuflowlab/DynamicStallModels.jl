@@ -1,6 +1,8 @@
 # Risø Theory
 
-The Risø model is a simplified version of the Beddoes-Leishman model, designed specifically for wind turbines. It has four states. The four states are:
+The Risø model<sup>2</sup> is a simplified version of the Beddoes-Leishman model, designed specifically for wind turbines.
+
+It has four states. The four states are:
 
 |     Variable     |                             Name                             |                           Comments                           |
 | :--------------: | :----------------------------------------------------------: | :----------------------------------------------------------: |

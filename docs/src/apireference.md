@@ -18,9 +18,33 @@ simpleairfoil
 airfoil
 ```
 
+## Beddoes-Leishman
+```@docs
+BeddoesLeishman
+```
+
+
+## Larsen
+```@docs
+Larsen
+```
+
+## Onera
+```@docs
+Onera
+```
+
+## Oye
+```@docs
+Oye
+```
 
 ## Risø
 
 ```@docs
 Riso
+```
+
+```@docs
+riso
 ```

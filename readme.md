@@ -1,5 +1,6 @@
 # DynamicStallModels.jl
 
+[![](https://img.shields.io/badge/docs-dev-blue.svg)](http://flow.byu.edu/DynamicStallModels.jl/)
 
 
 This package is a collection of different dynamic stall models. 
