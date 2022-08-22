@@ -14,7 +14,7 @@ Dynamic stall models included in this package:
 
 
 To get started, add the package. 
-```@repl
+```julia
 pkg> add https://github.com/byuflowlab/DynamicStallModels.jl.git
 ```
 

@@ -86,9 +86,41 @@ $$
 
 ## Indicial Formulation (AeroDyn)<sup>3</sup>
 
-Aerodyn has it's own implementation of the Beddoes-Leishman model, with several variations here and there. The method is presented here. Frequently the method is presented in a way that makes sense theoretically, here however, we will present the method in the order that the functions are calculated. 
+AeroDyn has it's own implementation of the Beddoes-Leishman model, with several variations here and there. The method is presented here. Frequently the method is presented in a way that makes sense theoretically, here however, we will present the method in the order that the functions are calculated. 
 
 ==I need to list the states that this uses.==
+
+#### States
+AeroDyn lists a set of discrete states that are different from what a demarcated as the states from the original Beddoes-Leishman model. These states make sense when you consider simulation, as you need this information from step to step. 
+
+|     Variable     |                             Name                             |                           Comments                           |
+| :--------------: | :----------------------------------------------------------: | :----------------------------------------------------------: |
+|      $\alpha$       |  Angle of Attack  (AOA)  |  |
+|      $\alpha_{lp}$       |  Low-pass-filtered AOA      |  |
+| $\alpha_{f}$ | Delayed effective Angle of Incidence (AOI) |  |
+|   $q$    |    Pitch rate   |           |
+|  $X_1$  |     |         |
+|   $X_2$  |     |        |
+|   $X_3$   |     |      |
+|   $X_4$   |     |      |
+|   $K'_\alpha$   |   Deficiency function for noncirulatory component of normal force based on angle of attack  |      |
+|   $K'_q$   |  Deficiency function for noncirulatory component of normal force based on pitching rate  |      |
+|   $K''_q$   |   Deficiency function for noncirulatory component of moment  |      |
+|   $K'''_q$   |   Deficiency function for cirulatory component of moment  |      |
+|   $D_p$   |   Deficiency function for cirulatory component of normal force  |      |
+|   $D_f$   |  Deficiency function for the separation point   |      |
+|   $D_{f_c}$   |     |      |
+|   $C_n^{pot}$   |     |      |
+|   $f'$   |     |      |
+|   $f'_c$   |     |      |
+|   $f''$   |     |      |
+|   $f''_c$   |     |      |
+|   $\tau_v$   |     |      |
+|   $C_n^v$   |     |      |
+|   $C_v$   |     |      |
+|   $D_{\alpha f}$   |     |      |
+
+
 
 
 #### Logical Flags
