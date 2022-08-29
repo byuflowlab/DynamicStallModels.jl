@@ -56,6 +56,44 @@ function prepenvironment(; c=0.1, M=0.3, a=343.3, amp=10.0, shift=10.0, k=0.1)
         return M*a
     end
 
+
+function Heavi(t)
+    if t>=0.0
+        return 1.0
+    else
+        return 0.0
+    end
+end
+
+function diracdelta(n;tol=0.001)  
+    if isapprox(n, 0.0, atol=tol)
+        return typeof(n)(1)
+    else
+        return typeof(n)(0)
+    end
+end
+
+function dirac(x; w=0.1) 
+    #Quadratic Dirac Delta (It's continuous baby, so it should be caught by DifferentialEquations.)
+    L = w/2
+    return L/(pi*(x^2 + L^2))
+end
+
+function nearestto(xvec, x)
+    mins = abs.(xvec.-x)
+    minval, minidx = findmin(mins)
+    minval = xvec[minidx]
+    return minval, minidx
+end
+
+function prepenvironment(; c=0.1, M=0.3, a=343.3, amp=10.0, shift=10.0, k=0.1)
+    v = M*a
+    omega = k*2*v/c
+    
+    function U(t)
+        return M*a
+    end
+
     function Udot(t)
         return 0
     end
