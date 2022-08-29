@@ -5,15 +5,16 @@
 ## State Rate Equations 
 #### Equations
 
+==TODO: Enumeration not working properly.===
 1) reduced linear lift coefficient - high frequency (or low, don't know which) (EQ 13)
 
-$$
+```math
 \dot{c}_1 + \omega_1 c_1(t) = A_1 \dot{C}_{L0}(t)
-$$
+```
 
 
 
-2. reduced linear lift coefficient - low frequency (EQ 13)
+2) reduced linear lift coefficient - low frequency (EQ 13)
 
 $$
 \dot{c}_2 + \omega_2 c_2(t) = A_2 \dot{C}_{L0}(t)
@@ -95,10 +96,13 @@ AeroDyn lists a set of discrete states that are different from what a demarcated
 
 |     Variable     |                             Name                             |                           Comments                           |
 | :--------------: | :----------------------------------------------------------: | :----------------------------------------------------------: |
-|      $\alpha$       |  Angle of Attack  (AOA)  |  |
+|      $\alpha$       |  Angle of Attack  (AOA)  | I don't see where this is used (in the previous time step). |
 |      $\alpha_{lp}$       |  Low-pass-filtered AOA      |  |
-| $\alpha_{f}$ | Delayed effective Angle of Incidence (AOI) |  |
-|   $q$    |    Pitch rate   |           |
+| $\alpha_{f}$ | Delayed effective Angle of Incidence (AOI) | I don't see where this is used (in the previous time step). |
+|   $q$    |    Pitch rate   |      I don't see where this is used (in the previous time step).     |
+|  $q_{lp}$ | low-pass-filtered $q$ | |
+| $K_{\alpha_{lp}}$ | low-pass-filtered $K_{\alpha}$ | 
+| $K_{q_{lp}}$ | low-pass-filtered $K_q$ | 
 |  $X_1$  |     |         |
 |   $X_2$  |     |        |
 |   $X_3$   |     |      |
@@ -162,7 +166,7 @@ end
 
 - 1.7 - 1.8
     - (1.7) Nondimensional pitch rate
-        - $q = \frac{\dot{\alpha}c}{U} \approx \frac{K_{\alpha n}c}{c}$ 
+        - $q = \frac{\dot{\alpha}c}{U} \approx \frac{K_{\alpha n}c}{U}$ 
         - $K_{\alpha n} = \frac{ \alpha_n - \alpha_{n-1}}{\Delta t}$
 
     - (1.8) Applying a low pass filter to $K_\alpha$.
@@ -182,6 +186,8 @@ end
 
 - 1.11b (calculated solely at first time step)
     - $k_q(M) = \frac{1}{(1-M) + C_{n\alpha}(M)M^2\beta_M(A_1b_1 + A_2b_2)}$
+    - ==There appears to be a repeat of the equation.==
+        - In Leishman's 1990 paper, the second term in the denominator of $k_\alpha$ is half of the $k_q$ term. 
 
 - 1.10
     - $T_\alpha(M) = 0.75 k_\alpha(M)T_I$
@@ -232,17 +238,19 @@ end
 - 1.29 (other noncirculatory component)
     - $C_{m_q}^{nc}(s,M) = -\frac{7T_i}{12M}\left(k_{m,q}(M)\right)^2 (K_q - K''_q)$
         - $k_{m,q}(M) = \frac{7}{15(1-M) + 1.5 C_{n\alpha}(M)A_5 b_5 \beta_M M^2}$
-        - $K''_{q_n} = K''_{q_{n-1}}\text{exp}\left(- \frac{\Delta t}{(k_{m,q}(M))^2 T_I} \right) + (K_{q_n} - K_{q_{n-1}})\text{exp}\left(- \frac{\Delta t}{(k_{m,q}(M))^2 T_I} \right)$
+        - $K''_{q_n} = K''_{q_{n-1}}\text{exp}\left(- \frac{\Delta t}{(k_{m,q}(M))^2 T_I} \right) + (K_{q_n} - K_{q_{n-1}})\text{exp}\left(- \frac{\Delta t}{2(k_{m,q}(M))^2 T_I} \right)$
             - ==Why are we calculating these portions of the moment?==
 
-- 1.21 (Chordwise force)
-    - $C_C^{pot} = C_n^{pot,c}\text{tan}(\alpha_e + \alpha_0)$
+-  (Chordwise force)
+    - (1.20c) $C^{pot,c}_n = C^c_{n\alpha}(s,M)\alpha_e$ 
+        - Used above in equation 1.20 -> Could combine. 
+    - (1.21) $C_C^{pot} = C_n^{pot,c}\text{tan}(\alpha_e + \alpha_0)$
 
 - 1.35 (Lagged Circulatory normal force (boundary layer response))
     - $C'_n = C_n^{pot} - D_p$
-        - $D_{p_n} = D_{p_{n-1}}\text{exp}\left(- \frac{\Delta s}{T_p}\right) + (C_{n_{n}}^{pot}-C_{n_{n-1}}^{pot}\text{exp}\left(-\frac{\Delta s}{2T_p}\right) $
+        - $D_{p_n} = D_{p_{n-1}}\text{exp}\left(- \frac{\Delta s}{T_p}\right) + (C_{n_{n}}^{pot}-C_{n_{n-1}}^{pot})\text{exp}\left(-\frac{\Delta s}{2T_p}\right) $
 
-- 1.34 (an effective AOI)
+- 1.34 (Delayed effective angle of incidence)
     - $\alpha_f = \frac{C'_n}{C_{n\alpha}^c(s,M)} + \alpha_0$
 
 - 1.33 (TE Separation point distance (from LE in percentage chord))
@@ -348,7 +356,7 @@ Apparently Aerodyn uses a "simpler" version.
 ```julia
 simga3 = 1
 
-if Tvl <= Tau_v <= 2*Tvl>
+if Tvl <= Tau_v <= 2*Tvl
     sigma3 = 3 #Postshedding
     if TESF== false
         sigma3 = 4 #Accelerate vortex lift decay
