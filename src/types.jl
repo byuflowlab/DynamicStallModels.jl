@@ -28,6 +28,8 @@ struct Airfoil{TF, Tfit}
     A::Array{TF,1}
     b::Array{TF,1}
     T::Array{TF,1}
+    S::Array{TF,1}
+    xcp::TF
 end
 
 #Note: Considering adding fit parameters.
@@ -59,7 +61,10 @@ function simpleairfoil(polar)
     _, maxclidx = findmax(polar[:,2])
 
     alphasep = [polar[minclidx, 1], polar[maxclidx,1]]
-    return Airfoil(polar, cl, cd, cm, dcldalpha, alpha0, alphasep, A, b, T)
+
+    S = zeros(4)
+    xcp = 0.2
+    return Airfoil(polar, cl, cd, cm, dcldalpha, alpha0, alphasep, A, b, T, S, xcp)
 end
 
 
@@ -77,7 +82,7 @@ A slightly more complex version of simpleairfoil. Takes a polar and numerically 
 ### Outputs
 - Airfoil
 """
-function airfoil(polar; A = [0.3, 0.7], b = [0.14, 0.53], T = [1.7, 3.0])
+function airfoil(polar; A = [0.3, 0.7], b = [0.14, 0.53], T = [1.7, 3.0], S=zeros(4), xcp=0.2)
     #Todo: Need some sort of behavior when the provided polar is too small. 
 
     cl = Akima(polar[:,1], polar[:,2])
@@ -105,7 +110,7 @@ function airfoil(polar; A = [0.3, 0.7], b = [0.14, 0.53], T = [1.7, 3.0])
         dcldalpha=2*pi
         @warn("dcldalpha returned NaN")
     end
-    return Airfoil(polar, cl, cd, cm, dcldalpha, alpha0, alphasep, A, b, T)
+    return Airfoil(polar, cl, cd, cm, dcldalpha, alpha0, alphasep, A, b, T, S, xcp)
 end
 
 
@@ -127,6 +132,7 @@ end
 
 
 abstract type DSModel end
+# export DSModel
 
 export Riso, riso
 """
@@ -180,6 +186,10 @@ struct BeddoesLeishman{TF, TI} <: DSModel
     version::TI #Which version of the indicial implementation. 
     constants::Array{TF, 1} #Model Constants #TODO: Maybe I'll make this a tuple? I don't know if that'll be any better. 
 end
+
+
+
+
 
 export Onera
 

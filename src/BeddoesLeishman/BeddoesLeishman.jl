@@ -5,38 +5,48 @@ The state space form of the Beddoes-Leishman model. Including several different 
 Adam Cardoza 8/24/22
 =#
 
-
-
-
-
-function Heavi(t)
-    if t>=0.0
-        return 1.0
-    else
-        return 0.0
+function numberofstates(dsmodel::BeddoesLeishman)
+    if dsmodel.version==1
+        @warn("The orginal Beddoes-Leishman model is not yet prepared.")
+        return 0
+    elseif dsmodel.version==2
+        return 29*dsmodel.n
+    elseif dsmodel.version==3
+        @warn("The orginal Beddoes-Leishman model is not yet prepared.")
+        return 29*dsmodel.n
+    elseif dsmodel.version==4
+        @warn("The orginal Beddoes-Leishman model is not yet prepared.")
+        return 29*dsmodel.n
     end
 end
 
-function diracdelta(n;tol=0.001)  
-    if isapprox(n, 0.0, atol=tol)
-        return typeof(n)(1)
-    else
-        return typeof(n)(0)
+function numberofloads(dsmodel::BeddoesLeishman)
+    if dsmodel.version==1
+        @warn("The orginal Beddoes-Leishman model is not yet prepared.")
+        return 0
+    elseif dsmodel.version==2
+        return 5
+    elseif dsmodel.version==3
+        @warn("The orginal Beddoes-Leishman model is not yet prepared.")
+        return 5
+    elseif dsmodel.version==4
+        @warn("The orginal Beddoes-Leishman model is not yet prepared.")
+        return 5
     end
 end
 
-function dirac(x; w=0.1) 
-    #Quadratic Dirac Delta (It's continuous baby, so it should be caught by DifferentialEquations.)
-    L = w/2
-    return L/(pi*(x^2 + L^2))
+function initialize(dsmodel::BeddoesLeishman, aoavec, tvec, airfoil::Airfoil, c, a)
+    if isa(dsmodel.detype, Functional)
+        @warn("Beddoes Leishman Functional implementation isn't prepared yet. - initialize()")
+    elseif isa(dsmodel.detype, Iterative)
+        @warn("Beddoes Leishman Iterative implementation isn't prepared yet. - initialize()")
+    else #Model is indicial
+        if dsmodel.version==2
+            return initialize_ADO(aoavec, tvec, airfoil, c, a)
+        end
+    end
 end
 
-function nearestto(xvec, x)
-    mins = abs.(xvec.-x)
-    minval, minidx = findmin(mins)
-    minval = xvec[minidx]
-    return minval, minidx
-end
 
 function prepenvironment(; c=0.1, M=0.3, a=343.3, amp=10.0, shift=10.0, k=0.1)
     v = M*a

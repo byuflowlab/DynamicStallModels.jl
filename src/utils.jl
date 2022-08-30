@@ -29,3 +29,25 @@ function uniquemat!(mat;column=1)
     unique!(listofindices)
     return mat[listofindices,:]
 end
+
+function Heavi(t)
+    if t>=0.0
+        return 1.0
+    else
+        return 0.0
+    end
+end
+
+function diracdelta(n;tol=0.001)  
+    if isapprox(n, 0.0, atol=tol)
+        return typeof(n)(1)
+    else
+        return typeof(n)(0)
+    end
+end
+
+function dirac(x; w=0.1) 
+    #Quadratic Dirac Delta (It's continuous baby, so it should be caught by DifferentialEquations.)
+    L = w/2
+    return L/(pi*(x^2 + L^2))
+end
