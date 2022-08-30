@@ -67,7 +67,8 @@ T = [Tp, Tf]
 
 m, n = size(polar)
 newpolar = hcat(polar, zeros(m), zeros(m))
-afs = [airfoil(newpolar; A, b, T)]
+afs = Array{Airfoil, 1}(undef, 1)
+afs[1] = airfoil(newpolar; A, b, T)
 
 dsmodel = Riso(Functional(), length(afs), afs)
 
@@ -88,13 +89,13 @@ Cl, Cd, t =  parsesolution(dsmodel, sol, p)
 
 alphavec = alpha.(sol.t)
 
-expdata = readdlm("./data/Hansen2004/figure8_flatplate/indicial.csv", ',')
+expdata = readdlm("../../../data/Hansen2004/figure8_flatplate/indicial.csv", ',')
 
 
 clplt = plot(legend=:topleft, title="Cyclic Alpha", yaxis="Cl", xaxis="Alpha (deg)")
 scatter!(expdata[:,1], expdata[:,2], lab="Hansen 2004")
 plot!(alphavec.*(180/pi), Cl, lab="Riso")
-plot!(alphavec.*(180/pi), linearlift.(alphavec), lab="Static")
+plot!(alphavec.*(180/pi), afs[1].cl.(alphavec), lab="Static")
 display(clplt)
 
 

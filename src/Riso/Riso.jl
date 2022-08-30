@@ -225,10 +225,11 @@ function riso_ode!(detype::Functional, model, dx, x, p, t)
     U, Udot, alpha, alphadot = p[1:4]
     cvec = view(p, 5:model.n+4)
     for i = 1:model.n
+        airfoil = model.airfoils[i]
         idx = (i-1)*4
         xs = view(x, idx+1:idx+4)
         dxs = view(dx, idx+1:idx+4)
-        riso_state_rates!(dxs, xs, U(t), Udot(t), alpha(t), alphadot(t), cvec[i], model.airfoils[i].A[1], model.airfoils[i].A[2], model.airfoils[i].b[1], model.airfoils[i].b[2], model.airfoils[i].dcldalpha, model.airfoils[i].alpha0, model.airfoils[i].T[1], model.airfoils[i].T[2], model.airfoils[i].cl, model.airfoils[i].alphasep[1], model.airfoils[i].alphasep[2])
+        riso_state_rates!(dxs, xs, U(t), Udot(t), alpha(t), alphadot(t), cvec[i], airfoil.A[1], airfoil.A[2], airfoil.b[1], airfoil.b[2], airfoil.dcldalpha, airfoil.alpha0, airfoil.T[1], airfoil.T[2], airfoil.cl, airfoil.alphasep[1], airfoil.alphasep[2])
     end
 end
 

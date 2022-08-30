@@ -1,7 +1,7 @@
-using Plots, Statistics, DelimitedFiles, Roots, dynamicstallmodels, DifferentialEquations
+using Plots, Statistics, DelimitedFiles, Roots, DynamicStallModels, DifferentialEquations
 
 DE = DifferentialEquations
-ds = dynamicstallmodels
+ds = DynamicStallModels
 
 
 k = 0.2 #given
@@ -68,7 +68,8 @@ T = [Tp, Tf]
 
 m, n = size(polar)
 newpolar = hcat(polar, zeros(m), zeros(m))
-afs = [airfoil(newpolar; A, b, T)]
+afs = Array{Airfoil, 1}(undef, 1)
+afs[1] = airfoil(newpolar; A, b, T)
 
 x0 = zeros(4)
 x0[4] = 1.0
@@ -92,12 +93,12 @@ integrator = DE.init(prob, Tsit5(); verbose=false)
 xds = zeros(nt, 4)
 xds[1,:] = x0
 
-cl = zeros(nt)
-cd = zeros(nt)
+cl_d = zeros(nt)
+cd_d = zeros(nt)
 
 cl_i, cd_i = ds.parsestates(dsmodel, xds[1,:], integrator.p)
-cl[1] = cl_i[1]
-cd[1] = cd_i[1]
+cl_d[1] = cl_i[1]
+cd_d[1] = cd_i[1]
 
 for i = 2:nt
     t = tvec[i]
@@ -112,8 +113,8 @@ for i = 2:nt
 
     cl_local, cd_local = ds.parsestates(dsmodel, xds[i,:], integrator.p)
 
-    cl[i] = cl_local[1]
-    cd[i] = cd_local[1]
+    cl_d[i] = cl_local[1]
+    cd_d[i] = cd_local[1]
 end
 
 
@@ -125,13 +126,13 @@ plot!(tvec, xds)
 
 alphavec = alpha.(tvec)
 
-expdata = readdlm("./data/Hansen2004/figure8_flatplate/indicial.csv", ',')
+expdata = readdlm("../../../data/Hansen2004/figure8_flatplate/indicial.csv", ',')
 staticdata = dsmodel.airfoils[1].cl.(alphavec)
 
 
 clplt = plot(legend=:topleft, title="Cyclic Alpha", yaxis="Cl", xaxis="Alpha (deg)")
 scatter!(expdata[:,1], expdata[:,2], lab="Paper Values")
-plot!(alphavec.*(180/pi), cl, lab="My Values")
+plot!(alphavec.*(180/pi), cl_d, lab="My Values")
 plot!(alphavec.*(180/pi), staticdata, lab="Static")
 display("image/png", clplt)
 
