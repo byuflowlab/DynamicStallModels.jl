@@ -12,7 +12,8 @@ path = dirname(@__FILE__)
 cd(path)
 
 
-include("../../../src/BeddoesLeishman/BeddoesLeishmanAeroDyn.jl")
+# include("../../../src/BeddoesLeishman/BeddoesLeishmanAeroDyn.jl")
+# include("../../../src/solve.jl")
 
 # /Users/adamcardoza/.julia/dev/DynamicStallModels/data/
 fullout = readdlm("../../../data/aerodynout_fordynamicstall.csv", ',')
@@ -41,14 +42,18 @@ A = [du21_a17.a1, du21_a17.a2]
 b = [du21_a17.b1, du21_a17.b2]
 T = [du21_a17.t_p, du21_a17.t_f0, du21_a17.t_v0, du21_a17.t_vl]
 
-af = Airfoil(polar, clfit, cdfit, cmfit, dcndalpha, alpha0, alphasep, A, b, T)
-airfoils = Array{Airfoil, 1}(undef, 1)
-airfoils[1] = af
-
 S1 = du21_a17.s1
 S2 = du21_a17.s2
 S3 = du21_a17.s3
 S4 = du21_a17.s4
+S = [S1, S2, S3, S4]
+xcp = 0.2
+
+af = Airfoil(polar, clfit, cdfit, cmfit, dcndalpha, alpha0, alphasep, A, b, T, S, xcp)
+airfoils = Array{Airfoil, 1}(undef, 1)
+airfoils[1] = af
+
+
 
 
 ### Create model
@@ -72,19 +77,21 @@ aoavec = outs["AB1N011Alpha"].*(pi/180)
 
 
 
-### Solve
-states, Cn, Cc, Cl, Cd, Cm = solve_indicial(dsmodel, c, tvec, Uvec, aoavec, S1, S2, S3, S4; a = 343)
 
+### Solve
+states, loads = solve_indicial(dsmodel, [c], tvec, Uvec, aoavec)
+
+Cn = loads[:,1]
 
 
 
 staticCn = clfit.(aoavec)
 
-cnplt = plot(xaxis="time (s)", yaxis="Cn", right_margin=20mm, leg=:bottomright)
+cnplt = plot(xaxis="time (s)", yaxis="Cn", right_margin=20mm, leg=:topleft)
 plot!(tvec, Cn, lab="BL_AD")
 plot!(tvec, staticCn, lab="static")
 plot!(tvec, outs["AB1N011Cn"], linestyle=:dash, lab="OpenFAST")
-plot!(twinx(), tvec, aoavec.*(180/pi), lab="AOA", leg=:bottomleft, linecolor=:green, linestyle=:dash, yaxis="AOA")
+plot!(twinx(), tvec, aoavec.*(180/pi), lab="AOA", leg=:bottomright, linecolor=:purple, linestyle=:dot, yaxis="AOA")
 display(cnplt)
 
 #=

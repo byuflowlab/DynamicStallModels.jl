@@ -3,16 +3,21 @@ AeroDyn's implementation of the Beddoes-Leishman model.
 
 =#
 
-function (model::BeddoesLeishman)(x, p, t, dt)
+function (model::BeddoesLeishman)(x, p, y)
     if isa(model.detype, Functional)
         @warn("Functional implementation not yet prepared.")
     elseif isa(model.detype, Indicial)
         if model.version==1
             @warn("Original indicial Beddoe-Leishman not prepared for use yet.")
         elseif model.version==2
-            #Todo: I need to figure out how to pass in flags. I mean I suppose it could be part of p...
-            #Todo: I need to figure out how to pass out Cn, Cc, Cl, Cd. I could write another function that uses the states and inputs and recalculates everything. I could also just pass out the information that I need. -> Actually, I'm going to move the load calculations out. 
-            states, Cn, Cc, Cl, Cd, Cm = update_states_ADO!(model, x, flags, c, a, U, dt, aoa, Cnfit, dcndalpha, alpha0, Cd0, Cm0, A1, A2, b1, b2, Tf0, Tv0, Tp, Tvl, Cn1, alpha1, alpha2, S1, S2, S3, S4, xcp)
+    
+            c, a, dcndalpha, alpha0, Cd0, Cm0, A1, A2, b1, b2, Tf0, Tv0, Tp, Tvl, Cn1, alpha1, alpha2, S1, S2, S3, S4, xcp, _, _, _ = p #Inputs
+            U, aoa, dt = y #Environmental inputs. 
+
+            flags = view(p, 23:25)
+
+            return update_states_ADO(model, x, flags, c, a, U, dt, aoa, dcndalpha, alpha0, A1, A2, b1, b2, Tf0, Tv0, Tp, Tvl, Cn1, alpha1, alpha2, S1, S2, S3, S4)
+
         elseif model.version==3
             @warn("AeroDyn Beddoe-Leishman with Gonzalez's modifications not prepared for use yet.")
         elseif model.version==4
@@ -20,6 +25,16 @@ function (model::BeddoesLeishman)(x, p, t, dt)
         end
     end
     
+end
+
+function getloads(dsmodel::BeddoesLeishman, states, p, y, airfoil)
+    c, a, dcndalpha, alpha0, Cd0, Cm0, A1, A2, b1, b2, Tf0, Tv0, Tp, Tvl, Cn1, alpha1, alpha2, S1, S2, S3, S4, xcp, _, _, _ = p
+    Cnfit = airfoil.cl
+
+    U, _, _ = y
+
+    Cn, Cc, Cl, Cd, Cm = BLAD_coefficients(dsmodel::BeddoesLeishman, states, U, c, Cnfit, dcndalpha, alpha0, Cd0, Cm0, A1, A2, b1, b2, Tvl, xcp, a)
+    return [Cn, Cc, Cl, Cd, Cm]
 end
 
 
@@ -41,7 +56,7 @@ end
 
 
 #AeroDyn original implementation. 
-function update_states_ADO!(dsmodel::BeddoesLeishman, oldstates, flags, c, a, U, deltat, aoa, Cnfit, dcndalpha, alpha0, Cd0, Cm0, A1, A2, b1, b2, Tf0, Tv0, Tp, Tvl, Cn1, alpha1, alpha2, S1, S2, S3, S4, xcp)
+function update_states_ADO(dsmodel::BeddoesLeishman, oldstates, flags, c, a, U, deltat, aoa, dcndalpha, alpha0, A1, A2, b1, b2, Tf0, Tv0, Tp, Tvl, Cn1, alpha1, alpha2, S1, S2, S3, S4)
 
     ### Unpack
     aoa_m, alpha_m, alphaf_m, aoadot_m, q_m, Ka_m, Kq_m, X1_m, X2_m, X3_m, X4_m, Kpa_m, Kpq_m, Kppq_m, Kpppq_m, Dp_m, Df_m, Dfc_m, Cpotn_m, fp_m, fpc_m, fpp_m, fppc_m, tauv, Cvn_m, Cv_m, Daf_m, sigma1, sigma3 = oldstates #The underscore m means that it is the previous time step (m comes before n).
@@ -74,7 +89,7 @@ function update_states_ADO!(dsmodel::BeddoesLeishman, oldstates, flags, c, a, U,
     =#
 
 
-    zeta, A5, b5, Tsh, eta = dsmodel.constants 
+    zeta, A5, b5, Tsh, _ = dsmodel.constants 
     #=
     zeta - Low-pass-fileter frequency cutoff. #TODO: Should this have the negative or should the equation have the negative? 
     Tsh - Strouhal's frequency 0.19
@@ -160,14 +175,14 @@ function update_states_ADO!(dsmodel::BeddoesLeishman, oldstates, flags, c, a, U,
     alphae = (alpha - alpha0) - X1 - X2 #EQ 1.14, Effective angle of attack
 
     Cc_na = dcndalpha/beta #EQ 1.12, Circulatory component of the normal force coefficient response to step change in alpha. 
-    Cc_naq = Cc_na*alphae #EQ 1.13, Circulatory component of normal force via lumped approach. 
+    Cc_naq = Cc_na*alphae #EQ 1.13, Circulatory component of normal force via lumped approach. #TODO: This appears to be equal to Cpotcn
 
 
 
     ### Circulatory component of moment. #Question: Why did they calculate the moment here? Do I need some of these things here? Is there a better spot to put this? 
     deltaq = q - q_m #Not explicityly stated in the docs. Assumed
     states[15] = Kpppq = Kpppq_m*exp(-b5*beta2*deltas) + A5*deltaq*exp(-b5*beta2*deltas/2) #EQ 1.26
-    Cc_mq = -dcndalpha*(q-Kpppq)*c/(16*beta*U) #EQ 1.25, Circulatory component of moment
+    # Cc_mq = -dcndalpha*(q-Kpppq)*c/(16*beta*U) #EQ 1.25, Circulatory component of moment
 
 
     ### Total normal force under attached conditions
@@ -176,7 +191,7 @@ function update_states_ADO!(dsmodel::BeddoesLeishman, oldstates, flags, c, a, U,
 
 
     ### Noncirculatory component of moment due to change in alpha
-    Cnc_ma = -Cnfit(alpha)/4 #EQ 1.27 Note: This equation was missed in the documented algorithm. 
+    # Cnc_ma = -Cnfit(alpha)/4 #EQ 1.27 Note: This equation was missed in the documented algorithm. 
 
 
 
@@ -184,14 +199,14 @@ function update_states_ADO!(dsmodel::BeddoesLeishman, oldstates, flags, c, a, U,
     bot = 15*(1-M) + 3*dcndalpha*A5*b5*beta*M*M/2  
     kmq = 7/bot #EQ 1.29b
     states[14] = Kppq = Kppq_m*exp(-deltat/(kmq*kmq*TI)) + (Kq - Kq_m)*exp(-deltat/(2*kmq*kmq*TI)) #EQ 1.29c
-    Cnc_mq = -7*TI*kmq*kmq*(Kq-Kppq)/(12*M) #EQ 1.29
+    # Cnc_mq = -7*TI*kmq*kmq*(Kq-Kppq)/(12*M) #EQ 1.29
 
 
 
 
     ### Chordwise force
-    Cpotcn = Cc_na*alphae #Todo: I think that this C^c_{n\alpha}(s,M) should be a circulatory normal coefficient. ... Well.. Now I don't know. It could be the compressibility corrected slope. 
-    Cpotc = Cpotcn*tan(alphae + alpha0) #Equation 1.21  
+    # Cpotcn = Cc_na*alphae #Todo: I think that this C^c_{n\alpha}(s,M) should be a circulatory normal coefficient. ... Well.. Now I don't know. It could be the compressibility corrected slope. 
+    # Cpotc = Cpotcn*tan(alphae + alpha0) #Equation 1.21  
 
 
 
@@ -212,8 +227,8 @@ function update_states_ADO!(dsmodel::BeddoesLeishman, oldstates, flags, c, a, U,
 
     ### 
     fterm = (1 + sqrt(fpp))/2
-    Cfsn = Cnc_naq + Cc_naq*(fterm)^2 #EQ 1.38, Normal force coefficient after accounting for separated flow from TE
-    Cfsc = Cpotc*eta*sqrt(fpp) #EQ 1.40 #(sqrt(fpp)-0.2) #Gonzalez modifications
+    # Cfsn = Cnc_naq + Cc_naq*(fterm)^2 #EQ 1.38, Normal force coefficient after accounting for separated flow from TE
+    # Cfsc = Cpotc*eta*sqrt(fpp) #EQ 1.40 #(sqrt(fpp)-0.2) #Gonzalez modifications
 
     # @show Cnc_naq, Cc_naq, fterm #Both of the normal force coefficients are quite large. 
 
@@ -224,9 +239,9 @@ function update_states_ADO!(dsmodel::BeddoesLeishman, oldstates, flags, c, a, U,
     states[25] = Cvn = Cvn_m*exp(-deltas/Tv) + (Cv - Cv_m)*exp(-deltas/(2*Tv)) #EQ 1.47
     #Note: Cv has to be the same sign as Cfs_n
 
-    xbarcp = 0.2 #Todo: Decide if this goes in the airfoil or in the model. Also find out what it is. 
-    xvcp = xbarcp*(1-cos(pi*tauv/(Tvl)))
-    Cvm = -xvcp*Cvn
+    # xbarcp = 0.2 #Todo: Decide if this goes in the airfoil or in the model. Also find out what it is. 
+    # xvcp = xbarcp*(1-cos(pi*tauv/(Tvl)))
+    # Cvm = -xvcp*Cvn
 
     ######## Update "other states"
     ### Test for Leading edge separation
@@ -311,37 +326,135 @@ function update_states_ADO!(dsmodel::BeddoesLeishman, oldstates, flags, c, a, U,
     states[24] = tauv
     states[28] = sigma1
     states[29] = sigma3
-    
+
+
+    return states
+end
+
+function BLAD_coefficients(dsmodel::BeddoesLeishman, states, U, c, Cnfit, dcndalpha, alpha0, Cd0, Cm0, A1, A2, b1, b2, Tvl, xcp, a)
+
+    _, A5, b5, _, eta = dsmodel.constants 
+
+    Ka = states[6]
+    Kpa = states[12]
+    Kq = states[7]
+    Kpq = states[13]
+
+    M = U/a # Mach number
+    beta = sqrt(1 - M^2) #Prandtl-Glauert compressibility correction factor
+    TI = c/a
+
+
+
+
+    ##### Prepare inputs for normal force coefficient. 
+    bot = (1-M) + dcndalpha*M*M*beta*(A1*b1 + A2*b2)  
+    k_alpha = 1/bot #Equation 1.11a
+    Talpha = 3*k_alpha*TI/4
+    Cnc_nalpha = 4*Talpha*(Ka-Kpa)/M
+
+    bot = (1-M) + dcndalpha*M*M*beta*(A1*b1 + A2*b2) 
+    k_q = 1/bot #Equation 1.11b
+    Tq = 3*k_q*TI/4
+    Cnc_nq = Tq*(Kq - Kpq)/M
+
+    Cnc_naq = Cnc_nalpha + Cnc_nq
+
+    alpha = states[2]
+    X1 = states[8]
+    X2 = states[9]
+    alphae = (alpha - alpha0) - X1 - X2
+    Cc_na = dcndalpha/beta #EQ 1.12, Circulatory component of the normal force coefficient response to step change in alpha. 
+    Cc_naq = Cc_na*alphae
+
+    fpp = states[22]
+    fterm = (1 + sqrt(fpp))/2
+
+    Cfsn = Cnc_naq + Cc_naq*(fterm)^2 #EQ 1.38, Normal force coefficient after accounting for separated flow from TE
+
+    Cvn = states[25]
 
     ### Total normal force 
     Cn = Cfsn + Cvn #EQ 1.53
-    # @show Cfsn, Cvn, fterm #Cfsn is large
+
+
+
+
+
+    ######### Prepare inputs for chordwise force coefficient. 
+    
+    Cpotc = Cc_naq*tan(alphae + alpha0) #Equation 1.21  
+    Cfsc = Cpotc*eta*sqrt(fpp) #EQ 1.40 #(sqrt(fpp)-0.2) #Gonzalez modifications
 
     ### Chordwise force 
     Cc = Cfsc + Cvn*tan(alphae) #EQ 1.55
+
+
+
+
+
 
     ### Lift and Drag
     Cl = Cn*cos(alpha) + Cc*sin(alpha)
     Cd = Cn*sin(alpha) - Cc*cos(alpha) + Cd0
 
+
+
+
+    
+    Cc_naq = Cc_na*alphae
+
+    q = states[5]
+    Kpppq = states[15]
+    Cc_mq = -dcndalpha*(q-Kpppq)*c/(16*beta*U)
+
+    ### Noncirculatory component of moment due to change in alpha
+    Cnc_ma = -Cnfit(alpha)/4 #EQ 1.27 Note: This equation was missed in the documented algorithm.
+
+    bot = 15*(1-M) + 3*dcndalpha*A5*b5*beta*M*M/2  
+    kmq = 7/bot #EQ 1.29b
+    Kppq = states[14]
+    Cnc_mq = -7*TI*kmq*kmq*(Kq-Kppq)/(12*M) #EQ 1.29
+
+    tauv = states[24]
+    xbarcp = 0.2 #Todo: Is this different from xcp? 
+    xvcp = xbarcp*(1-cos(pi*tauv/(Tvl)))
+    Cvm = -xvcp*Cvn
+
     ### Moment
     Cm = Cm0 - Cc_naq*(xcp - 0.25) + Cc_mq + Cnc_ma + Cnc_mq + Cvm 
 
 
-    return states, Cn, Cc, Cl, Cd, Cm
+    return Cn, Cc, Cl, Cd, Cm
 end
 
-function initialize_ADO(aoavec, tvec, cnfit)
+function initialize_ADO(aoavec, tvec, airfoil::Airfoil, c, a) 
+    # Cnfit = airfoil.cl
+    dcndalpha = airfoil.dcldalpha
+    alpha0 = airfoil.alpha0
+    A1, A2 = airfoil.A
+    b1, b2 = airfoil.b
+    Tp, Tf0, Tv0, Tvl = airfoil.T
+    alpha2, alpha1 = airfoil.alphasep
+    S1, S2, S3, S4 = airfoil.S
+    xcp = airfoil.xcp
+
+    Cn1 = airfoil.cl(alpha1)
+    Cd0 = airfoil.cd(alpha0)
+    Cm0 = airfoil.cm(alpha0)
+
+
 
     dt = tvec[2] - tvec[1]
 
+    aoa = aoavec[1]
     alpha = alphaf = aoavec[1]
     aoadot = q = Ka = 0 #(aoavec[2] - aoavec[1])/dt #Ka was initialized too high. aoadot isn't used. I might be able to use q = (aoavec[2] - aoavec[1])*c/(U*deltat) and ka = q*U/deltat... Why are q and Ka both states?... if one is just a multiple of the other. I guess U and delta t change, so it isn't the same multiple across time. 
     Kq = 0.0
     X1 = X2 = X3 = X4 = 0.0
     Kpa = Kpq = Kppq = Kpppq = 0.0
     Dp = Df = Dfc = 0.0
-    Cpotn = cnfit(aoavec[1])
+    Cpotn = airfoil.cl(aoavec[1])
     fp = fpc = fpp = fppc = 1.0
     tauv = 0.0
     Cvn = 0.0
@@ -351,49 +464,13 @@ function initialize_ADO(aoavec, tvec, cnfit)
 
     states = [aoa, alpha, alphaf, aoadot, q, Ka, Kq, X1, X2, X3, X4, Kpa, Kpq, Kppq, Kpppq, Dp, Df, Dfc, Cpotn, fp, fpc, fpp, fppc, tauv, Cvn, Cv, Daf, sigma1, sigma3]
 
+    loads = [airfoil.cl(aoa), airfoil.cd(aoa), airfoil.cl(aoa), airfoil.cd(aoa), airfoil.cm(aoa)]
+
 
     flags = [false, false, false]
 
-    return states, flags #Todo: I should add Cn, Cc, Cl, Cd, and Cm to the initialization
+    p = [c, a, dcndalpha, alpha0, Cd0, Cm0, A1, A2, b1, b2, Tf0, Tv0, Tp, Tvl, Cn1, alpha1, alpha2, S1, S2, S3, S4, xcp]
+
+    return states, loads, vcat(p, flags)
 end
 
-function solve_indicial(dsmodel::BeddoesLeishman, c, tvec, Uvec, aoavec, S1, S2, S3, S4; a = 343, xcp=0.2)
-
-    nt = length(tvec)
-    states = Array{typeof(c), 2}(undef, nt, 29)
-    Cn = Array{typeof(c), 1}(undef, nt)
-    Cc = Array{typeof(c), 1}(undef, nt)
-    Cl = Array{typeof(c), 1}(undef, nt)
-    Cd = Array{typeof(c), 1}(undef, nt)
-    Cm = Array{typeof(c), 1}(undef, nt)
-
-    airfoil = dsmodel.airfoils[1]
-
-    Cnfit = airfoil.cl
-    dcndalpha = airfoil.dcldalpha
-    alpha0 = airfoil.alpha0
-    A1, A2 = airfoil.A
-    b1, b2 = airfoil.b
-    Tp, Tf0, Tv0, Tvl = airfoil.T
-    alpha2, alpha1 = airfoil.alphasep
-    Cn1 = Cnfit(alpha1)
-    Cd0 = airfoil.cd(alpha0)
-    Cm0 = airfoil.cm(alpha0)
-
-    states[1,:], flags = initialize_ADO(aoavec, tvec, Cnfit)
-
-
-
-
-    for i = 1:nt-1 #Iterate starting with the states we know. 
-        t = tvec[i]
-        @show t
-        dt = tvec[i+1]-tvec[i]
-        U = Uvec[i+1]
-        aoa = aoavec[i+1]
-
-
-        states[i+1,:], Cn[i+1], Cc[i+1], Cl[i+1], Cd[i+1], Cm[i+1] = update_states_ADO!(dsmodel, states[i,:], flags, c, a, U, dt, aoa, Cnfit, dcndalpha, alpha0, Cd0, Cm0, A1, A2, b1, b2, Tf0, Tv0, Tp, Tvl, Cn1, alpha1, alpha2, S1, S2, S3, S4, xcp)
-    end
-    return states, Cn, Cc, Cl, Cd, Cm
-end
