@@ -10,13 +10,13 @@ function numberofstates(dsmodel::BeddoesLeishman)
         @warn("The orginal Beddoes-Leishman model is not yet prepared.")
         return 0
     elseif dsmodel.version==2
-        return 29*dsmodel.n
+        return 21*dsmodel.n
     elseif dsmodel.version==3
         @warn("The orginal Beddoes-Leishman model is not yet prepared.")
-        return 29*dsmodel.n
+        return 21*dsmodel.n
     elseif dsmodel.version==4
         @warn("The orginal Beddoes-Leishman model is not yet prepared.")
-        return 29*dsmodel.n
+        return 21*dsmodel.n
     end
 end
 

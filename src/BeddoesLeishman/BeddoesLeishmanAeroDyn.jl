@@ -59,42 +59,41 @@ end
 function update_states_ADO(dsmodel::BeddoesLeishman, oldstates, flags, c, a, U, deltat, aoa, dcndalpha, alpha0, A1, A2, b1, b2, Tf0, Tv0, Tp, Tvl, Cn1, alpha1, alpha2, S1, S2, S3, S4)
 
     ### Unpack
-    aoa_m, alpha_m, alphaf_m, aoadot_m, q_m, Ka_m, Kq_m, X1_m, X2_m, X3_m, X4_m, Kpa_m, Kpq_m, Kppq_m, Kpppq_m, Dp_m, Df_m, Dfc_m, Cpotn_m, fp_m, fpc_m, fpp_m, fppc_m, tauv, Cvn_m, Cv_m, Daf_m, sigma1, sigma3 = oldstates #The underscore m means that it is the previous time step (m comes before n).
+    alpha_m, alphaf_m, q_m, Ka_m, Kq_m, X1_m, X2_m, Kpa_m, Kpq_m, Kppq_m, Kpppq_m, Dp_m, Df_m, Cpotn_m, fp_m, fpp_m, tauv, Cvn_m, Cv_m, sigma1, sigma3 = oldstates #The underscore m means that it is the previous time step (m comes before n).
+
+    #= States
+    1 - alpha
+    2 - alphaf
+    3 - q
+    4 - Ka
+    5 - Kq
+    6 - X1
+    7 - X2
+    8 - Kpa
+    9 - Kpq
+    10 - Kppq
+    11 - Kpppq
+    12 - Dp
+    13 - Df
+    14 - Cpotn
+    15 - fp
+    16 - fpp
+    17 - tauv
+    18 - Cvn
+    19 - Cv
+    20 - sigma1
+    21 - sigma3
+    =#
 
     LESF, TESF, VRTX = flags
 
-    states = zeros(29)
-
-    
-    states[1] = aoa
-    states[4] = aoadot = 0 #Appears to be unused. 
-    states[10] = X3 = 0 #Appears to be unused.
-    states[11] = X4 = 0 #Appears to be unused.
-    states[18] = Dfc = 0 #Appears to be unused.
-    states[21] = fpc = 1 #Appears to be unused.
-    states[23] = fppc = 1 #Appears to be unused.
-    # states[24] = tauv = 0 #Appears to be unused.
-    states[27] = Daf = 0 #Appears to be unused.
-
-    #Removal of states? 
-    #=
-    - aoa_m - The angle of attack at the previous time step (before low-pass filtering). )
-    - alphaf_m - delayed effective angle of incidence. 
-    - aoadot_m
-    - X3
-    - X4
-    - Dfc
-    - fpc 
-
-    =#
+    states = zeros(21)
 
 
     zeta, A5, b5, Tsh, _ = dsmodel.constants 
     #=
     zeta - Low-pass-fileter frequency cutoff. #TODO: Should this have the negative or should the equation have the negative? 
     Tsh - Strouhal's frequency 0.19
-
-    
     =#
 
     ########### Algorithm ############### (Converted from UA documentation)
@@ -104,26 +103,21 @@ function update_states_ADO(dsmodel::BeddoesLeishman, oldstates, flags, c, a, U, 
 
 
 
-    # Kan = (aoa - aoa_m)/deltat
-    # q = Kan*c/U # Equation 1.7 #Question: I don't think that equation 1.7 ever actually gets used. -> Maybe it's supposed to be an if statement? I dunno. 
-
-
-
     ###Low-pass-filtering #TODO: Might put this in a function. lowpass()
     Clp = exp(2*pi*deltat*zeta) #low-pass-filter constant. #Equation 1.8g -> removed the negative because zeta has a negative. 
     plC = 1 - Clp
 
-    states[2] = alpha = Clp*alpha_m + plC*aoa #low-pass-filtered angle of attack. #Equation 1.8a
+    states[1] = alpha = Clp*alpha_m + plC*aoa #low-pass-filtered angle of attack. #Equation 1.8a
     # @show alpha
 
     q = (alpha - alpha_m)*c/(U*deltat) #Pitch rate. #Equation 1.8b #This appears to be dimensionless. 
-    states[5] = q = Clp*q_m + plC*q #low-pass-filter pitch rate. #Equation 1.8c
+    states[3] = q = Clp*q_m + plC*q #low-pass-filter pitch rate. #Equation 1.8c
 
-    states[6] = Ka = q*U/deltat #Equation 1.8d #Todo: this combination of q and delta t don't work for small delta t. It makes Ka super larger. So either q needs to be smaller, or delta t larger. If delta t is larger, then q should be smaller as well... which is weird, because that puts a bottom limit on delta t... which breaks CFD rules. What is it Patankar's rules? I think this breaks Patankar's rules. 
+    states[4] = Ka = q*U/deltat #Equation 1.8d #Todo: this combination of q and delta t don't work for small delta t. It makes Ka super larger. So either q needs to be smaller, or delta t larger. If delta t is larger, then q should be smaller as well... which is weird, because that puts a bottom limit on delta t... which breaks CFD rules. What is it Patankar's rules? I think this breaks Patankar's rules. 
     # @show q, deltat #because deltat is small, Ka is large.... Maybe q should be smaller? 
 
     Kq = (q - q_m)/deltat #Equation 1.8e
-    states[7] = Kq = Clp*Kq_m + plC*Kq #Equation 1.8f
+    states[5] = Kq = Clp*Kq_m + plC*Kq #Equation 1.8f
 
 
 
@@ -134,7 +128,7 @@ function update_states_ADO(dsmodel::BeddoesLeishman, oldstates, flags, c, a, U, 
     bot = (1-M) + dcndalpha*M*M*beta*(A1*b1 + A2*b2) #TODO: Calculated solely at first time step.... Maybe we pull this out and pass it in as a function argument. ... Or just calculate it every time as it isn't super costly. 
     k_alpha = 1/bot #Equation 1.11a
 
-    bot = (1-M) + dcndalpha*M*M*beta*(A1*b1 + A2*b2) #TODO: The documentation has the same equation for 1.11b as 1.11a. -> In Leishman's 1900 state space paper, he has the second term in the denominator of k_alpha to be half of what is shown here. I'll try what I have, and if it is off, then I'll try changing it. 
+    bot = (1-M) + dcndalpha*M*M*beta*(A1*b1 + A2*b2) #TODO. The documentation has the same equation for 1.11b as 1.11a. -> In Leishman's 1900 state space paper, he has the second term in the denominator of k_alpha to be half of what is shown here. I'll try what I have, and if it is off, then I'll try changing it. -> It appears to be correct. 
     k_q = 1/bot #Equation 1.11b
 
     Talpha = 3*k_alpha*TI/4 #Equation 1.10a
@@ -146,16 +140,14 @@ function update_states_ADO(dsmodel::BeddoesLeishman, oldstates, flags, c, a, U, 
 
 
     ### Non-circulatory components of normal force
-    states[12] = Kpa = Kpa_m*exp(-deltat/Talpha) + (Ka - Ka_m)*exp(-deltat/(2*Talpha)) #Equation 1.18b, Deficiency function for eq. 1.18 
+    states[8] = Kpa = Kpa_m*exp(-deltat/Talpha) + (Ka - Ka_m)*exp(-deltat/(2*Talpha)) #Equation 1.18b, Deficiency function for eq. 1.18 
     Cnc_nalpha = 4*Talpha*(Ka-Kpa)/M #Equation 1.18, Noncirculatory component of normal force due to changes in alpha
-    # @show Talpha, Ka, Kpa, M #Both Ka and Kpa are large. I think Kpa is large because Ka is large. 
 
-    states[13] = Kpq = Kpq_m*exp(-deltat/Tq) + (Kq - Kq_m)*exp(-deltat/(2*Tq)) #Equation 1.19b, deficiency function for eq. 1.19
-    Cnc_nq = Tq*(Kq - Kpq)/M #Equation 1.19, Noncirculatory component of normal force due to changes in pitching rate. #TODO: The documentation conflicts on whether or not a minus should be included here. -> I'm going to assume that it is positive. And if I'm wrong... I'll change it. 
+    states[9] = Kpq = Kpq_m*exp(-deltat/Tq) + (Kq - Kq_m)*exp(-deltat/(2*Tq)) #Equation 1.19b, deficiency function for eq. 1.19
+    Cnc_nq = Tq*(Kq - Kpq)/M #Equation 1.19, Noncirculatory component of normal force due to changes in pitching rate. #TODO. The documentation conflicts on whether or not a minus should be included here. -> I'm going to assume that it is positive. And if I'm wrong... I'll change it. It seems to be correct with positive. 
 
     Cnc_naq = Cnc_nalpha + Cnc_nq #Equation 1.17, Noncirculatory component of normal force via superposition. 
 
-    # @show Cnc_nalpha, Cnc_nq #Cnc_nalpha is super off. Again. 
 
     
 
@@ -166,8 +158,8 @@ function update_states_ADO(dsmodel::BeddoesLeishman, oldstates, flags, c, a, U, 
     beta2 = beta^2 #beta squared
     delta_alpha = alpha - alpha_m #Note: Not explicitly defined in the documentation. Assumed. 
 
-    states[8] = X1 = X1_m*exp(-b1*beta2*deltas) + A1*exp(-b1*beta2*deltas/2)*delta_alpha #EQ 1.15a
-    states[9] = X2 = X2_m*exp(-b2*beta2*deltas) + A2*exp(-b2*beta2*deltas/2)*delta_alpha #EQ 1.15b
+    states[6] = X1 = X1_m*exp(-b1*beta2*deltas) + A1*exp(-b1*beta2*deltas/2)*delta_alpha #EQ 1.15a
+    states[7] = X2 = X2_m*exp(-b2*beta2*deltas) + A2*exp(-b2*beta2*deltas/2)*delta_alpha #EQ 1.15b
 
 
 
@@ -181,67 +173,44 @@ function update_states_ADO(dsmodel::BeddoesLeishman, oldstates, flags, c, a, U, 
 
     ### Circulatory component of moment. #Question: Why did they calculate the moment here? Do I need some of these things here? Is there a better spot to put this? 
     deltaq = q - q_m #Not explicityly stated in the docs. Assumed
-    states[15] = Kpppq = Kpppq_m*exp(-b5*beta2*deltas) + A5*deltaq*exp(-b5*beta2*deltas/2) #EQ 1.26
-    # Cc_mq = -dcndalpha*(q-Kpppq)*c/(16*beta*U) #EQ 1.25, Circulatory component of moment
+    states[11] = Kpppq = Kpppq_m*exp(-b5*beta2*deltas) + A5*deltaq*exp(-b5*beta2*deltas/2) #EQ 1.26
+
 
 
     ### Total normal force under attached conditions
-    states[19] = Cpotn = Cc_naq + Cnc_naq #Equation 1.20
-    # @show Cc_naq, Cnc_naq #Cnc_naq is gigantic. 
-
-
-    ### Noncirculatory component of moment due to change in alpha
-    # Cnc_ma = -Cnfit(alpha)/4 #EQ 1.27 Note: This equation was missed in the documented algorithm. 
-
+    states[14] = Cpotn = Cc_naq + Cnc_naq #Equation 1.20
 
 
     ### Noncirculatory component of moment due to change in pitch #Note: If this can, this should probably go with the other moment calculation. 
     bot = 15*(1-M) + 3*dcndalpha*A5*b5*beta*M*M/2  
     kmq = 7/bot #EQ 1.29b
-    states[14] = Kppq = Kppq_m*exp(-deltat/(kmq*kmq*TI)) + (Kq - Kq_m)*exp(-deltat/(2*kmq*kmq*TI)) #EQ 1.29c
-    # Cnc_mq = -7*TI*kmq*kmq*(Kq-Kppq)/(12*M) #EQ 1.29
-
-
-
-
-    ### Chordwise force
-    # Cpotcn = Cc_na*alphae #Todo: I think that this C^c_{n\alpha}(s,M) should be a circulatory normal coefficient. ... Well.. Now I don't know. It could be the compressibility corrected slope. 
-    # Cpotc = Cpotcn*tan(alphae + alpha0) #Equation 1.21  
+    states[10] = Kppq = Kppq_m*exp(-deltat/(kmq*kmq*TI)) + (Kq - Kq_m)*exp(-deltat/(2*kmq*kmq*TI)) #EQ 1.29c
 
 
 
     ####### boundary layer response 
-    states[16] = Dp = Dp_m*exp(-deltas/Tp) + (Cpotn - Cpotn_m)*exp(-deltas/(Tp*2)) #EQ1.35b, deficiency function. 
+    states[12] = Dp = Dp_m*exp(-deltas/Tp) + (Cpotn - Cpotn_m)*exp(-deltas/(Tp*2)) #EQ1.35b, deficiency function. 
     Cpn = Cpotn - Dp #EQ 1.35, lagged circulatory normal force 
 
-    # @show Cpotn, Dp #both of these are starting rather large. 
 
-    # @show Cpn #It blows up, starting at the first time step, but even more so on the second. 
-    states[3] = alphaf = Cpn/Cc_na + alpha0 #EQ 1.34, delayed effective angle of incidence  #Todo: This is getting fairly large on the third time step. #Todo: I think that this C^c_{n\alpha}(s,M) should be a circulatory normal coefficient. -> If it is the compressibility corrected slope... that makes sense. But ... bummer I had a question but now it's gone. 
+    states[2] = alphaf = Cpn/Cc_na + alpha0 #EQ 1.34, delayed effective angle of incidence  
 
-    states[20] = fp = seperationpoint(alphaf, alpha0, alpha1, alpha2, S1, S2, S3, S4) #EQ 1.33 
-    states[17] = Df = Df_m*exp(-deltas/Tf) + (fp - fp_m)*exp(-deltas/(2*Tf)) #EQ 1.36b
-    states[22] = fpp = fp - Df #EQ 1.36, delayed effective seperation point. 
+    states[15] = fp = seperationpoint(alphaf, alpha0, alpha1, alpha2, S1, S2, S3, S4) #EQ 1.33 
+    states[13] = Df = Df_m*exp(-deltas/Tf) + (fp - fp_m)*exp(-deltas/(2*Tf)) #EQ 1.36b
+    states[16] = fpp = fp - Df #EQ 1.36, delayed effective seperation point. 
     
 
 
     ### 
     fterm = (1 + sqrt(fpp))/2
-    # Cfsn = Cnc_naq + Cc_naq*(fterm)^2 #EQ 1.38, Normal force coefficient after accounting for separated flow from TE
-    # Cfsc = Cpotc*eta*sqrt(fpp) #EQ 1.40 #(sqrt(fpp)-0.2) #Gonzalez modifications
-
-    # @show Cnc_naq, Cc_naq, fterm #Both of the normal force coefficients are quite large. 
 
 
 
-    states[26] = Cv = Cc_na*alphae*(1 - fterm)^2 #EQ 1.49, Normal force coefficient due to accumulated vorticity
+    states[19] = Cv = Cc_na*alphae*(1 - fterm)^2 #EQ 1.49, Normal force coefficient due to accumulated vorticity
 
-    states[25] = Cvn = Cvn_m*exp(-deltas/Tv) + (Cv - Cv_m)*exp(-deltas/(2*Tv)) #EQ 1.47
+    states[18] = Cvn = Cvn_m*exp(-deltas/Tv) + (Cv - Cv_m)*exp(-deltas/(2*Tv)) #EQ 1.47
     #Note: Cv has to be the same sign as Cfs_n
 
-    # xbarcp = 0.2 #Todo: Decide if this goes in the airfoil or in the model. Also find out what it is. 
-    # xvcp = xbarcp*(1-cos(pi*tauv/(Tvl)))
-    # Cvm = -xvcp*Cvn
 
     ######## Update "other states"
     ### Test for Leading edge separation
@@ -323,9 +292,9 @@ function update_states_ADO(dsmodel::BeddoesLeishman, oldstates, flags, c, a, U, 
         sigma3 = 1 #Default
     end
 
-    states[24] = tauv
-    states[28] = sigma1
-    states[29] = sigma3
+    states[17] = tauv
+    states[20] = sigma1
+    states[21] = sigma3
 
 
     return states
@@ -335,10 +304,10 @@ function BLAD_coefficients(dsmodel::BeddoesLeishman, states, U, c, Cnfit, dcndal
 
     _, A5, b5, _, eta = dsmodel.constants 
 
-    Ka = states[6]
-    Kpa = states[12]
-    Kq = states[7]
-    Kpq = states[13]
+    Ka = states[4]
+    Kpa = states[8]
+    Kq = states[5]
+    Kpq = states[9]
 
     M = U/a # Mach number
     beta = sqrt(1 - M^2) #Prandtl-Glauert compressibility correction factor
@@ -360,19 +329,19 @@ function BLAD_coefficients(dsmodel::BeddoesLeishman, states, U, c, Cnfit, dcndal
 
     Cnc_naq = Cnc_nalpha + Cnc_nq
 
-    alpha = states[2]
-    X1 = states[8]
-    X2 = states[9]
+    alpha = states[1]
+    X1 = states[6]
+    X2 = states[7]
     alphae = (alpha - alpha0) - X1 - X2
     Cc_na = dcndalpha/beta #EQ 1.12, Circulatory component of the normal force coefficient response to step change in alpha. 
     Cc_naq = Cc_na*alphae
 
-    fpp = states[22]
+    fpp = states[16]
     fterm = (1 + sqrt(fpp))/2
 
     Cfsn = Cnc_naq + Cc_naq*(fterm)^2 #EQ 1.38, Normal force coefficient after accounting for separated flow from TE
 
-    Cvn = states[25]
+    Cvn = states[18]
 
     ### Total normal force 
     Cn = Cfsn + Cvn #EQ 1.53
@@ -382,14 +351,11 @@ function BLAD_coefficients(dsmodel::BeddoesLeishman, states, U, c, Cnfit, dcndal
 
 
     ######### Prepare inputs for chordwise force coefficient. 
-    
     Cpotc = Cc_naq*tan(alphae + alpha0) #Equation 1.21  
     Cfsc = Cpotc*eta*sqrt(fpp) #EQ 1.40 #(sqrt(fpp)-0.2) #Gonzalez modifications
 
     ### Chordwise force 
     Cc = Cfsc + Cvn*tan(alphae) #EQ 1.55
-
-
 
 
 
@@ -404,8 +370,8 @@ function BLAD_coefficients(dsmodel::BeddoesLeishman, states, U, c, Cnfit, dcndal
     
     Cc_naq = Cc_na*alphae
 
-    q = states[5]
-    Kpppq = states[15]
+    q = states[3]
+    Kpppq = states[11]
     Cc_mq = -dcndalpha*(q-Kpppq)*c/(16*beta*U)
 
     ### Noncirculatory component of moment due to change in alpha
@@ -413,10 +379,10 @@ function BLAD_coefficients(dsmodel::BeddoesLeishman, states, U, c, Cnfit, dcndal
 
     bot = 15*(1-M) + 3*dcndalpha*A5*b5*beta*M*M/2  
     kmq = 7/bot #EQ 1.29b
-    Kppq = states[14]
-    Cnc_mq = -7*TI*kmq*kmq*(Kq-Kppq)/(12*M) #EQ 1.29
+    Kppq = states[10]
+    Cnc_mq = -7*TI*kmq*kmq*(Kq-Kppq)/(12*M) #EQ 1.29, Circulatory component of moment.
 
-    tauv = states[24]
+    tauv = states[17]
     xbarcp = 0.2 #Todo: Is this different from xcp? 
     xvcp = xbarcp*(1-cos(pi*tauv/(Tvl)))
     Cvm = -xvcp*Cvn
@@ -451,18 +417,17 @@ function initialize_ADO(aoavec, tvec, airfoil::Airfoil, c, a)
     alpha = alphaf = aoavec[1]
     aoadot = q = Ka = 0 #(aoavec[2] - aoavec[1])/dt #Ka was initialized too high. aoadot isn't used. I might be able to use q = (aoavec[2] - aoavec[1])*c/(U*deltat) and ka = q*U/deltat... Why are q and Ka both states?... if one is just a multiple of the other. I guess U and delta t change, so it isn't the same multiple across time. 
     Kq = 0.0
-    X1 = X2 = X3 = X4 = 0.0
+    X1 = X2 = 0.0
     Kpa = Kpq = Kppq = Kpppq = 0.0
-    Dp = Df = Dfc = 0.0
+    Dp = Df = 0.0
     Cpotn = airfoil.cl(aoavec[1])
-    fp = fpc = fpp = fppc = 1.0
+    fp = fpp = 1.0
     tauv = 0.0
     Cvn = 0.0
     Cv = 0.0
-    Daf = 0.0
     sigma1 = sigma3 = 1.0
 
-    states = [aoa, alpha, alphaf, aoadot, q, Ka, Kq, X1, X2, X3, X4, Kpa, Kpq, Kppq, Kpppq, Dp, Df, Dfc, Cpotn, fp, fpc, fpp, fppc, tauv, Cvn, Cv, Daf, sigma1, sigma3]
+    states = [alpha, alphaf, q, Ka, Kq, X1, X2, Kpa, Kpq, Kppq, Kpppq, Dp, Df, Cpotn, fp, fpp, tauv, Cvn, Cv, sigma1, sigma3]
 
     loads = [airfoil.cl(aoa), airfoil.cd(aoa), airfoil.cl(aoa), airfoil.cd(aoa), airfoil.cm(aoa)]
 

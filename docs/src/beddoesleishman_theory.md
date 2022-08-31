@@ -5,8 +5,8 @@
 ## State Rate Equations 
 #### Equations
 
-==TODO: Enumeration not working properly.===
-1) reduced linear lift coefficient - high frequency (or low, don't know which) (EQ 13)
+
+-  reduced linear lift coefficient - high frequency (or low, don't know which) (EQ 13)
 
 ```math
 \dot{c}_1 + \omega_1 c_1(t) = A_1 \dot{C}_{L0}(t)
@@ -14,7 +14,6 @@
 
 
 
-2) reduced linear lift coefficient - low frequency (EQ 13)
 
 - reduced linear lift coefficient - low frequency (EQ 13)
 
@@ -120,35 +119,6 @@ AeroDyn lists a set of discrete states that are different from what a demarcated
 |   $\sigma_1$   | `sigma1` | Constant to modify $T_f$. |  Changes discontinuously.  |
 |   $\sigma_3$   | `sigma3` | Constant to modify $T_v$. |  Changes discontinuously.  |
 
-|     Variable     |                             Name                             |                           Comments                           |
-| :--------------: | :----------------------------------------------------------: | :----------------------------------------------------------: |
-|      $\alpha$       |  Angle of Attack  (AOA)  | I don't see where this is used (in the previous time step). |
-|      $\alpha_{lp}$       |  Low-pass-filtered AOA      |  |
-| $\alpha_{f}$ | Delayed effective Angle of Incidence (AOI) | I don't see where this is used (in the previous time step). |
-|   $q$    |    Pitch rate   |      I don't see where this is used (in the previous time step).     |
-|  $q_{lp}$ | low-pass-filtered $q$ | |
-| $K_{\alpha_{lp}}$ | low-pass-filtered $K_{\alpha}$ | 
-| $K_{q_{lp}}$ | low-pass-filtered $K_q$ | 
-|  $X_1$  |     |         |
-|   $X_2$  |     |        |
-|   $X_3$   |     |      |
-|   $X_4$   |     |      |
-|   $K'_\alpha$   |   Deficiency function for noncirulatory component of normal force based on angle of attack  |      |
-|   $K'_q$   |  Deficiency function for noncirulatory component of normal force based on pitching rate  |      |
-|   $K''_q$   |   Deficiency function for noncirulatory component of moment  |      |
-|   $K'''_q$   |   Deficiency function for cirulatory component of moment  |      |
-|   $D_p$   |   Deficiency function for cirulatory component of normal force  |      |
-|   $D_f$   |  Deficiency function for the separation point   |      |
-|   $D_{f_c}$   |     |      |
-|   $C_n^{pot}$   |     |      |
-|   $f'$   |     |      |
-|   $f'_c$   |     |      |
-|   $f''$   |     |      |
-|   $f''_c$   |     |      |
-|   $\tau_v$   |     |      |
-|   $C_n^v$   |     |      |
-|   $C_v$   |     |      |
-|   $D_{\alpha f}$   |     |      |
 
 
 
@@ -190,34 +160,25 @@ The AeroDyn documentation provides this algorithm (with some minor modifications
     - $T_I = \frac{c}{a}$
 2) Equation 1.5b - Nondimensional distance
     - $\Delta s = \frac{2}{c}U(t)\Delta t$
-
-- 1.7 - 1.8
-    - (1.7) Nondimensional pitch rate
-        - $q = \frac{\dot{\alpha}c}{U} \approx \frac{K_{\alpha n}c}{U}$ 
-        - $K_{\alpha n} = \frac{ \alpha_n - \alpha_{n-1}}{\Delta t}$
-
-    - (1.8) Applying a low pass filter to $K_\alpha$.
-        - $\alpha_{lp_n} = C_{lp}\alpha_{lp_{n-1}} + (1 - C_lp)\alpha_n$ (low-pass-filtered $\alpha$)
-        - $q_n = \frac{(\alpha_{lp_n} - \alpha_{lp_{n-1}})c}{U_n \Delta t}$ 
-        - $q_{lp_n} = C_{lp}q_{lp_{n-1}} + (1 - C_{lp})q_n$ (low-pass-filtered $q$)
-        - $K_{\alpha lp_n} = \frac{q_{lp_n}U_n}{\Delta t}$ (modified value of $K_\alpha$)
-        - $K_{q_n} = \frac{q_n - q_{n-1}}{\Delta t}$ (backward finite difference of $q$)
-        - $K_{qlp_n} = C_{lp}K_{q lp_{n-1}} + (1 - C_{lp})K_{q_n}$ (low-pass-filtered $k_q$)
-        - $C_{lp} = e^{-2\pi \Delta t \zeta_{lp}}$ (low-pass-filter constant)
-        - $\zeta_{lp}$ typically - 3 dB (low-pass-frequency cutoff)
-
-**From here on the LP subscript is dropped with the understanding that quantities such as $\alpha$, $K_\alpha$, $q$, and $K_q$ denote filtered quantities**. 
-
-- 1.11a (calculated solely at first time step)
+3) Equation 1.8 - Applying a low pass filter to $K_\alpha$ and $K_q$.
+    - $\alpha_{lp_n} = C_{lp}\alpha_{lp_{n-1}} + (1 - C_lp)\alpha_n$ (low-pass-filtered $\alpha$)
+    - $q_n = \frac{(\alpha_{lp_n} - \alpha_{lp_{n-1}})c}{U_n \Delta t}$ 
+    - $q_{lp_n} = C_{lp}q_{lp_{n-1}} + (1 - C_{lp})q_n$ (low-pass-filtered $q$)
+    - $K_{\alpha_{lp_n}} = \frac{q_{lp_n}U_n}{\Delta t}$ (modified value of $K_\alpha$)
+    - $K_{q_n} = \frac{q_n - q_{n-1}}{\Delta t}$ (backward finite difference of $q$)
+    - $K_{qlp_n} = C_{lp}K_{q lp_{n-1}} + (1 - C_{lp})K_{q_n}$ (low-pass-filtered $k_q$)
+    - $C_{lp} = e^{-2\pi \Delta t \zeta_{lp}}$ (low-pass-filter constant)
+    - $\zeta_{lp}$ typically - 3 dB (low-pass-frequency cutoff)
+    - **From here on the LP subscript is dropped with the understanding that quantities such as $\alpha$, $K_\alpha$, $q$, and $K_q$ denote filtered quantities**. 
+4) Equation 1.11a 
     - $k_\alpha(M) = \frac{1}{(1 - M) + C_{n\alpha}(M)M^2\beta_M(A_1b_1 +A_2b_2)}$
     - Note that this is different from $K_\alpha$. It is a lowercase k. 
     - Suggested to be calculated solely at first time step.
 5) Equation 1.11b 
     - $k_q(M) = \frac{1}{(1-M) + C_{n\alpha}(M)M^2\beta_M(A_1b_1 + A_2b_2)}$
-    - ==There appears to be a repeat of the equation.==
-        - In Leishman's 1990 paper, the second term in the denominator of $k_\alpha$ is half of the $k_q$ term. 
-
-- 1.10
+    - This is also suggest to be calculated solely at first time step. Additionally, this is different from $K_q$ (another difference of letter case). 
+    - Note that this equation is a repeat of equation 1.11a. In Leishman's 1990 paper, the second term in the denominator of $k_\alpha$ is half of the $k_q$ term. Here we leave it as a repeated equation. 
+6) Equation 1.10
     - $T_\alpha(M) = 0.75 k_\alpha(M)T_I$
     - $T_q(M) = 0.75 k_q(M)T_I$
 7) Equation 1.37
@@ -254,18 +215,11 @@ The AeroDyn documentation provides this algorithm (with some minor modifications
     - $C_{m_q}^{nc}(s,M) = -\frac{7T_i}{12M}\left(k_{m,q}(M)\right)^2 (K_q - K''_q)$
         - $k_{m,q}(M) = \frac{7}{15(1-M) + 1.5 C_{n\alpha}(M)A_5 b_5 \beta_M M^2}$
         - $K''_{q_n} = K''_{q_{n-1}}\text{exp}\left(- \frac{\Delta t}{(k_{m,q}(M))^2 T_I} \right) + (K_{q_n} - K_{q_{n-1}})\text{exp}\left(- \frac{\Delta t}{2(k_{m,q}(M))^2 T_I} \right)$
-            - ==Why are we calculating these portions of the moment?==
-
--  (Chordwise force)
-    - (1.20c) $C^{pot,c}_n = C^c_{n\alpha}(s,M)\alpha_e$ 
-        - Used above in equation 1.20 -> Could combine. 
-    - (1.21) $C_C^{pot} = C_n^{pot,c}\text{tan}(\alpha_e + \alpha_0)$
-
-- 1.35 (Lagged Circulatory normal force (boundary layer response))
+        - Only the second two equations are calculated in the update states routine, the first equation is calculated in the update forces routine. 
+18) Equation 1.35 - Lagged Circulatory normal force (boundary layer response)
     - $C'_n = C_n^{pot} - D_p$
         - $D_{p_n} = D_{p_{n-1}}\text{exp}\left(- \frac{\Delta s}{T_p}\right) + (C_{n_{n}}^{pot}-C_{n_{n-1}}^{pot})\text{exp}\left(-\frac{\Delta s}{2T_p}\right) $
-
-- 1.34 (Delayed effective angle of incidence)
+19) Equation 1.34 (Delayed effective angle of incidence)
     - $\alpha_f = \frac{C'_n}{C_{n\alpha}^c(s,M)} + \alpha_0$
 
 20) Equation 1.33 - TE Separation point distance (from LE in percentage chord)
