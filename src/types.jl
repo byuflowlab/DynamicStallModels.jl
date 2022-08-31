@@ -1,4 +1,4 @@
-export simpleairfoil, airfoil, riso
+export simpleairfoil, airfoil, riso, Airfoil
 
 """
     Airfoil(polar::Array{TF, 2}, cl::Tfit, cd::Tfit, cm::Tfit, dcldalpha::TF, alpha0::TF, alphasep::Array{TF, 1}, A::Array{TF, 1}, b::Array{TF, 1}, T::Array{TF, 1})
@@ -17,7 +17,7 @@ A struct to hold all of the airfoil polars, fits, and dynamic coefficients.
 - b - A vector of floats holding the b dynamic constants for the airfoil. 
 - T - A vector of floats holding the time constants for the airfoil. 
 """
-struct Airfoil{TF, Tfit}
+struct Airfoil{TF, Tfit}  
     polar::Array{TF, 2}
     cl::Tfit
     cd::Tfit
@@ -28,7 +28,12 @@ struct Airfoil{TF, Tfit}
     A::Array{TF,1}
     b::Array{TF,1}
     T::Array{TF,1}
+    S::Array{TF,1}
+    xcp::TF
 end
+
+#Note: Considering adding fit parameters.
+# -> Maybe another solution would be to make an abstract type that is an Airfoil, then have structs like RisoAirfoil, and BLAirfoil. 
 
 """
     simpleairfoil(polar::Array{TF, 2})
@@ -56,7 +61,10 @@ function simpleairfoil(polar)
     _, maxclidx = findmax(polar[:,2])
 
     alphasep = [polar[minclidx, 1], polar[maxclidx,1]]
-    return Airfoil(polar, cl, cd, cm, dcldalpha, alpha0, alphasep, A, b, T)
+
+    S = zeros(4)
+    xcp = 0.2
+    return Airfoil(polar, cl, cd, cm, dcldalpha, alpha0, alphasep, A, b, T, S, xcp)
 end
 
 
@@ -74,7 +82,7 @@ A slightly more complex version of simpleairfoil. Takes a polar and numerically 
 ### Outputs
 - Airfoil
 """
-function airfoil(polar; A = [0.3, 0.7], b = [0.14, 0.53], T = [1.7, 3.0])
+function airfoil(polar; A = [0.3, 0.7], b = [0.14, 0.53], T = [1.7, 3.0], S=zeros(4), xcp=0.2)
     #Todo: Need some sort of behavior when the provided polar is too small. 
 
     cl = Akima(polar[:,1], polar[:,2])
@@ -102,12 +110,12 @@ function airfoil(polar; A = [0.3, 0.7], b = [0.14, 0.53], T = [1.7, 3.0])
         dcldalpha=2*pi
         @warn("dcldalpha returned NaN")
     end
-    return Airfoil(polar, cl, cd, cm, dcldalpha, alpha0, alphasep, A, b, T)
+    return Airfoil(polar, cl, cd, cm, dcldalpha, alpha0, alphasep, A, b, T, S, xcp)
 end
 
 
 
-export Functional, Iterative
+export Functional, Iterative, Indicial
 
 abstract type DEType end #Is the model designed to be solved in one go, or iteratively, updating p ever iteration. 
 
@@ -124,6 +132,7 @@ end
 
 
 abstract type DSModel end
+# export DSModel
 
 export Riso, riso
 """
@@ -136,9 +145,9 @@ The Risø model struct. It stores airfoil data for every section to be simulated
 - n - The number of sections to be simulated. 
 - airfoils - A vector of Airfoil structs, one corresponding to each section to be simulated. 
 """
-struct Riso <: DSModel
+struct Riso{TI} <: DSModel
     detype::DEType 
-    n::Int #Number of airfoils simulated
+    n::TI #Number of airfoils simulated
     airfoils::Array{Airfoil,1}
 end
 
@@ -159,7 +168,7 @@ end
 export BeddoesLeishman
 
 """
-    BeddoesLeishman(detype::DEType, n::Int, airfoils::Array{Airfoil, 1})
+    BeddoesLeishman(detype::DEType, n::Int, airfoils::Array{Airfoil, 1}, version::Int)
 
 The Beddoes-Leishman model struct. It stores airfoil data for every section to be simulated. It can be used as a method to return updated states or state rates depending on it's DEType. 
 
@@ -167,12 +176,20 @@ The Beddoes-Leishman model struct. It stores airfoil data for every section to b
 - detype - The type of model it is, Functional(), Iterative(), or Indicial().
 - n - The number of sections to be simulated. 
 - airfoils - A vector of Airfoil structs, one corresponding to each section to be simulated. 
+- version - Which version of the indicial implementation. 1) original. 2) AeroDyn original. 3) AeroDyn Gonzalez. 4) AeroDyn Minema
+- constants - Constants that change with version of the model. 
 """
-struct BeddoesLeishman <: DSModel
+struct BeddoesLeishman{TF, TI} <: DSModel
     detype::DEType 
-    n::Int #Number of airfoils simulated
+    n::TI #Number of airfoils simulated
     airfoils::Array{Airfoil,1}
+    version::TI #Which version of the indicial implementation. 
+    constants::Array{TF, 1} #Model Constants #TODO: Maybe I'll make this a tuple? I don't know if that'll be any better. 
 end
+
+
+
+
 
 export Onera
 
@@ -186,9 +203,9 @@ The Onera model struct. It stores airfoil data for every section to be simulated
 - n - The number of sections to be simulated. 
 - airfoils - A vector of Airfoil structs, one corresponding to each section to be simulated. 
 """
-struct Onera <: DSModel
+struct Onera{TI} <: DSModel
     detype::DEType 
-    n::Int #Number of airfoils simulated
+    n::TI #Number of airfoils simulated
     airfoils::Array{Airfoil,1}
 end
 
@@ -204,9 +221,9 @@ The Larsen model struct. It stores airfoil data for every section to be simulate
 - n - The number of sections to be simulated. 
 - airfoils - A vector of Airfoil structs, one corresponding to each section to be simulated. 
 """
-struct Larsen <: DSModel
+struct Larsen{TI} <: DSModel
     detype::DEType 
-    n::Int #Number of airfoils simulated
+    n::TI #Number of airfoils simulated
     airfoils::Array{Airfoil,1}
 end
 
@@ -222,8 +239,8 @@ The Øye model struct. It stores airfoil data for every section to be simulated.
 - n - The number of sections to be simulated. 
 - airfoils - A vector of Airfoil structs, one corresponding to each section to be simulated. 
 """
-struct Oye <: DSModel
+struct Oye{TI} <: DSModel
     detype::DEType 
-    n::Int #Number of airfoils simulated
+    n::TI #Number of airfoils simulated
     airfoils::Array{Airfoil,1}
 end

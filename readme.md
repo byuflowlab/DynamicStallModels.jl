@@ -1,6 +1,7 @@
 # DynamicStallModels.jl
 
 [![](https://img.shields.io/badge/docs-dev-blue.svg)](http://flow.byu.edu/DynamicStallModels.jl/)
+[![Build Status](https://github.com/byuflowlab/DynamicStallModels.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/byuflowlab/DynamicStallModels.jl/actions/workflows/CI.yml?query=branch%3Amain)
 
 
 This package is a collection of different dynamic stall models. 

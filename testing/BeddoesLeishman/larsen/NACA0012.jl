@@ -5,10 +5,7 @@ using Polynomials
 
 include("../BeddoesLeishmanLarsen.jl")
 
-function b2w(b, v, c; a=343.3)
-    #Not sure if this equation actually works. I got it from comparing wagner function approximations from Larsen and Leishman. 
-    return b*(1-((v/a)^2))*2*v/c
-end
+
 
 
 function U(t)
