@@ -28,8 +28,9 @@ function solve_indicial(dsmodel::DSModel, cvec, tvec, Uvec, aoavec; a = 343.0, v
             ### Update environmental inputs
             t = tvec[i]
             dt = tvec[i+1]-tvec[i]
-            p[26] = U = Uvec[i+1]
-            p[27] = aoa = aoavec[i+1]
+            # p[23] = U = Uvec[i+1]
+            # p[24] = aoa = aoavec[i+1]
+            update_environment!(dsmodel, p, Uvec[i+1], aoavec[i+1])
 
             if verbose
                 @show t

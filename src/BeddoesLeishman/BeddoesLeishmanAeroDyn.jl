@@ -5,7 +5,7 @@ AeroDyn's implementation of the Beddoes-Leishman model.
 
 
 function getloads_BLA(dsmodel::BeddoesLeishman, states, p, airfoil)
-    c, a, dcndalpha, alpha0, Cd0, Cm0, A1, A2, b1, b2, Tf0, Tv0, Tp, Tvl, Cn1, alpha1, alpha2, S1, S2, S3, S4, xcp, _, _, _, U, _ = p
+    c, a, dcndalpha, alpha0, Cd0, Cm0, A1, A2, b1, b2, Tf0, Tv0, Tp, Tvl, Cn1, alpha1, alpha2, S1, S2, S3, S4, xcp, U, _ = p
     Cnfit = airfoil.cl
 
     Cn, Cc, Cl, Cd, Cm = BLAD_coefficients(dsmodel::BeddoesLeishman, states, U, c, Cnfit, dcndalpha, alpha0, Cd0, Cm0, A1, A2, b1, b2, Tvl, xcp, a)
@@ -32,14 +32,14 @@ end
 
 
 #AeroDyn original implementation. 
-function update_states_ADO(dsmodel::BeddoesLeishman, oldstates, flags, c, a, U, deltat, aoa, dcndalpha, alpha0, A1, A2, b1, b2, Tf0, Tv0, Tp, Tvl, Cn1, alpha1, alpha2, S1, S2, S3, S4)
+function update_states_ADO(dsmodel::BeddoesLeishman, oldstates, c, a, U, deltat, aoa, dcndalpha, alpha0, A1, A2, b1, b2, Tf0, Tv0, Tp, Tvl, Cn1, alpha1, alpha2, S1, S2, S3, S4) #Todo: Take out flags
 
     ### Unpack
-    alpha_m, alphaf_m, q_m, Ka_m, Kq_m, X1_m, X2_m, Kpa_m, Kpq_m, Kppq_m, Kpppq_m, Dp_m, Df_m, Cpotn_m, fp_m, fpp_m, tauv, Cvn_m, Cv_m, sigma1, sigma3 = oldstates #The underscore m means that it is the previous time step (m comes before n).
+    alpha_m, alphaf_m, q_m, Ka_m, Kq_m, X1_m, X2_m, Kpa_m, Kpq_m, Kppq_m, Kpppq_m, Dp_m, Df_m, Cpotn_m, fp_m, fpp_m, tauv, Cvn_m, Cv_m, LESF_m, TESF_m, VRTX_m = oldstates #The underscore m means that it is the previous time step (m comes before n).
 
     #= States
     1 - alpha
-    2 - alphaf
+    2 - alphaf #TODO: I'm not sure that this state is needed. 
     3 - q
     4 - Ka
     5 - Kq
@@ -57,13 +57,15 @@ function update_states_ADO(dsmodel::BeddoesLeishman, oldstates, flags, c, a, U, 
     17 - tauv
     18 - Cvn
     19 - Cv
-    20 - sigma1
-    21 - sigma3
+    20 - LESF::Bool
+    21 - TESF::Bool
+    22 - VRTX::Bool
     =#
 
-    LESF, TESF, VRTX = flags #Todo: Flags are closer to states, not parameters. 
 
-    states = zeros(21)
+    states = zeros(22)
+
+
 
 
     zeta, A5, b5, Tsh, _ = dsmodel.constants 
@@ -98,6 +100,57 @@ function update_states_ADO(dsmodel::BeddoesLeishman, oldstates, flags, c, a, U, 
 
     Kq = (q - q_m)/deltat #Equation 1.8e
     states[5] = Kq = Clp*Kq_m + plC*Kq #Equation 1.8f
+
+    ### Update sigma 1 - Tf modifications
+    Delta_alpha0 = alpha - alpha0
+    sigma1 = 1
+    sigma3 = 1
+    if TESF_m == 1 #(Separation)
+        if Ka_m*Delta_alpha0 < 0
+            sigma1 = 2 #(Accelerate separation point movement)
+        else
+            if LESF_m == 0
+                sigma1 = 1 #(LE separation can occur)
+            else
+                if fpp_m <= 0.7 
+                    sigma1 = 2 #(accelerate separation point movement if separation is occuring )
+                else
+                    sigma1 = 1.75
+                end
+            end
+        end
+    else #(reattachment (`TESF==false`))
+        if LESF_m == 0
+            sigma1 = 0.5 #(Slow down reattachment)
+        elseif VRTX_m == 1  && 0 <= tauv <= Tvl
+            sigma1 = 0.25 #(No flow reattachment if vortex shedding is in progress)
+        elseif Ka_m*Delta_alpha0 > 0
+            sigma1 = 0.75
+        end 
+    end
+
+    ### Update sigma3 - Tv modifications
+    if Tvl <= tauv <= 2*Tvl
+        sigma3 = 3 #Postshedding
+        if TESF_m == 0
+            sigma3 = 4 #Accelerate vortex lift decay
+            if VRTX_m == 1 && 0 <= tauv <= Tvl
+                if Ka_m*Delta_alpha0 < 0
+                    sigma3 = 2 #Accelerate vortex lift decay
+                else
+                    sigma3 = 1 #default
+                end
+            end
+        end
+    else
+        if Ka_m*Delta_alpha0 < 0
+            sigma3 = 4 #vortex lift must decay fast
+        end
+    end
+    
+    if TESF_m == 0 && Kq_m*Delta_alpha0 < 0 #Note that it's Kq and not K_alpha
+        sigma3 = 1 #Default
+    end
 
 
 
@@ -202,86 +255,41 @@ function update_states_ADO(dsmodel::BeddoesLeishman, oldstates, flags, c, a, U, 
     ######## Update "other states"
     ### Test for Leading edge separation
     if Cpn > Cn1 
-        LESF = true #LE separation can occur
+        LESF = 1.0 #LE separation can occur
     else
-        LESF = false #Reattachment can occur
+        LESF = 0.0 #Reattachment can occur
     end
 
     ### Test for Trailing edge separation
     if fpp < fpp_m
-        TESF = true #TE separation in progress
+        TESF = 1.0 #TE separation in progress
     else
-        TESF = false
+        TESF = 0.0
     end
 
     ### Test for vortex advection
     if 0< tauv <= 2*Tvl
-        VRTX = true #Vortex advection in progress
+        VRTX = 1.0 #Vortex advection in progress
     else
-        VRTX = false #Vortex is in wake. 
+        VRTX = 0.0 #Vortex is in wake. 
     end
 
     ### Vortex position reset
-    if (tauv >= 1 + Tsh/Tvl) & (LESF = true)
+    if (tauv >= 1 + Tsh/Tvl) & (LESF == 1.0)
         tauv = 0
     end
 
-    if LESF
+    if LESF==1
         tauv += deltat*2*U/c #No way given to update tauv. Doing a simple Euler step. 
     end
 
-    ### Update sigma 1 - Tf modifications
-    Delta_alpha0 = alpha - alpha0
-    if TESF == true #(Separation)
-        if Ka*Delta_alpha0 < 0
-            sigma_1 = 2 #(Accelerate separation point movement)
-        else
-            if LESF == false
-                sigma_1 = 1 #(LE separation can occur)
-            else
-                if fpp_m <= 0.7 
-                    sigma_1 = 2 #(accelerate separation point movement if separation is occuring )
-                else
-                    sigma_1 = 1.75
-                end
-            end
-        end
-    else #(reattachment (`TESF==false`))
-        if LESF == false
-            sigma_1 = 0.5 #(Slow down reattachment)
-        elseif VRTX == true  && 0 <= tauv <= Tvl
-            sigma_1 = 0.25 #(No flow reattachment if vortex shedding is in progress)
-        elseif Ka*Delta_alpha0 > 0
-            sigma_1 = 0.75
-        end 
-    end
-
-    ### Update sigma3 - Tv modifications
-    if Tvl <= tauv <= 2*Tvl
-        sigma3 = 3 #Postshedding
-        if TESF== false
-            sigma3 = 4 #Accelerate vortex lift decay
-            if VRTX == true && 0 <= tauv <= Tvl
-                if Ka*Delta_alpha0 < 0
-                    sigma3 = 2 #Accelerate vortex lift decay
-                else
-                    sigma3 = 1 #default
-                end
-            end
-        end
-    else
-        if Ka*Delta_alpha0 < 0
-            sigma3 = 4 #vortex lift must decay fast
-        end
-    end
     
-    if TESF == false && Kq*Delta_alpha0 < 0 #Note that it's Kq and not K_alpha
-        sigma3 = 1 #Default
-    end
 
     states[17] = tauv
-    states[20] = sigma1 #Todo: If flags are put as states, then might I be able to just calculate these? 
-    states[21] = sigma3
+    states[20] = LESF
+    states[21] = TESF
+    states[22] = VRTX
+
 
 
     return states
@@ -439,19 +447,22 @@ function initialize_ADO(Uvec, aoavec, tvec, airfoil::Airfoil, c, a)
     tauv = 0.0
     Cvn = 0.0
     Cv = 0.0
-    sigma1 = sigma3 = 1.0
 
-    states = [alpha, alphaf, q, Ka, Kq, X1, X2, Kpa, Kpq, Kppq, Kpppq, Dp, Df, Cpotn, fp, fpp, tauv, Cvn, Cv, sigma1, sigma3]
+    LESF = TESF = VRTX = 0
+
+    states = [alpha, alphaf, q, Ka, Kq, X1, X2, Kpa, Kpq, Kppq, Kpppq, Dp, Df, Cpotn, fp, fpp, tauv, Cvn, Cv, LESF, TESF, VRTX]
 
     loads = [airfoil.cl(aoa), airfoil.cd(aoa), airfoil.cl(aoa), airfoil.cd(aoa), airfoil.cm(aoa)]
 
-
-    flags = [false, false, false]
 
     p = [c, a, dcndalpha, alpha0, Cd0, Cm0, A1, A2, b1, b2, Tf0, Tv0, Tp, Tvl, Cn1, alpha1, alpha2, S1, S2, S3, S4, xcp]
 
     envvars = [Uvec[1], aoavec[1]]
 
-    return states, loads, vcat(p, flags, envvars)
+    return states, loads, vcat(p, envvars)
 end
 
+function updateenvironment_ADO(p, U, aoa)
+    p[23] = U
+    p[24] = aoa
+end
