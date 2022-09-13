@@ -93,7 +93,7 @@ AeroDyn has it's own implementation of the Beddoes-Leishman model, with several 
 
 
 #### States
-AeroDyn lists a set of discrete states that are different from what a demarcated as the states from the original Beddoes-Leishman model. These states make sense when you consider simulation, as you need this information from step to step. I'll note that I had to add a couple of states to the original documentation, specifically $\tau_v$, $\sigma_1$, and $\sigma_3$. 
+AeroDyn lists a set of discrete states that are different from what a demarcated as the states from the original Beddoes-Leishman model. These states make sense when you consider simulation, as you need this information from step to step. I'll note that I modified the original list of states, specifically $\tau_v$, $\sigma_1$, and $\sigma_3$ were added and several were removed. 
 
 |     Variable     | Code Variable |  Name     |          Comments               |
 | :--------------: | :----: |:----------------------------------------------------------: | :----------------------------------------------------------: |
@@ -123,7 +123,7 @@ AeroDyn lists a set of discrete states that are different from what a demarcated
 
 
 
-#### Logical Flags
+<!-- #### Logical Flags
 ```julia
 if UAmod == 1
     # Closest model to the original Leishman-Beddoes formulation
@@ -151,7 +151,8 @@ end
 if flookup # == true
     # EQ 1.33 gets replaced by lookup values for f'n and f'c. Note that if UAmod == 2 or 3, the flag is automatically set to true. 
 end
-```
+``` 
+-->
 
 #### Algorithm to Update Discrete States
 The AeroDyn documentation provides this algorithm (with some minor modifications included). 
@@ -231,34 +232,23 @@ The AeroDyn documentation provides this algorithm (with some minor modifications
     0.04 + 0.66 \text{exp}\left(\frac{\alpha - \alpha_2}{S_4}\right) \text{ if } \alpha < \alpha_2
     \end{cases}
 ```
-- 
     - $S_1$ and $S_2$ are best-fit constants that define the abruptness of the static stall. 
     - $\alpha_1$ is the angle of attack @ $f=0.7$ for $\alpha\geq\alpha_0$. 
     - $\alpha_2$ is the angle of attack @ $f=0.7$ for $\alpha<\alpha_0$. 
-
 21) Equation 1.36 - f that accounts for delays in the boundary layer
     - $f'' = f' - D_f$
         - $f' = f(\alpha_f)$
             - $f'$ can be derived from a direct lookup table of static airfoil data reversing EQ 1.32. In fact, two values of $f'$ could be calculated: one for $C_n(f'_n)$ and one for $C_c(f'_c)$. 
         - $D_{f_n} = D_{f_{n-1}} \text{exp}\left(- \frac{\Delta s}{T_f}\right) + (f'_n - f'_{n-1})\text{exp}\left(- \frac{\Delta s}{2T_f}\right)$
-
-22) Equation 1.38 [or 1.39] - Normal force coefficient after accounting for separated flow from TE
-    - (1.38) $C_n^{fs} = C_{n_{\alpha,q}}^{nc}(s, M) + C_{n_{\alpha,q}}^{c}(s,M)\left(\frac{1 + \sqrt{f''}}{2}\right)^2$
-    - (1.39)
-        - Gonzalez (2014) correction. 
-
-23) Equation 1.49 [or 1.50] - Normal force coefficient due to accumulated vorticity
+22) Equation 1.49 [or 1.50] - Normal force coefficient due to accumulated vorticity
     - (1.49) $C_V = C_{n\alpha}^c(s,M)\alpha_e\left(1 - \frac{1 + \sqrt{f''}}{2}\right)^2$
-    - (1.50)
-        - Gonzalez (2014) correction.
-
-24) Equation 1.47 [or 1.52] - Normal force coefficient contribution from the additional lift from LE vortex
+23) Equation 1.47 [or 1.52] - Normal force coefficient contribution from the additional lift from LE vortex
     - (1.47) $C_{n_n}^v = C_{n_{n-1}}^v \text{exp}\left(- \frac{\Delta s}{T_v}\right) + (C_{V_n} - C_{V_{n-1}})\text{exp}\left(- \frac{\Delta s}{2T_v}\right)$
         - Note that $C_n^v$ is not allowed to have a sign opposite to that of $C_n^{fs}$. 
-    - (1.52)
-        - some correction
 
 #### Update Other States
+There are other states that AeroDyn doesn't declare as states because they are either boolean flags or discrete valued states. They are updated here. 
+
 ###### Leading Edge Separation
 - if $C'_n > C_{n1} \implies (C'_n<C_{n2}$ for $\alpha<\alpha_0)$ 
     - `LESF = true #LE separation can occur`
@@ -349,26 +339,67 @@ end
 
 ```
 
-#### Calculate Output
-==For the first time step, outputs are determined by static lookup tables==
+You'll note that at this point I haven't updated the non-dimensional time state variable that denotes the location of the leading edge vortex, $\tau_v$. After checking to see if the vortex position is reset, I increment it. This is not provided in the documentation, so this value is assumed: 
 
-**Same as Update Discrete States Plus**
-- 1.53 (Total normal force)
+- if `LESF==true`
+    - $\tau_v += \frac{2U\Delta t}{c}$
+- end
+
+#### Calculate Output
+As a seperate routine, here is the algorithm to calculate the loads. Note that you either have to pass out some intermediate values (values that are not states), or recalculate some of them based on the states. Here we recalculate them to minimize the length of the state vector. Another option to would be to calculate the loads within the same scope of the update states function, we don't do this to mirror the format of the other models that the states are updated by DifferentialEquations. It is also important to note that for the first time step, outputs are determined by static lookup tables.
+
+1) Small inputs
+    - $M = \frac{U}{a}$
+    - $\beta = \sqrt{1 - M^2}$
+    - $T_I = \frac{c}{a}$
+2) Equation 1.11a 
+    - $k_\alpha(M) = \frac{1}{(1 - M) + C_{n\alpha}(M)M^2\beta_M(A_1b_1 +A_2b_2)}$
+3) Equation 1.10a
+    - $T_\alpha(M) = 0.75 k_\alpha(M)T_I$
+4) Equation 1.18 - Noncirculatory component of normal force due to changes in alpha
+    - $C_{n_\alpha}^{nc}(s,M) = \frac{4T_\alpha(M)}{M}(K_\alpha - K'_\alpha)$
+    - Note that $K_\alpha$ and $K'_\alpha$ are both states, so they don't need to be recalculated. 
+5) Equation 1.11b
+    - $k_q(M) = \frac{1}{(1-M) + C_{n\alpha}(M)M^2\beta_M(A_1b_1 + A_2b_2)}$
+6) Equation 1.10b
+    - $T_q(M) = 0.75 k_q(M)T_I$
+7) Equation 1.19 - Noncirculatory component (of Normal force?) due to changes in $q$
+    - $C_{n_q}^{nc}(s,M) = \frac{T_q(M)}{M}(K_{q_n} - K'_{q_n})$
+8) Equation 1.17 - Noncirculatory component of normal force via superposition.
+    - $C_{n_{\alpha q}}^{nc}(s, M) = C_{n_\alpha}^{nc}(s,M) + C_{n_q}^{nc}(s,M)$
+9) Equation 1.14 - Effective angle of attack
+    - $\alpha_{e_n}(s, M) = (\alpha_n - \alpha_0) - X_{1_n}(\Delta s) - X_{2_n}(\Delta S)$
+10) Equation 1.12 - Circulatory component of the normal force coefficient response to a step change in alpha
+    - $C_{n\alpha}^c(s,M) = \frac{C_{n\alpha}(M)}{\beta_M}$
+11) Equation 1.13 - Circulatory component normal force by the lumped approach
+    - $C_{n_{\alpha, q}}^c(s, M) = C_{n\alpha}^c(s,M)\alpha_e$
+12) Equation 1.38 (or 1.39) - Normal force coefficient after accounting for separated flow from TE
+        - $C_n^{fs} = C_{n_{\alpha,q}}^{nc}(s, M) + C_{n_{\alpha,q}}^{c}(s,M)\left(\frac{1 + \sqrt{f''}}{2}\right)^2$
+        - Equation 1.39 Gonzalez (2014) correction.
+13) Equation 1.53 - Total normal force
     - $C_n = C_n^{fs} + C_n^v$
-        - Does this somehow include a switch between separated flow and attached flow? Or do the components changed based on that? 
-- 1.55 (Chordwise Force)
-    - Equation 1.20c - $C^{pot,c}_n = C^c_{n\alpha}(s,M)\alpha_e$ 
-        - Used above in equation 1.20 -> Could combine. 
-    - Equation 1.21 - $C_C^{pot} = C_n^{pot,c}\text{tan}(\alpha_e + \alpha_0)$
+14) Equation 1.21
+    - $C_C^{pot} = C_n^{pot,c}\text{tan}(\alpha_e + \alpha_0)$
+15) Equation 1.40
+    - $C^{fs}_c = C^{pot}_c \eta_e \left(\sqrt{f''}\right)$
+16) Equation 1.55 - Chordwise Force
     - $C_c = C_c^{fs} + C_n^v \text{tan}(\alpha_e)\left(1 - \frac{\tau_v}{T_{vl}}\right)$
-        - In the current release $\text{tan}(\alpha_e)\approx \alpha_e$
-- 1.2 (Lift and Drag)
+        - In the current AeroDyn release $\text{tan}(\alpha_e)\approx \alpha_e$, but here we just use the tangent function. 
+17) Equation 1.2 - Lift and Drag
     - $C_l = C_n \cos(\alpha) + C_c\sin(\alpha)$
-    - $C_d = Cn\sin(\alpha) - C_c\cos(\alpha) + C_{d_0}$
-- 1.58 or 1.59 (Minnema) or 1.60 (Gonzalez) (pitching moment)
-    - Equation 1.25 - Circulatory component of moment
-        - $C_{m_q}^c(s, M) = - \frac{C_{n\alpha}(M)}{16\beta_M} (q - K'''_q)\frac{c}{U}$
+    - $C_d = C_n\sin(\alpha) - C_c\cos(\alpha) + C_{d_0}$
+18) Equation 1.22c
+    - $C^c_{mq} = - \frac{\partial C_n}{\partial \alpha}\frac{c(q - K'''_q)}{16\beta U}$
+19) Equation 1.27
+    - $C^{nc}_{m \alpha} = - \frac{C_{n_\alpha}(\alpha, M)}{4}$
+        - This equation was neglected in the algorithm found in the documentation. Note that this is one of the few places where the actual static normal force curve is used over the linear region slope. 
+20) Equation 1.29b
+    - $k_{m,q}(M) = \frac{7}{15(1-M) + 1.5 C_{n\alpha}(M)A_5 b_5 \beta_M M^2}$
+21) Equation 1.29
     - $C_{m_q}^{nc}(s,M) = -\frac{7T_i}{12M}\left(k_{m,q}(M)\right)^2 (K_q - K''_q)$
-    - (1.58) $C_m = C_{m0} - C_{n_{\alpha,q}}^c(s,M)(\hat{x}_{cp} - 0.25) + C_{m_q}^c(s,M) + C_{m_\alpha}^{nc}(s,M) + C_{m_q}^{nc}(s,M) + C_m^v$
-    - (1.59)
-    - (1.60)
+22) Equation 1.57b - Center of pressure distance from the $1/4$ chord
+    - $x^v_{cp} = \bar{x}_{cp}\left(1 - \cos(\frac{\pi \tau_v}{T_{VL}})\right)$
+23) Equation 1.57a - Moment due to the leading edge vortex.
+    - $C^v_m = -x^v_{cp}C^v_n$
+24) Equation 1.58 - Total pitching moment
+    - $C_m = C_{m_0} - C^c_{n_{\alpha q}}(x_{cp}-0.25) + C^c_{mq} + C^{nc}_{m \alpha} + C^{nc}_{mq} + C_{v_m}$

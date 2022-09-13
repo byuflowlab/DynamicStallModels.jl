@@ -5,7 +5,53 @@ The state space form of the Beddoes-Leishman model. Including several different 
 Adam Cardoza 8/24/22
 =#
 
-function numberofstates(dsmodel::BeddoesLeishman)
+function (model::BeddoesLeishman)(x, p, t, dt) 
+    if isa(model.detype, Functional)
+        @warn("Functional implementation not yet prepared.")
+    elseif isa(model.detype, Indicial)
+        if model.version==1
+            @warn("Original indicial Beddoe-Leishman not prepared for use yet.")
+        elseif model.version==2
+            ns = numberofstates(model)
+            newstates = Array{eltype(p), 1}(undef, ns)
+            for i = 1:model.n
+                ps = view(p, 27*(i-1)+1:27*i)
+                #[c, a, dcndalpha, alpha0, Cd0, Cm0, A1, A2, b1, b2, Tf0, Tv0, Tp, Tvl, Cn1, alpha1, alpha2, S1, S2, S3, S4, xcp]
+                c, a, dcndalpha, alpha0, _, _, A1, A2, b1, b2, Tf0, Tv0, Tp, Tvl, Cn1, alpha1, alpha2, S1, S2, S3, S4, _, _, _, _, U, aoa = ps #Inputs  
+                # if i==model.n
+                #     # @show dcndalpha, U, aoa #These look correct. 
+                # end
+
+                flags = view(ps, 23:25)
+                idx = 21*(i-1)+1:21*i
+                newstates[idx] = update_states_ADO(model, x, flags, c, a, U, dt, aoa, dcndalpha, alpha0, A1, A2, b1, b2, Tf0, Tv0, Tp, Tvl, Cn1, alpha1, alpha2, S1, S2, S3, S4)
+            end
+            return newstates
+        elseif model.version==3
+            @warn("AeroDyn Beddoe-Leishman with Gonzalez's modifications not prepared for use yet.")
+        elseif model.version==4
+            @warn("AeroDyn Beddoe-Leishman with Minema's modifications not prepared for use yet.")
+        end
+    end
+end
+
+function getloads(dsmodel::BeddoesLeishman, states, p, airfoil)
+    if isa(dsmodel.detype, Functional)
+        @warn("Functional implementation not yet prepared.")
+    elseif isa(dsmodel.detype, Indicial)
+        if dsmodel.version==1
+            @warn("Original indicial Beddoe-Leishman not prepared for use yet.")
+        elseif dsmodel.version==2
+            return getloads_BLA(dsmodel, states, p, airfoil)
+        elseif dsmodel.version==3
+            @warn("AeroDyn Beddoe-Leishman with Gonzalez's modifications not prepared for use yet.")
+        elseif dsmodel.version==4
+            @warn("AeroDyn Beddoe-Leishman with Minema's modifications not prepared for use yet.")
+        end
+    end
+end
+
+function numberofstates(dsmodel::BeddoesLeishman) #TODO: This probably need to be augmented to check if the model is a functional, an iterative, or an indicial. 
     if dsmodel.version==1
         @warn("The orginal Beddoes-Leishman model is not yet prepared.")
         return 0
@@ -20,7 +66,7 @@ function numberofstates(dsmodel::BeddoesLeishman)
     end
 end
 
-function numberofloads(dsmodel::BeddoesLeishman)
+function numberofloads(dsmodel::BeddoesLeishman) #TODO: This probably need to be augmented to check if the model is a functional, an iterative, or an indicial.
     if dsmodel.version==1
         @warn("The orginal Beddoes-Leishman model is not yet prepared.")
         return 0
@@ -35,14 +81,14 @@ function numberofloads(dsmodel::BeddoesLeishman)
     end
 end
 
-function initialize(dsmodel::BeddoesLeishman, aoavec, tvec, airfoil::Airfoil, c, a)
+function initialize(dsmodel::BeddoesLeishman, Uvec, aoavec, tvec, airfoil::Airfoil, c, a)
     if isa(dsmodel.detype, Functional)
         @warn("Beddoes Leishman Functional implementation isn't prepared yet. - initialize()")
     elseif isa(dsmodel.detype, Iterative)
         @warn("Beddoes Leishman Iterative implementation isn't prepared yet. - initialize()")
     else #Model is indicial
         if dsmodel.version==2
-            return initialize_ADO(aoavec, tvec, airfoil, c, a)
+            return initialize_ADO(Uvec, aoavec, tvec, airfoil, c, a)
         end
     end
 end

@@ -22,24 +22,23 @@ function solve_indicial(dsmodel::DSModel, cvec, tvec, Uvec, aoavec; a = 343.0, v
 
         idxs = ns*(j-1)+1:j*ns 
 
-        states[1,idxs], loads[1,:], p = initialize(dsmodel, aoavec, tvec, airfoil, c, a)
+        states[1,idxs], loads[1,:], p = initialize(dsmodel, Uvec, aoavec, tvec, airfoil, c, a)
 
         for i = 1:nt-1 
-            
+            ### Update environmental inputs
+            t = tvec[i]
+            dt = tvec[i+1]-tvec[i]
+            p[26] = U = Uvec[i+1]
+            p[27] = aoa = aoavec[i+1]
+
             if verbose
-                t = tvec[i]
                 @show t
             end
-            dt = tvec[i+1]-tvec[i]
-            U = Uvec[i+1]
-            aoa = aoavec[i+1]
+            
 
-            ### Update environmental inputs
-            y = [U, aoa, dt]
+            states[i+1,idxs] = dsmodel(states[i,idxs], p, t, dt) #update_states_ADO(dsmodel, states[i,idxs], flags, c, a, U, dt, aoa, dcndalpha, alpha0, A1, A2, b1, b2, Tf0, Tv0, Tp, Tvl, Cn1, alpha1, alpha2, S1, S2, S3, S4)
 
-            states[i+1,idxs] = dsmodel(states[i,idxs], p, y) #update_states_ADO(dsmodel, states[i,idxs], flags, c, a, U, dt, aoa, dcndalpha, alpha0, A1, A2, b1, b2, Tf0, Tv0, Tp, Tvl, Cn1, alpha1, alpha2, S1, S2, S3, S4)
-
-            loads[i+1,:] = getloads(dsmodel, states[i,idxs], p, y, airfoil)
+            loads[i+1,:] = getloads(dsmodel, states[i,idxs], p, airfoil)
         end
     end
 
