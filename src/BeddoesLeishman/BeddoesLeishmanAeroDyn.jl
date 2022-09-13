@@ -3,39 +3,15 @@ AeroDyn's implementation of the Beddoes-Leishman model.
 
 =#
 
-function (model::BeddoesLeishman)(x, p, y)
-    if isa(model.detype, Functional)
-        @warn("Functional implementation not yet prepared.")
-    elseif isa(model.detype, Indicial)
-        if model.version==1
-            @warn("Original indicial Beddoe-Leishman not prepared for use yet.")
-        elseif model.version==2
-    
-            c, a, dcndalpha, alpha0, Cd0, Cm0, A1, A2, b1, b2, Tf0, Tv0, Tp, Tvl, Cn1, alpha1, alpha2, S1, S2, S3, S4, xcp, _, _, _ = p #Inputs
-            U, aoa, dt = y #Environmental inputs. 
 
-            flags = view(p, 23:25)
-
-            return update_states_ADO(model, x, flags, c, a, U, dt, aoa, dcndalpha, alpha0, A1, A2, b1, b2, Tf0, Tv0, Tp, Tvl, Cn1, alpha1, alpha2, S1, S2, S3, S4)
-
-        elseif model.version==3
-            @warn("AeroDyn Beddoe-Leishman with Gonzalez's modifications not prepared for use yet.")
-        elseif model.version==4
-            @warn("AeroDyn Beddoe-Leishman with Minema's modifications not prepared for use yet.")
-        end
-    end
-    
-end
-
-function getloads(dsmodel::BeddoesLeishman, states, p, y, airfoil)
-    c, a, dcndalpha, alpha0, Cd0, Cm0, A1, A2, b1, b2, Tf0, Tv0, Tp, Tvl, Cn1, alpha1, alpha2, S1, S2, S3, S4, xcp, _, _, _ = p
+function getloads_BLA(dsmodel::BeddoesLeishman, states, p, airfoil)
+    c, a, dcndalpha, alpha0, Cd0, Cm0, A1, A2, b1, b2, Tf0, Tv0, Tp, Tvl, Cn1, alpha1, alpha2, S1, S2, S3, S4, xcp, _, _, _, U, _ = p
     Cnfit = airfoil.cl
-
-    U, _, _ = y
 
     Cn, Cc, Cl, Cd, Cm = BLAD_coefficients(dsmodel::BeddoesLeishman, states, U, c, Cnfit, dcndalpha, alpha0, Cd0, Cm0, A1, A2, b1, b2, Tvl, xcp, a)
     return [Cn, Cc, Cl, Cd, Cm]
 end
+
 
 
 function seperationpoint(alpha, alpha0, alpha1, alpha2, S1, S2, S3, S4)
@@ -50,7 +26,7 @@ function seperationpoint(alpha, alpha0, alpha1, alpha2, S1, S2, S3, S4)
         return 0.04 + 0.66*exp((alpha-alpha2)/S4)
     end
 
-    @warn("No seperation point found. Return 1.0.")
+    @warn("No seperation point found. Returning 1.0.")
     return 1.0
 end
 
@@ -85,7 +61,7 @@ function update_states_ADO(dsmodel::BeddoesLeishman, oldstates, flags, c, a, U, 
     21 - sigma3
     =#
 
-    LESF, TESF, VRTX = flags
+    LESF, TESF, VRTX = flags #Todo: Flags are closer to states, not parameters. 
 
     states = zeros(21)
 
@@ -115,6 +91,10 @@ function update_states_ADO(dsmodel::BeddoesLeishman, oldstates, flags, c, a, U, 
 
     states[4] = Ka = q*U/deltat #Equation 1.8d #Todo: this combination of q and delta t don't work for small delta t. It makes Ka super larger. So either q needs to be smaller, or delta t larger. If delta t is larger, then q should be smaller as well... which is weird, because that puts a bottom limit on delta t... which breaks CFD rules. What is it Patankar's rules? I think this breaks Patankar's rules. 
     # @show q, deltat #because deltat is small, Ka is large.... Maybe q should be smaller? 
+
+    # if c== 1.419
+    #     @show q, U, deltat
+    # end
 
     Kq = (q - q_m)/deltat #Equation 1.8e
     states[5] = Kq = Clp*Kq_m + plC*Kq #Equation 1.8f
@@ -179,6 +159,9 @@ function update_states_ADO(dsmodel::BeddoesLeishman, oldstates, flags, c, a, U, 
 
     ### Total normal force under attached conditions
     states[14] = Cpotn = Cc_naq + Cnc_naq #Equation 1.20
+    # if c== 1.419
+    #     @show Cc_naq, Cnc_naq
+    # end
 
 
     ### Noncirculatory component of moment due to change in pitch #Note: If this can, this should probably go with the other moment calculation. 
@@ -210,6 +193,10 @@ function update_states_ADO(dsmodel::BeddoesLeishman, oldstates, flags, c, a, U, 
 
     states[18] = Cvn = Cvn_m*exp(-deltas/Tv) + (Cv - Cv_m)*exp(-deltas/(2*Tv)) #EQ 1.47
     #Note: Cv has to be the same sign as Cfs_n
+    # if c==1.419
+    #     @show Cvn, Cc_na, alphae, fterm
+    # end
+    
 
 
     ######## Update "other states"
@@ -293,11 +280,27 @@ function update_states_ADO(dsmodel::BeddoesLeishman, oldstates, flags, c, a, U, 
     end
 
     states[17] = tauv
-    states[20] = sigma1
+    states[20] = sigma1 #Todo: If flags are put as states, then might I be able to just calculate these? 
     states[21] = sigma3
 
 
     return states
+end
+
+function BLAD_coefficients(dsmodel::BeddoesLeishman, states, U, c, af::Airfoil, a)
+    cnfit = af.cl
+    dcndalpha = af.dcldalpha
+    alpha0 = af.alpha0
+    Cd0 = af.cd(alpha0)
+    Cm0 = af.cm(alpha0)
+    A1 = af.A[1]
+    A2 = af.A[2]
+    b1 = af.b[1]
+    b2 = af.b[2]
+    Tvl = af.T[4]
+    xcp = af.xcp
+
+    return BLAD_coefficients(dsmodel, states, U, c, cnfit, dcndalpha, alpha0, Cd0, Cm0, A1, A2, b1, b2, Tvl, xcp, a)
 end
 
 function BLAD_coefficients(dsmodel::BeddoesLeishman, states, U, c, Cnfit, dcndalpha, alpha0, Cd0, Cm0, A1, A2, b1, b2, Tvl, xcp, a)
@@ -319,34 +322,47 @@ function BLAD_coefficients(dsmodel::BeddoesLeishman, states, U, c, Cnfit, dcndal
     ##### Prepare inputs for normal force coefficient. 
     bot = (1-M) + dcndalpha*M*M*beta*(A1*b1 + A2*b2)  
     k_alpha = 1/bot #Equation 1.11a
-    Talpha = 3*k_alpha*TI/4
-    Cnc_nalpha = 4*Talpha*(Ka-Kpa)/M
+    Talpha = 3*k_alpha*TI/4 #Equation 1.10a
+    Cnc_nalpha = 4*Talpha*(Ka-Kpa)/M #Equation 1.18, Noncirculatory component of normal force due to changes in alpha
+
+    # if c== 1.419
+    #     @show Talpha, Ka, Kpa, M #Ka and Kpa are quite large. 
+    # end
 
     bot = (1-M) + dcndalpha*M*M*beta*(A1*b1 + A2*b2) 
     k_q = 1/bot #Equation 1.11b
-    Tq = 3*k_q*TI/4
-    Cnc_nq = Tq*(Kq - Kpq)/M
+    Tq = 3*k_q*TI/4 #Equation 1.10b
+    Cnc_nq = Tq*(Kq - Kpq)/M #Equation 1.19
 
-    Cnc_naq = Cnc_nalpha + Cnc_nq
+    Cnc_naq = Cnc_nalpha + Cnc_nq #Equation 1.17, Noncirculatory component of normal force via superposition.
+
+    # if c== 1.419
+    #     @show Cnc_nalpha, Cnc_nq #Cnc_nalpha is quite large. 
+    # end
 
     alpha = states[1]
     X1 = states[6]
     X2 = states[7]
-    alphae = (alpha - alpha0) - X1 - X2
+    alphae = (alpha - alpha0) - X1 - X2 #EQ 1.14, Effective angle of attack
     Cc_na = dcndalpha/beta #EQ 1.12, Circulatory component of the normal force coefficient response to step change in alpha. 
-    Cc_naq = Cc_na*alphae
+    Cc_naq = Cc_na*alphae #EQ 1.13, Circulatory component of normal force via lumped approach.
 
     fpp = states[16]
     fterm = (1 + sqrt(fpp))/2
 
     Cfsn = Cnc_naq + Cc_naq*(fterm)^2 #EQ 1.38, Normal force coefficient after accounting for separated flow from TE
+    # if c== 1.419
+    #     @show Cnc_naq, Cc_naq, fterm #Both the Cnc and the Cc terms are large, the Cnc term is especially large. 
+    # end
 
     Cvn = states[18]
 
     ### Total normal force 
     Cn = Cfsn + Cvn #EQ 1.53
 
-
+    # if c== 1.419
+    #     @show Cfsn, Cvn #Problem is Cfsn
+    # end
 
 
 
@@ -367,12 +383,10 @@ function BLAD_coefficients(dsmodel::BeddoesLeishman, states, U, c, Cnfit, dcndal
 
 
 
-    
-    Cc_naq = Cc_na*alphae
 
     q = states[3]
     Kpppq = states[11]
-    Cc_mq = -dcndalpha*(q-Kpppq)*c/(16*beta*U)
+    Cc_mq = -dcndalpha*(q-Kpppq)*c/(16*beta*U) #Equation 1.22c
 
     ### Noncirculatory component of moment due to change in alpha
     Cnc_ma = -Cnfit(alpha)/4 #EQ 1.27 Note: This equation was missed in the documented algorithm.
@@ -383,18 +397,18 @@ function BLAD_coefficients(dsmodel::BeddoesLeishman, states, U, c, Cnfit, dcndal
     Cnc_mq = -7*TI*kmq*kmq*(Kq-Kppq)/(12*M) #EQ 1.29, Circulatory component of moment.
 
     tauv = states[17]
-    xbarcp = 0.2 #Todo: Is this different from xcp? 
-    xvcp = xbarcp*(1-cos(pi*tauv/(Tvl)))
-    Cvm = -xvcp*Cvn
+    xbarcp = 0.2 #Todo: Is this different from xcp? They call it x bar bar cp
+    xvcp = xbarcp*(1-cos(pi*tauv/(Tvl))) #1.57b
+    Cvm = -xvcp*Cvn #1.57a
 
     ### Moment
-    Cm = Cm0 - Cc_naq*(xcp - 0.25) + Cc_mq + Cnc_ma + Cnc_mq + Cvm 
+    Cm = Cm0 - Cc_naq*(xcp - 0.25) + Cc_mq + Cnc_ma + Cnc_mq + Cvm #Equation 1.58
 
 
     return Cn, Cc, Cl, Cd, Cm
 end
 
-function initialize_ADO(aoavec, tvec, airfoil::Airfoil, c, a) 
+function initialize_ADO(Uvec, aoavec, tvec, airfoil::Airfoil, c, a) 
     # Cnfit = airfoil.cl
     dcndalpha = airfoil.dcldalpha
     alpha0 = airfoil.alpha0
@@ -436,6 +450,8 @@ function initialize_ADO(aoavec, tvec, airfoil::Airfoil, c, a)
 
     p = [c, a, dcndalpha, alpha0, Cd0, Cm0, A1, A2, b1, b2, Tf0, Tv0, Tp, Tvl, Cn1, alpha1, alpha2, S1, S2, S3, S4, xcp]
 
-    return states, loads, vcat(p, flags)
+    envvars = [Uvec[1], aoavec[1]]
+
+    return states, loads, vcat(p, flags, envvars)
 end
 
