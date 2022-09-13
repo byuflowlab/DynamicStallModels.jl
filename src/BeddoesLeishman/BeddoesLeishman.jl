@@ -15,16 +15,15 @@ function (model::BeddoesLeishman)(x, p, t, dt)
             ns = numberofstates(model)
             newstates = Array{eltype(p), 1}(undef, ns)
             for i = 1:model.n
-                ps = view(p, 27*(i-1)+1:27*i)
+                ps = view(p, 24*(i-1)+1:24*i)
                 #[c, a, dcndalpha, alpha0, Cd0, Cm0, A1, A2, b1, b2, Tf0, Tv0, Tp, Tvl, Cn1, alpha1, alpha2, S1, S2, S3, S4, xcp]
-                c, a, dcndalpha, alpha0, _, _, A1, A2, b1, b2, Tf0, Tv0, Tp, Tvl, Cn1, alpha1, alpha2, S1, S2, S3, S4, _, _, _, _, U, aoa = ps #Inputs  
+                c, a, dcndalpha, alpha0, _, _, A1, A2, b1, b2, Tf0, Tv0, Tp, Tvl, Cn1, alpha1, alpha2, S1, S2, S3, S4, _, U, aoa = ps #Inputs  
                 # if i==model.n
                 #     # @show dcndalpha, U, aoa #These look correct. 
                 # end
 
-                flags = view(ps, 23:25)
-                idx = 21*(i-1)+1:21*i
-                newstates[idx] = update_states_ADO(model, x, flags, c, a, U, dt, aoa, dcndalpha, alpha0, A1, A2, b1, b2, Tf0, Tv0, Tp, Tvl, Cn1, alpha1, alpha2, S1, S2, S3, S4)
+                idx = 22*(i-1)+1:22*i
+                newstates[idx] = update_states_ADO(model, x, c, a, U, dt, aoa, dcndalpha, alpha0, A1, A2, b1, b2, Tf0, Tv0, Tp, Tvl, Cn1, alpha1, alpha2, S1, S2, S3, S4)
             end
             return newstates
         elseif model.version==3
@@ -56,13 +55,13 @@ function numberofstates(dsmodel::BeddoesLeishman) #TODO: This probably need to b
         @warn("The orginal Beddoes-Leishman model is not yet prepared.")
         return 0
     elseif dsmodel.version==2
-        return 21*dsmodel.n
+        return 22*dsmodel.n
     elseif dsmodel.version==3
         @warn("The orginal Beddoes-Leishman model is not yet prepared.")
-        return 21*dsmodel.n
+        return 22*dsmodel.n
     elseif dsmodel.version==4
         @warn("The orginal Beddoes-Leishman model is not yet prepared.")
-        return 21*dsmodel.n
+        return 22*dsmodel.n
     end
 end
 
@@ -89,6 +88,18 @@ function initialize(dsmodel::BeddoesLeishman, Uvec, aoavec, tvec, airfoil::Airfo
     else #Model is indicial
         if dsmodel.version==2
             return initialize_ADO(Uvec, aoavec, tvec, airfoil, c, a)
+        end
+    end
+end
+
+function update_environment!(dsmodel::BeddoesLeishman, p, U, aoa)
+    if isa(dsmodel.detype, Functional)
+        @warn("Beddoes Leishman Functional implementation isn't prepared yet. - initialize()")
+    elseif isa(dsmodel.detype, Iterative)
+        @warn("Beddoes Leishman Iterative implementation isn't prepared yet. - initialize()")
+    else #Model is indicial
+        if dsmodel.version==2
+            return updateenvironment_ADO(p, U, aoa)
         end
     end
 end
