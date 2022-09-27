@@ -32,10 +32,14 @@ end
 
 
 #AeroDyn original implementation. 
-function update_states_ADO(dsmodel::BeddoesLeishman, oldstates, c, a, U, deltat, aoa, dcndalpha, alpha0, A1, A2, b1, b2, Tf0, Tv0, Tp, Tvl, Cn1, alpha1, alpha2, S1, S2, S3, S4) #Todo: Take out flags
+function update_states_ADO(dsmodel::BeddoesLeishman, oldstates, c, a, U, deltat, aoa, dcndalpha, alpha0, A1, A2, b1, b2, Tf0, Tv0, Tp, Tvl, Cn1, alpha1, alpha2, S1, S2, S3, S4) 
 
     ### Unpack
     alpha_m, alphaf_m, q_m, Ka_m, Kq_m, X1_m, X2_m, Kpa_m, Kpq_m, Kppq_m, Kpppq_m, Dp_m, Df_m, Cpotn_m, fp_m, fpp_m, tauv, Cvn_m, Cv_m, LESF_m, TESF_m, VRTX_m = oldstates #The underscore m means that it is the previous time step (m comes before n).
+
+    # if c==4.557
+    #     @show aoa
+    # end
 
     #= States
     1 - alpha
