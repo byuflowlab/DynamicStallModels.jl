@@ -21,9 +21,10 @@ function (model::BeddoesLeishman)(x, p, t, dt)
                 # if i==model.n
                 #     # @show dcndalpha, U, aoa #These look correct. 
                 # end
+                xs = view(x, 22*(i-1)+1:22*i)
 
                 idx = 22*(i-1)+1:22*i
-                newstates[idx] = update_states_ADO(model, x, c, a, U, dt, aoa, dcndalpha, alpha0, A1, A2, b1, b2, Tf0, Tv0, Tp, Tvl, Cn1, alpha1, alpha2, S1, S2, S3, S4)
+                newstates[idx] = update_states_ADO(model, xs, c, a, U, dt, aoa, dcndalpha, alpha0, A1, A2, b1, b2, Tf0, Tv0, Tp, Tvl, Cn1, alpha1, alpha2, S1, S2, S3, S4)
             end
             return newstates
         elseif model.version==3

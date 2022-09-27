@@ -17,6 +17,7 @@ cd(path)
 
 # /Users/adamcardoza/.julia/dev/DynamicStallModels/data/
 fullout = readdlm("../../../data/aerodynout_fordynamicstall.csv", ',')
+# fullout = readdlm("../../../data/aerodyn_outputs.csv", ',')
 names = fullout[1,:]
 names[1] = "Time"
 data = Float64.(fullout[3:end,:])
@@ -99,5 +100,12 @@ Hey hey, that matches pretty stinkin well. That suggests that at least the model
 Adam Cardoza 8/25/22
 
 =#
+
+# nt, na = size(states)
+
+# for i= 1:na
+#     plt = plot(tvec, states[:,i], xaxis="Time (s)", leg=false, title="State $i" )
+#     display(plt)
+# end
 
 nothing
