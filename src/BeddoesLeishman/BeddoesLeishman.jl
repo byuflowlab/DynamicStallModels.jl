@@ -5,6 +5,28 @@ The state space form of the Beddoes-Leishman model. Including several different 
 Adam Cardoza 8/24/22
 =#
 
+export BeddoesLeishman
+
+"""
+    BeddoesLeishman(detype::DEType, n::Int, airfoils::Array{Airfoil, 1}, version::Int)
+
+The Beddoes-Leishman model struct. It stores airfoil data for every section to be simulated. It can be used as a method to return updated states or state rates depending on it's DEType. 
+
+### Inputs
+- detype - The type of model it is, Functional(), Iterative(), or Indicial().
+- n - The number of sections to be simulated. 
+- airfoils - A vector of Airfoil structs, one corresponding to each section to be simulated. 
+- version - Which version of the indicial implementation. 1) original. 2) AeroDyn original. 3) AeroDyn Gonzalez. 4) AeroDyn Minema
+- constants - Constants that change with version of the model. 
+"""
+struct BeddoesLeishman{TF, TI} <: DSModel
+    detype::DEType 
+    n::TI #Number of airfoils simulated
+    airfoils::Array{Airfoil,1}
+    version::TI #Which version of the indicial implementation. 
+    constants::Array{TF, 1} #Model Constants #TODO: Maybe I'll make this a tuple? I don't know if that'll be any better. 
+end
+
 function (model::BeddoesLeishman)(x, p, t, dt) 
     if isa(model.detype, Functional)
         @warn("Functional implementation not yet prepared.")
@@ -15,16 +37,16 @@ function (model::BeddoesLeishman)(x, p, t, dt)
             ns = numberofstates(model)
             newstates = Array{eltype(p), 1}(undef, ns)
             for i = 1:model.n
-                ps = view(p, 24*(i-1)+1:24*i)
-                #[c, a, dcndalpha, alpha0, Cd0, Cm0, A1, A2, b1, b2, Tf0, Tv0, Tp, Tvl, Cn1, alpha1, alpha2, S1, S2, S3, S4, xcp]
-                c, a, dcndalpha, alpha0, _, _, A1, A2, b1, b2, Tf0, Tv0, Tp, Tvl, Cn1, alpha1, alpha2, S1, S2, S3, S4, _, U, aoa = ps #Inputs  
+                ps = view(p, 18*(i-1)+1:18*i)
+                #[c, a, dcndalpha, alpha0, Cd0, Cm0, A1, A2, b1, b2, Tf0, Tv0, Tp, Tvl, Cn1, alpha1, alpha2, xcp]
+                c, a, dcndalpha, alpha0, _, _, A1, A2, b1, b2, Tf0, Tv0, Tp, Tvl, Cn1, _, U, aoa = ps #Inputs  
                 # if i==model.n
                 #     # @show dcndalpha, U, aoa #These look correct. 
                 # end
                 xs = view(x, 22*(i-1)+1:22*i)
 
                 idx = 22*(i-1)+1:22*i
-                newstates[idx] = update_states_ADO(model, xs, c, a, U, dt, aoa, dcndalpha, alpha0, A1, A2, b1, b2, Tf0, Tv0, Tp, Tvl, Cn1, alpha1, alpha2, S1, S2, S3, S4)
+                newstates[idx] = update_states_ADO(model, xs, c, a, U, dt, aoa, dcndalpha, alpha0, A1, A2, b1, b2, Tf0, Tv0, Tp, Tvl, Cn1, i)
             end
             return newstates
         elseif model.version==3
@@ -106,6 +128,7 @@ function update_environment!(dsmodel::BeddoesLeishman, p, U, aoa)
 end
 
 
+
 function prepenvironment(; c=0.1, M=0.3, a=343.3, amp=10.0, shift=10.0, k=0.1)
     v = M*a
     omega = k*2*v/c
@@ -137,21 +160,9 @@ function prepenvironment(; c=0.1, M=0.3, a=343.3, amp=10.0, shift=10.0, k=0.1)
 end
 
 
-function ffun(alpha, alpha1, S)
-    if alpha<=alpha1
-        return 1.0-0.3*exp((alpha-alpha1)/S[1])
-    else
-        return 0.04 + 0.66*exp((alpha1-alpha)/S[2]) #One paper has a plus here, another has a minus. 
-    end
-end
 
-function ffun2(alpha, alpha1, S)
-    if alpha<=alpha1
-        return 1.0-0.3*exp((alpha-alpha1)/S[1])
-    else
-        return 0.04 + 0.66*exp((alpha1-alpha)/S[2]) #One paper has a plus here, another has a minus. 
-    end
-end
+
+
 
 
 
@@ -213,7 +224,7 @@ function states_liftonly!(du, u, p, t)
     alpha_f = u[5]/dcldalpha
 
     # Unsteady TE separation point, f''
-    du[6] = -u[6]/Tf + ffun(alpha_f, alpha1, alpha0)/Tf #sv10 
+    du[6] = -u[6]/Tf + separationpoint_BL(alpha_f, alpha1, alpha0)/Tf #sv10 
 
     tau_v = 2*Tv
 
@@ -269,7 +280,7 @@ function states!(dx, x, p, t)
     # println("tau_p: ", tau_p)
 
     alpha_f = x[5]/dCndalpha #Equivalent angle of attack
-    fp = ffun2(alpha_f, alpha1, S.*conv(t)) #Equivalent separation point
+    fp = separationpoint_BL(alpha_f, alpha1, S.*conv(t)) #Equivalent separation point
     # println("fp: ", fp)
     # if fp<0
     #     println("")
@@ -382,7 +393,7 @@ function fullstates!(dx, x, p, t) #Todo: All of these equations should be checke
     # println("tau_p: ", tau_p)
 
     alpha_f = x[9]/dCndalpha #Equivalent angle of attack
-    fp = ffun2(alpha_f, alpha1, S./L) #Equivalent separation point #S.*conv(t)
+    fp = separationpoint_BL(alpha_f, alpha1, S./L) #Equivalent separation point #S.*conv(t)
     # println("fp: ", fp)
     # if fp<0
     #     println("")
@@ -629,8 +640,8 @@ end
 
 #         ### Drag
 #         alpha_f = u[i,5]/dcldalpha
-#         ff = ffun(alpha_f, alpha1, alpha0)
-#         f = ffun(alpha(ti), alpha1, alpha0)
+#         ff = separationpoint_BL(alpha_f, alpha1, alpha0)
+#         f = separationpoint_BL(alpha(ti), alpha1, alpha0)
 #         Cc[i] = eta*dcldalpha*(alphaE[i]^2)*sqrt(f)
 #         Cfc[i]  = eta*dcldalpha*((alphaE[i])^2)*sqrt(u[i,6])
 #         Cfc2[i] = eta*dcldalpha*((alphaE[i])^2)*sqrt(ff) 

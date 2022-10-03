@@ -50,7 +50,8 @@ S4 = du21_a17.s4
 S = [S1, S2, S3, S4]
 xcp = 0.2
 
-af = Airfoil(polar, clfit, cdfit, cmfit, dcndalpha, alpha0, alphasep, A, b, T, S, xcp)
+# af = Airfoil(polar, clfit, cdfit, cmfit, dcndalpha, alpha0, alphasep, A, b, T, S, xcp)
+af, constants = of.make_dsairfoil(du21_a17)
 airfoils = Array{Airfoil, 1}(undef, 1)
 airfoils[1] = af
 
@@ -58,12 +59,12 @@ airfoils[1] = af
 
 
 ### Create model
-zeta = -3 #Low-pass-filter frequency cutoff
-A5 = du21_a17.a5
-b5 = du21_a17.b5
-Tsh = du21_a17.st_sh #Strouhal Frequency
-eta = du21_a17.eta_e #Recovery factor
-constants = [zeta, A5, b5, Tsh, eta]
+# zeta = -3 #Low-pass-filter frequency cutoff
+# A5 = du21_a17.a5
+# b5 = du21_a17.b5
+# Tsh = du21_a17.st_sh #Strouhal Frequency
+# eta = du21_a17.eta_e #Recovery factor
+# constants = [zeta, A5, b5, Tsh, eta]
 dsmodel = BeddoesLeishman(Indicial(), 1, airfoils, 2, constants)
 
 

@@ -2,42 +2,9 @@
 Assuming piecewise constant terms
 =#
 
-function seperationpoint(alpha, afm, afp, clfit, dcldalpha, alpha0)
-    #TODO: I'm not really sure that using the minimum of these two is really the way to avoid the problem of this blowing up to infinity. (When alpha=alpha0) (This check happens in the if statement.)
 
-    #TODO: I'm not sure that using the absolute value here is the correct way to dodge the problem of crossing the x axis at different times.
 
-    #Todo. I don't like using if statements for angles of attack outside of the range of attached flow. I want the function to just drive to zero. -> Todo. Plot the seperation function as a function of alpha. -> Removed the if statements and the function naturally drives to zero like the paper (not at the angles as described by Hansen.)
-    
-    
-    ### The theory says that if the angle of attack is less (or greater than) than the seperation point aoa, then the function should return 0. -> However, using these if statements create discontinuities in the seperation point function that don't appear to be in Hansen's implementation. -> It only creates discontinuties if the incorrect values for afm and afp are used. If afm and afp are really where f(alpha)=0 then, the function won't have any discontinuities. 
-    # if alpha<afm # -> TODO: If I'm getting rid of this, then I can get rid of the afm and afp arguments. 
-    #     return typeof(alpha)(0)
-    # elseif alpha>afp
-    #     return typeof(alpha)(0)
-    # end
-
-    if !(afm < alpha < afp) #Check if alpha is in the bounds. 
-        # println("f was set to zero. ")
-        return typeof(alpha)(0)
-    end
-    
-    cl_static = clfit(alpha)
-    cl_linear = dcldalpha*(alpha-alpha0)
-    f = (2*sqrt(abs(cl_static/cl_linear))-1)^2
-
-    if f>1 #Question: What if I don't return this? I might get Inf.... or possibly NaN... but I will less likely get 1.0... which is my problem child in the seperated coefficient of lift function. -> I fixed the fully seperated coefficient of lift function... I just plugged this function inside the other and simplified. 
-        return typeof(alpha)(1)
-    elseif isnan(f)
-        # println("f return NaN")
-        return typeof(alpha)(1)
-    end
-
-    #Todo. Hansen must have some sort of switch that stops this function from reattaching when the aoa gets really high. -> like the one where you automatically set f=0 when you're outside the bounds of afm, afp
-    return f
-end
-
-function take_step!(xj, xjm, deltat, uj, ujm, udotj, udotjm, alphaj, alphajm, alphadotj, alphadotjm, c, dcldalpha, alpha0, afm, afp, A1, A2, b1, b2, Tp, Tf, clfit)
+function take_step!(xj, xjm, deltat, uj, ujm, udotj, udotjm, alphaj, alphajm, alphadotj, alphadotjm, c, dcldalpha, alpha0, afm, afp, A1, A2, b1, b2, Tp, Tf, clfit, airfoil) #TODO: Need to figure out life with the airfoil and now with repeated inputs. 
     Pi = b1*((uj + ujm)/c) + (udotj + udotjm)/(uj + ujm)
     Qi = b1*A1*(ujm*alphajm + uj*alphaj)/c 
     Ci = exp(-Pi*deltat)
@@ -63,8 +30,11 @@ function take_step!(xj, xjm, deltat, uj, ujm, udotj, udotjm, alphaj, alphajm, al
 
     alphafj = xj[3]/dcldalpha + alpha0 
     alphafjm = xjm[3]/dcldalpha + alpha0 
-    fj = seperationpoint(alphafj, afm, afp, clfit, dcldalpha, alpha0)
-    fjm = seperationpoint(alphafjm, afm, afp, clfit, dcldalpha, alpha0)
+    # fj = seperationpoint(alphafj, afm, afp, clfit, dcldalpha, alpha0)
+    # fjm = seperationpoint(alphafjm, afm, afp, clfit, dcldalpha, alpha0)
+    fj = separationpoint(airfoil, alphafj)
+    fjm = separationpoint(airfoil, alphafjm)
+    
 
     Pi = 1/Tf
     Qi = (fj + fjm)/(2*Tf)
@@ -74,7 +44,7 @@ function take_step!(xj, xjm, deltat, uj, ujm, udotj, udotjm, alphaj, alphajm, al
     return xj
 end
 
-function indicialsolve(tvec, u, udot, alpha, alphadot, c, dcldalpha, alpha0, afm, afp, A, b, Tp, Tf, clfit, x0)
+function indicialsolve(tvec, u, udot, alpha, alphadot, c, dcldalpha, alpha0, afm, afp, A, b, Tp, Tf, clfit, x0, airfoil)
     nt = length(tvec)
     states = zeros(nt, 4)
     states[1,:] = x0
@@ -82,13 +52,13 @@ function indicialsolve(tvec, u, udot, alpha, alphadot, c, dcldalpha, alpha0, afm
     for i = 2:nt
         dt = tvec[i]-tvec[i-1]
 
-        states[i,:] = take_step!(states[i,:], states[i-1,:], dt, u(tvec[i]), u(tvec[i-1]), udot(tvec[i]), udot(tvec[i-1]), alpha(tvec[i]), alpha(tvec[i-1]), alphadot(tvec[i]), alphadot(tvec[i-1]), c, dcldalpha, alpha0, afm, afp, A[1], A[2], b[1], b[2], Tp, Tf, clfit)
+        states[i,:] = take_step!(states[i,:], states[i-1,:], dt, u(tvec[i]), u(tvec[i-1]), udot(tvec[i]), udot(tvec[i-1]), alpha(tvec[i]), alpha(tvec[i-1]), alphadot(tvec[i]), alphadot(tvec[i-1]), c, dcldalpha, alpha0, afm, afp, A[1], A[2], b[1], b[2], Tp, Tf, clfit, airfoil)
     end
 
     return states
 end
 
-function parseindicialsolution(u, p, polar)
+function parseindicialsolution(u, p, polar, airfoil)
     n,m = size(u)
     
     U, Udot, alpha, alphadot, c, A[1], A[2], b[1], b[2], dcldalpha, alpha0, Tp, Tf, liftfit, afm, afp = p
@@ -102,7 +72,8 @@ function parseindicialsolution(u, p, polar)
     fvec = zeros(nn)
     astvec = zeros(nn)
     for i=1:nn 
-        fvec[i] = seperationpoint(alphavec[i], afm, afp, liftfit, dcldalpha, alpha0)
+        # fvec[i] = seperationpoint(alphavec[i], afm, afp, liftfit, dcldalpha, alpha0)
+        fvec[i] = separationpoint(airfoil, alphavec[i])
         astvec[i] = (momentfit(alphavec[i])-momentfit(alpha0))/liftfit(alphavec[i])
     end
 
@@ -128,10 +99,12 @@ function parseindicialsolution(u, p, polar)
         clfs = Clfs(ae, liftfit, dcldalpha, alpha0) 
         
         Cl[i] = dcldalpha*(ae-alpha0)*u[i,4] + clfs*(1-u[i,4]) + pi*Tu*alphadot(t) 
-        fae = seperationpoint(ae, afm, afp, liftfit, dcldalpha, alpha0)
+        # fae = seperationpoint(ae, afm, afp, liftfit, dcldalpha, alpha0)
+        fae = separationpoint(airfoil, ae)
         fterm = (sqrt(fae)-sqrt(u[i,4]))/2 - (fae-u[i,4])/4
         Cd[i] = dragfit(ae) + (alpha(t)-ae)*Cl[i] + (dragfit(ae)-dragfit(alpha0))*fterm
-        aterm = affit(u[i,4]) - affit(seperationpoint(ae, afm, afp, liftfit, dcldalpha, alpha0))
+        # aterm = affit(u[i,4]) - affit(seperationpoint(ae, afm, afp, liftfit, dcldalpha, alpha0))
+        aterm = affit(u[i,4]) - affit(separationpoint(airfoil, ae)) #TODO: Isn't the call to separationpoint() redundant because shouldn't that be the same thing as fae? 
         # println(aterm)
         Cm[i] = momentfit(ae) + Cl[i]*(aterm) - pi*Tu*alphadot(t)/2
     end

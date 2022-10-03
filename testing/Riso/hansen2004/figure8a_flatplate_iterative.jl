@@ -126,7 +126,8 @@ plot!(tvec, xds)
 
 alphavec = alpha.(tvec)
 
-expdata = readdlm("../../../data/Hansen2004/figure8_flatplate/indicial.csv", ',')
+# expdata = readdlm("../../../data/Hansen2004/figure8_flatplate/indicial.csv", ',')
+expdata = readdlm("../data/Hansen2004/figure8_flatplate/indicial.csv", ',')
 staticdata = dsmodel.airfoils[1].cl.(alphavec)
 
 

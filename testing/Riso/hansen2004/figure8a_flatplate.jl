@@ -89,7 +89,8 @@ Cl, Cd, t =  parsesolution(dsmodel, sol, p)
 
 alphavec = alpha.(sol.t)
 
-expdata = readdlm("../../../data/Hansen2004/figure8_flatplate/indicial.csv", ',')
+# expdata = readdlm("../../../data/Hansen2004/figure8_flatplate/indicial.csv", ',')
+expdata = readdlm("../data/Hansen2004/figure8_flatplate/indicial.csv", ',')
 
 
 clplt = plot(legend=:topleft, title="Cyclic Alpha", yaxis="Cl", xaxis="Alpha (deg)")

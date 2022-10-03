@@ -20,59 +20,44 @@
 
 =#
 
+export Riso, riso
+"""
+    Riso(detype::DEType, n::Int, airfoils::Array{Airfoil, 1})
 
-function fst(alpha, liftfit, dcdalpha, alpha0)
-    
-    f =  (2*sqrt(abs(liftfit(alpha)/(dcdalpha*(alpha-alpha0)))) - 1)^2
-    if f>= 1 || isnan(f)
-        return 1.0
-    elseif f<0
-        return 0.0
-    else
-        return f
-    end
-    
+The Risø model struct. It stores airfoil data for every section to be simulated. It can be used as a method to return updated states or state rates depending on it's DEType. 
+
+### Inputs
+- detype - The type of model it is, Functional(), Iterative(), or Indicial().
+- n - The number of sections to be simulated. 
+- airfoils - A vector of Airfoil structs, one corresponding to each section to be simulated. 
+"""
+struct Riso{TI} <: DSModel
+    detype::DEType 
+    n::TI #Number of airfoils simulated
+    airfoils::Array{Airfoil,1}
 end
 
-function seperationpoint(alpha, afm, afp, clfit, dcldalpha, alpha0)
-    #TODO: I'm not really sure that using the minimum of these two is really the way to avoid the problem of this blowing up to infinity. (When alpha=alpha0) (This check happens in the if statement.)
+"""
+    riso(airfoils::Array{Airfoil, 1}; detype::DEType=Iterative())
 
-    #TODO: I'm not sure that using the absolute value here is the correct way to dodge the problem of crossing the x axis at different times.
+A convenience. constructor for the Risø model. 
 
-    #Todo. I don't like using if statements for angles of attack outside of the range of attached flow. I want the function to just drive to zero. -> Todo. Plot the seperation function as a function of alpha. -> Removed the if statements and the function naturally drives to zero like the paper (not at the angles as described by Hansen.)
-    
-    
-    ### The theory says that if the angle of attack is less (or greater than) than the seperation point aoa, then the function should return 0. -> However, using these if statements create discontinuities in the seperation point function that don't appear to be in Hansen's implementation. -> It only creates discontinuties if the incorrect values for afm and afp are used. If afm and afp are really where f(alpha)=0 then, the function won't have any discontinuities. 
-    # if alpha<afm # -> TODO: If I'm getting rid of this, then I can get rid of the afm and afp arguments. 
-    #     return typeof(alpha)(0)
-    # elseif alpha>afp
-    #     return typeof(alpha)(0)
-    # end
-
-    if !(afm < alpha < afp) #Check if alpha is in the bounds. 
-        # println("f was set to zero. ")
-        return typeof(alpha)(0)
-    end
-    
-    cl_static = clfit(alpha)
-    cl_linear = dcldalpha*(alpha-alpha0)
-    f = (2*sqrt(abs(cl_static/cl_linear))-1)^2
-
-    if f>1 #Question: What if I don't return this? I might get Inf.... or possibly NaN... but I will less likely get 1.0... which is my problem child in the seperated coefficient of lift function. -> I fixed the fully seperated coefficient of lift function... I just plugged this function inside the other and simplified. 
-        return typeof(alpha)(1)
-    elseif isnan(f)
-        # println("f return NaN")
-        return typeof(alpha)(1)
-    end
-
-    #Todo. Hansen must have some sort of switch that stops this function from reattaching when the aoa gets really high. -> like the one where you automatically set f=0 when you're outside the bounds of afm, afp
-    return f
+### Inputs
+- airfoils - A vector of Airfoil structs, one corresponding to each section to be simulated. 
+- detype - The DEType of the model. Defaults to Iterative(). 
+"""
+function riso(airfoils; detype::DEType=Iterative()) #::Array{Airfoil,1} #TODO: I'm not sure how to type this. 
+    n = length(airfoils)
+    return Riso(detype, n, airfoils)
 end
 
 
 
 
-function riso_state_rates(X, U, Udot, alpha, alphadot, c, dcldalpha, alpha0, afm, afp, liftfit, A1, A2, b1, b2, Tp, Tf) 
+
+
+
+function riso_state_rates(X, U, Udot, alpha, alphadot, c, dcldalpha, alpha0, afm, afp, liftfit, A1, A2, b1, b2, Tp, Tf, airfoil) #Passing the airfoil and the coefficients seems redundant. 
 
     ### Calculate constants
     Tu = c/(2*U) #Todo: This will go to NaN if U=0
@@ -91,7 +76,8 @@ function riso_state_rates(X, U, Udot, alpha, alphadot, c, dcldalpha, alpha0, afm
     dx3 = (dcldalpha*(ae-alpha0) + pi*Tu*alphadot)/Tp - X[3]/Tp #TODO: Should this be able to go negative? 
 
     alphaf = (X[3]/dcldalpha)+alpha0 #Seperation Angle of Attack
-    fp = fst(alphaf, liftfit, dcldalpha, alpha0) #Todo: Should I be using the fst function or the seperationpoint function? 
+    # fp = fst_riso(alphaf, liftfit, dcldalpha, alpha0) #Todo: Should I be using the fst function or the separationpoint_riso function? 
+    fp = separationpoint(airfoil, alphaf)
     dx4 = fp/Tf - X[4]/Tf 
 
     # @show dx1, dx2, dx3, dx4
@@ -103,14 +89,15 @@ end
 
 
 #Todo: I need to add the checks and balances from above. 
-function riso_state_rates!(dx, x, U, Udot, alpha, alphadot, c, A1, A2, b1, b2, dcldalpha, alpha0, Tp, Tf, clfit, afm, afp)
+function riso_state_rates!(dx, x, U, Udot, alpha, alphadot, c, A1, A2, b1, b2, dcldalpha, alpha0, Tp, Tf, clfit, afm, afp, airfoil)
 
     # @show alpha
     Tu = c/(2*U)
     alpha_E = alpha*(1 - A1 - A2) + x[1] + x[2]
     alpha_f = x[3]/dcldalpha + alpha0
     # @show alpha_f
-    fst = seperationpoint(alpha_f, afm, afp, clfit, dcldalpha, alpha0)
+    # fst = separationpoint_riso(alpha_f, afm, afp, clfit, dcldalpha, alpha0)
+    fst = separationpoint(airfoil, alpha_f)
 
     dx[1] = -x[1]*(b1 + c*Udot/(2*(U^2)))/Tu + b1*A1*alpha/Tu
     dx[2] = -x[2]*(b2 + c*Udot/(2*(U^2)))/Tu + b2*A2*alpha/Tu
@@ -133,7 +120,7 @@ function riso_residual(dx, x, y, p, t, airfoil)
     c = p 
 
     ### Calculate Aero state rates and factors for BEM 
-    d_X = riso_state_rates(x, u, udot, v, vdot, theta, thetadot, c, airfoil)
+    d_X = riso_state_rates(x, u, udot, v, vdot, theta, thetadot, c, airfoil) #Todo: This needs to be fixed. 
 
     ### Dynamic Stall Model State Rate Residuals
     r1 = dx[1] - d_X[1]
@@ -207,7 +194,7 @@ function riso_ode(detype::Iterative, model, x, p, t)
 
         xs = view(x, idx+1:idx+4)
 
-        dx[idx+1:idx+4] = riso_state_rates(xs, u[i], udot[i], alpha[i], alphadot[i], c[i], model.airfoils[i].dcldalpha, model.airfoils[i].alpha0, model.airfoils[i].alphasep[1], model.airfoils[i].alphasep[2], model.airfoils[i].cl, model.airfoils[i].A[1], model.airfoils[i].A[2], model.airfoils[i].b[1], model.airfoils[i].b[2], model.airfoils[i].T[1], model.airfoils[i].T[2])
+        dx[idx+1:idx+4] = riso_state_rates(xs, u[i], udot[i], alpha[i], alphadot[i], c[i], model.airfoils[i].dcldalpha, model.airfoils[i].alpha0, model.airfoils[i].alphasep[1], model.airfoils[i].alphasep[2], model.airfoils[i].cl, model.airfoils[i].A[1], model.airfoils[i].A[2], model.airfoils[i].b[1], model.airfoils[i].b[2], model.airfoils[i].T[1], model.airfoils[i].T[2], model.airfoils[i])
     end
 
     return dx
@@ -229,7 +216,7 @@ function riso_ode!(detype::Functional, model, dx, x, p, t)
         idx = (i-1)*4
         xs = view(x, idx+1:idx+4)
         dxs = view(dx, idx+1:idx+4)
-        riso_state_rates!(dxs, xs, U(t), Udot(t), alpha(t), alphadot(t), cvec[i], airfoil.A[1], airfoil.A[2], airfoil.b[1], airfoil.b[2], airfoil.dcldalpha, airfoil.alpha0, airfoil.T[1], airfoil.T[2], airfoil.cl, airfoil.alphasep[1], airfoil.alphasep[2])
+        riso_state_rates!(dxs, xs, U(t), Udot(t), alpha(t), alphadot(t), cvec[i], airfoil.A[1], airfoil.A[2], airfoil.b[1], airfoil.b[2], airfoil.dcldalpha, airfoil.alpha0, airfoil.T[1], airfoil.T[2], airfoil.cl, airfoil.alphasep[1], airfoil.alphasep[2], airfoil)
     end
 end
 
@@ -241,7 +228,7 @@ function static_riso_dae!(resids, dx, x, p, t) #Todo: I'm not sure this is corre
     U, Udot, alpha, alphadot, c, A1, A2, b1, b2, dcldalpha, alpha0, Tp, Tf, clfit, afm, afp = p
     @show typeof(x)
 
-    riso_state_rates!(dx, x, U(t), Udot(t), alpha(t), alphadot(t), c, A1, A2, b1, b2, dcldalpha, alpha0, Tp, Tf, clfit, afm, afp)
+    riso_state_rates!(dx, x, U(t), Udot(t), alpha(t), alphadot(t), c, A1, A2, b1, b2, dcldalpha, alpha0, Tp, Tf, clfit, afm, afp, airfoil)
 
     resids[1] = dx[1]
     resids[2] = dx[1]
@@ -259,7 +246,7 @@ end
 
 
 # function Clfs(alpha, clfit, dcldalpha, alpha0, afm, afp)
-#     fst = seperationpoint(alpha, afm, afp, clfit, dcldalpha, alpha0)
+#     fst = separationpoint_riso(alpha, afm, afp, clfit, dcldalpha, alpha0)
     
 #     clst = clfit(alpha)
 #     # @show fst
@@ -297,7 +284,7 @@ function Clfs(alpha, clfit, dcldalpha, alpha0) #Todo. Determine which of these t
 end
 
 # function Clfs(alpha, liftfit, dcldalpha, alpha0)
-#     f = fst(alpha, liftfit, dcldalpha, alpha0)
+#     f = fst_riso(alpha, liftfit, dcldalpha, alpha0)
 #     Cl = 0.0
 #     if f>= 1.0 
 #         Cl =  liftfit(alpha)/2
@@ -319,11 +306,11 @@ end
 
 
 function riso_coefficients(x, U, alpha, alphadot, c, airfoil::Airfoil)
-    return riso_coefficients(x, U, alpha, alphadot, c, airfoil.cl, airfoil.cd, airfoil.dcldalpha, airfoil.alpha0, airfoil.A[1], airfoil.A[2], airfoil.alphasep[1], airfoil.alphasep[2])
+    return riso_coefficients(x, U, alpha, alphadot, c, airfoil.cl, airfoil.cd, airfoil.dcldalpha, airfoil.alpha0, airfoil.A[1], airfoil.A[2], airfoil.alphasep[1], airfoil.alphasep[2], airfoil)
 end
 
 
-function riso_coefficients(x, U, alpha, alphadot, c, clfit, cdfit, dcldalpha, alpha0, A1, A2, afm, afp)
+function riso_coefficients(x, U, alpha, alphadot, c, clfit, cdfit, dcldalpha, alpha0, A1, A2, afm, afp, airfoil)
 
     Cd0 = cdfit(alpha0)
 
@@ -331,7 +318,7 @@ function riso_coefficients(x, U, alpha, alphadot, c, clfit, cdfit, dcldalpha, al
     alpha_E = alpha*(1 - A1 - A2) + x[1] + x[2]
 
     # alpha_f = x[3]/dcldalpha + alpha0
-    # fst = seperationpoint(alpha_f, afm, afp, clfit, dcldalpha, alpha0)
+    # fst = separationpoint_riso(alpha_f, afm, afp, clfit, dcldalpha, alpha0)
 
     ### Calculate Clfs #Todo: Should Clfs use fst calculated from alpha_f or alpha? I'm going to assume it is based off of alpha, but recognize that this could be wrong. 
     # cl_fs = Clfs(alpha_E, clfit, dcldalpha, alpha0, afm, afp)
@@ -341,7 +328,8 @@ function riso_coefficients(x, U, alpha, alphadot, c, clfit, cdfit, dcldalpha, al
     Cl_dyn = dcldalpha*(alpha_E - alpha0)*x[4] + cl_fs*(1-x[4]) + pi*Tu*alphadot
 
     cdst = cdfit(alpha_E)
-    fst = seperationpoint(alpha_E, afm, afp, clfit, dcldalpha, alpha0)
+    # fst = separationpoint_riso(alpha_E, afm, afp, clfit, dcldalpha, alpha0)
+    fst = separationpoint(airfoil, alpha_E)
     fpp = x[4] #The delayed (unsteady) seperation point. It should never be zero, but perhaps the solver will attempt to use that value. 
     if fpp<0 #Todo: Will this introduce any discontinuities? 
         # println("set fourth state to zero. ") #Note: This is occuring in the converging to static solve. 
@@ -436,7 +424,7 @@ end
 #     fvec = zeros(nn)
 #     astvec = zeros(nn)
 #     for i=1:nn 
-#         fvec[i] = seperationpoint(alphavec[i], afm, afp, liftfit, dcldalpha, alpha0)
+#         fvec[i] = separationpoint_riso(alphavec[i], afm, afp, liftfit, dcldalpha, alpha0)
 #         astvec[i] = (momentfit(alphavec[i])-momentfit(alpha0))/liftfit(alphavec[i])
 #     end
 
@@ -462,10 +450,10 @@ end
 #         clfs = Clfs(ae, liftfit, dcldalpha, alpha0) 
         
 #         Cl[i] = dcldalpha*(ae-alpha0)*u[i,4] + clfs*(1-u[i,4]) + pi*Tu*alphadot(t) 
-#         fae = seperationpoint(ae, afm, afp, liftfit, dcldalpha, alpha0)
+#         fae = separationpoint_riso(ae, afm, afp, liftfit, dcldalpha, alpha0)
 #         fterm = (sqrt(fae)-sqrt(u[i,4]))/2 - (fae-u[i,4])/4
 #         Cd[i] = dragfit(ae) + (alpha(t)-ae)*Cl[i] + (dragfit(ae)-dragfit(alpha0))*fterm
-#         aterm = affit(u[i,4]) - affit(seperationpoint(ae, afm, afp, liftfit, dcldalpha, alpha0))
+#         aterm = affit(u[i,4]) - affit(separationpoint_riso(ae, afm, afp, liftfit, dcldalpha, alpha0))
 #         # println(aterm)
 #         Cm[i] = momentfit(ae) + Cl[i]*(aterm) - pi*Tu*alphadot(t)/2
 #     end
