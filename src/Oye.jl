@@ -1,4 +1,22 @@
-using FLOWMath
+# using FLOWMath
+
+export Oye
+
+"""
+    Oye(detype::DEType, n::Int, airfoils::Array{Airfoil, 1})
+
+The Øye model struct. It stores airfoil data for every section to be simulated. It can be used as a method to return updated states or state rates depending on it's DEType. 
+
+### Inputs
+- detype - The type of model it is, Functional(), Iterative(), or Indicial().
+- n - The number of sections to be simulated. 
+- airfoils - A vector of Airfoil structs, one corresponding to each section to be simulated. 
+"""
+struct Oye{TI} <: DSModel
+    detype::DEType 
+    n::TI #Number of airfoils simulated
+    airfoils::Array{Airfoil,1}
+end
 
 function nearestto(x, xp)
     residuals = abs.(x .-xp)

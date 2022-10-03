@@ -403,3 +403,23 @@ As a seperate routine, here is the algorithm to calculate the loads. Note that y
     - $C^v_m = -x^v_{cp}C^v_n$
 24) Equation 1.58 - Total pitching moment
     - $C_m = C_{m_0} - C^c_{n_{\alpha q}}(x_{cp}-0.25) + C^c_{mq} + C^{nc}_{m \alpha} + C^{nc}_{mq} + C_{v_m}$
+
+
+
+#### Other comments and formulae
+
+The seperation point equation (equation 1.33) is derived from Kirchoff's theory, which Leishman expresses as 
+
+```math
+\begin{aligned}
+C_n(\alpha, f, s, M) = \frac{\partial C_n}{\partial \alpha}(\alpha - \alpha_0)\left(\frac{1 + \sqrt{f}}{2}\right)^2 \\
+C_c(\alpha, f, s, M) = \eta_e \frac{\partial C_n}{\partial \alpha}(\alpha - \alpha_0)\sqrt{f} \tan(\alpha).
+\end{aligned}
+```
+If we solve the equation for the normal coefficient for the separation point $f$, then we can get an equation based on the static lift polar. 
+
+```math
+\implies f = \left(2\sqrt{\frac{C_n}{\frac{\partial C_n}{\partial \alpha}(\alpha - \alpha_0)}}-1 \right)^2
+```
+
+For our implementation, we take the absolute value of the argument of the square root to improve numerical performance, because frequently the linear lift ($\frac{\partial C_n}{\partial \alpha}$) and the static lift don't match up exactly and there is a small region where the argument of the square root may go negative, when it really never should. 

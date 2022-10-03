@@ -1,4 +1,4 @@
-export simpleairfoil, airfoil, riso, Airfoil
+export simpleairfoil, airfoil, riso, Airfoil #TODO: I need to organize this file. 
 
 """
     Airfoil(polar::Array{TF, 2}, cl::Tfit, cd::Tfit, cm::Tfit, dcldalpha::TF, alpha0::TF, alphasep::Array{TF, 1}, A::Array{TF, 1}, b::Array{TF, 1}, T::Array{TF, 1})
@@ -16,8 +16,11 @@ A struct to hold all of the airfoil polars, fits, and dynamic coefficients.
 - A - A vector of floats holding the A dynamic constants for the airfoil. 
 - b - A vector of floats holding the b dynamic constants for the airfoil. 
 - T - A vector of floats holding the time constants for the airfoil. 
+- S - A vector of floats holding the S constants are best fit constants for the separation point curve. 
+- s - A fit of the the separation point curve. 
+- xcp - The distance from the quarter chord to the center of pressure? 
 """
-struct Airfoil{TF, Tfit}  
+struct Airfoil{TF, Tfit, Fun}  
     polar::Array{TF, 2}
     cl::Tfit
     cd::Tfit
@@ -28,9 +31,51 @@ struct Airfoil{TF, Tfit}
     A::Array{TF,1}
     b::Array{TF,1}
     T::Array{TF,1}
-    S::Array{TF,1}
+    sfun::Fun
     xcp::TF
 end
+
+abstract type SeparationPoint end
+
+struct SP{fit} <:SeparationPoint #TODO: I probably don't want to call this cardoza... but whatever for now. -> Maybe just call it separation fit...
+    ffit::fit
+end
+
+function SP(polar, alpha0, alphasep, dcndalpha)
+    alpha = view(polar, :, 1)
+    cn = view(polar, :, 2)
+
+    fvec = reverse_separationpointcalculation(alpha, cn, dcndalpha, alpha0, alphasep)
+    ffit = Akima(alpha, fvec)
+    return SP(ffit)
+end
+
+
+struct ADSP{TF} <: SeparationPoint 
+    S::Array{TF, 1}
+end
+
+struct ADFSP{fit} <: SeparationPoint
+    ffit::fit
+end
+
+function ADFSP(polar, alpha0, alphasep, dcndalpha)
+    alpha = view(polar, :, 1)
+    cn = view(polar, :, 2)
+
+    fvec = reverse_separationpointcalculation_ADO(alpha, cn, dcndalpha, alpha0, alphasep)
+    ffit = Akima(alpha, fvec)
+    return ADFSP(ffit)
+end
+
+struct BLSP{TF} <: SeparationPoint
+    S::Array{TF, 1}
+end
+
+struct RSP <: SeparationPoint
+end
+
+
 
 #Note: Considering adding fit parameters.
 # -> Maybe another solution would be to make an abstract type that is an Airfoil, then have structs like RisoAirfoil, and BLAirfoil. 
@@ -62,10 +107,13 @@ function simpleairfoil(polar)
 
     alphasep = [polar[minclidx, 1], polar[maxclidx,1]]
 
-    S = zeros(4)
+    sfun(x) = 0.0
+
     xcp = 0.2
-    return Airfoil(polar, cl, cd, cm, dcldalpha, alpha0, alphasep, A, b, T, S, xcp)
+    return Airfoil(polar, cl, cd, cm, dcldalpha, alpha0, alphasep, A, b, T, sfun, xcp)
 end
+
+
 
 
 """
@@ -78,11 +126,12 @@ A slightly more complex version of simpleairfoil. Takes a polar and numerically 
 - A - A vector of floats holding the A dynamic constants for the airfoil. 
 - b - A vector of floats holding the b dynamic constants for the airfoil. 
 - T - A vector of floats holding the time constants for the airfoil. 
+- separationpointfit - An integer telling which fit function to use. 1 -> AeroDyn Cn separation point function, 
 
 ### Outputs
 - Airfoil
 """
-function airfoil(polar; A = [0.3, 0.7], b = [0.14, 0.53], T = [1.7, 3.0], S=zeros(4), xcp=0.2)
+function airfoil(polar; A = [0.3, 0.7], b = [0.14, 0.53], T = [1.7, 3.0], xcp=0.2, sfun::Union{SeparationPoint, Function}=ADFSP(1), S=zeros(4))
     #Todo: Need some sort of behavior when the provided polar is too small. 
 
     cl = Akima(polar[:,1], polar[:,2])
@@ -110,137 +159,257 @@ function airfoil(polar; A = [0.3, 0.7], b = [0.14, 0.53], T = [1.7, 3.0], S=zero
         dcldalpha=2*pi
         @warn("dcldalpha returned NaN")
     end
-    return Airfoil(polar, cl, cd, cm, dcldalpha, alpha0, alphasep, A, b, T, S, xcp)
+
+    if isa(sfun, ADFSP)
+        sfun = ADFSP(polar, alpha0, alphasep, dcldalpha)
+    elseif !isa(sfun, Union{Function, SeparationPoint}) #If it isn't a function or a SeparationPoint.
+        @warn("The separation point function must be a function, or one of the provided options. Returning to default ADSP().")
+        sfun = ADFSP(polar, alpha0, alphasep, dcldalpha)
+    end
+
+    return Airfoil(polar, cl, cd, cm, dcldalpha, alpha0, alphasep, A, b, T, sfun, xcp)
+end
+
+export update_airfoil
+
+function update_airfoil(airfoil::Airfoil; polar=nothing, dcldalpha=nothing, alpha0=nothing, alphasep=nothing, A=nothing, b=nothing, T=nothing, sfun=nothing, xcp=nothing)
+
+    if !(polar == nothing)
+        newpolar = polar
+    else
+        newpolar = airfoil.polar
+    end
+    newcl = Akima(newpolar[:,1], newpolar[:,2])
+    newcd = Akima(newpolar[:,1], newpolar[:,3])
+    newcm = Akima(newpolar[:,1], newpolar[:,4])
+
+    if !(dcldalpha==nothing)
+        newslope = dcldalpha
+    else
+        newslope = airfoil.dcldalpha
+    end
+
+    if !(alpha0==nothing)
+        newalpha0 = alpha0
+    else
+        newalpha0 = airfoil.alpha0
+    end
+
+    if !(alphasep==nothing)
+        newalphasep = alphasep
+    else
+        newalphasep = airfoil.alphasep
+    end
+
+    if !(A==nothing)
+        newA = A
+    else
+        newA = airfoil.A
+    end
+
+    if !(b==nothing)
+        newb = b
+    else
+        newb = airfoil.b
+    end
+
+    if !(T==nothing)
+        newT = T
+    else
+        newT = airfoil.T
+    end
+
+    if !(sfun==nothing)
+        newsfun = sfun
+    else
+        newsfun = airfoil.sfun
+    end
+
+    if !(xcp==nothing)
+        newxcp = xcp
+    else
+        newxcp = airfoil.xcp
+    end
+
+
+    return Airfoil(newpolar, newcl, newcd, newcm, newslope, newalpha0, newalphasep, newA, newb, newT, newsfun, newxcp)
 end
 
 
 
-export Functional, Iterative, Indicial
 
-abstract type DEType end #Is the model designed to be solved in one go, or iteratively, updating p ever iteration. 
+separationpoint(airfoil::Airfoil, alpha) = separationpoint(airfoil.sfun, airfoil, alpha)
 
-struct Functional <: DEType
-end
-
-struct Iterative <: DEType
-end
-
-struct Indicial <: DEType
-end
+separationpoint(sfun::SP, airfoil::Airfoil, alpha) = sfun.ffit(alpha)
 
 
 
+function reverse_separationpointcalculation(alpha, cn, dcndalpha, alpha0, alphasep)
+    n = length(cn)
+    fvec = Array{eltype(cn)}(undef, n)
 
-abstract type DSModel end
-# export DSModel
+    for i = 1:n
+        sqrtarg = abs(cn[i]/(dcndalpha*(alpha[i]-alpha0)))
+        f = (2*sqrt(sqrtarg) - 1)^2
 
-export Riso, riso
-"""
-    Riso(detype::DEType, n::Int, airfoils::Array{Airfoil, 1})
+        if f>1
+            f=1
+        elseif f<0
+            f=0
+        end
 
-The Risø model struct. It stores airfoil data for every section to be simulated. It can be used as a method to return updated states or state rates depending on it's DEType. 
+        if alphasep[1]<alpha[i]<alphasep[2]
+            f=1
+        end
 
-### Inputs
-- detype - The type of model it is, Functional(), Iterative(), or Indicial().
-- n - The number of sections to be simulated. 
-- airfoils - A vector of Airfoil structs, one corresponding to each section to be simulated. 
-"""
-struct Riso{TI} <: DSModel
-    detype::DEType 
-    n::TI #Number of airfoils simulated
-    airfoils::Array{Airfoil,1}
-end
+        fvec[i] = f
+    end
 
-"""
-    riso(airfoils::Array{Airfoil, 1}; detype::DEType=Iterative())
+    _, alpha1idx = nearestto(alpha, alphasep[1]) # Find negative stall angle
+    _, alpha2idx = nearestto(alpha, alphasep[2]) # Find positive stall angle
+    
+    min_positivestall, minidx_positivestall = findmin(fvec[alpha2idx:end]) # Search the positive stall region for the minimum
+    min_negativestall, minidx_negativestall = findmin(fvec[1:alpha1idx]) # Search the negative stall region for the minimum
 
-A convenience. constructor for the Risø model. 
+    fvec[alpha2idx+minidx_positivestall:end] .= min_positivestall # Replace all of the post positive stall region with the minimum. 
+    fvec[1:minidx_negativestall] .= min_negativestall # Replace all of the post negative stall region with the minimum. 
 
-### Inputs
-- airfoils - A vector of Airfoil structs, one corresponding to each section to be simulated. 
-- detype - The DEType of the model. Defaults to Iterative(). 
-"""
-function riso(airfoils; detype::DEType=Iterative()) #::Array{Airfoil,1} #TODO: I'm not sure how to type this. 
-    n = length(airfoils)
-    return Riso(detype, n, airfoils)
-end
 
-export BeddoesLeishman
-
-"""
-    BeddoesLeishman(detype::DEType, n::Int, airfoils::Array{Airfoil, 1}, version::Int)
-
-The Beddoes-Leishman model struct. It stores airfoil data for every section to be simulated. It can be used as a method to return updated states or state rates depending on it's DEType. 
-
-### Inputs
-- detype - The type of model it is, Functional(), Iterative(), or Indicial().
-- n - The number of sections to be simulated. 
-- airfoils - A vector of Airfoil structs, one corresponding to each section to be simulated. 
-- version - Which version of the indicial implementation. 1) original. 2) AeroDyn original. 3) AeroDyn Gonzalez. 4) AeroDyn Minema
-- constants - Constants that change with version of the model. 
-"""
-struct BeddoesLeishman{TF, TI} <: DSModel
-    detype::DEType 
-    n::TI #Number of airfoils simulated
-    airfoils::Array{Airfoil,1}
-    version::TI #Which version of the indicial implementation. 
-    constants::Array{TF, 1} #Model Constants #TODO: Maybe I'll make this a tuple? I don't know if that'll be any better. 
+    return fvec
 end
 
 
+function separationpoint(sfun::ADSP, airfoil::Airfoil, alpha)
+    if isapprox(alpha, -pi, atol=1e-4)
+        println("AeroDyn Original sep function called. ")
+    end
+    alpha0 = airfoil.alpha0
+    alpha1 = airfoil.alphasep[2]
+    alpha2 = airfoil.alphasep[1]
+    S1, S2, S3, S4 = sfun.S
 
+    if (alpha0 <= alpha < alpha1)
+        return 1 - 0.3*exp((alpha-alpha1)/S1)
+    elseif (alpha2 <= alpha < alpha0)
+        return 1 - 0.3*exp((alpha2-alpha)/S3)
+    elseif alpha>alpha1
+        return 0.04 + 0.66*exp((alpha1-alpha)/S2)
+    elseif alpha<alpha2
+        return 0.04 + 0.66*exp((alpha-alpha2)/S4)
+    end
 
-
-export Onera
-
-"""
-    Onera(detype::DEType, n::Int, airfoils::Array{Airfoil, 1})
-
-The Onera model struct. It stores airfoil data for every section to be simulated. It can be used as a method to return updated states or state rates depending on it's DEType. 
-
-### Inputs
-- detype - The type of model it is, Functional(), Iterative(), or Indicial().
-- n - The number of sections to be simulated. 
-- airfoils - A vector of Airfoil structs, one corresponding to each section to be simulated. 
-"""
-struct Onera{TI} <: DSModel
-    detype::DEType 
-    n::TI #Number of airfoils simulated
-    airfoils::Array{Airfoil,1}
+    @warn("No seperation point found. Returning 1.0.")
+    return 1.0
 end
 
-export Larsen
+function reverse_separationpointcalculation_ADO(alpha, cn, dcndalpha, alpha0, alphasep)
+    n = length(cn)
+    fvec = Array{eltype(cn)}(undef, n)
 
-"""
-    Larsen(detype::DEType, n::Int, airfoils::Array{Airfoil, 1})
+    for i = 1:n
+        sqrtarg = abs(cn[i]/(dcndalpha*(alpha[i]-alpha0)))
+        f = (2*sqrt(sqrtarg) - 1)^2
 
-The Larsen model struct. It stores airfoil data for every section to be simulated. It can be used as a method to return updated states or state rates depending on it's DEType. 
+        if f>1
+            f=1
+        elseif f<0
+            f=0
+        end
 
-### Inputs
-- detype - The type of model it is, Functional(), Iterative(), or Indicial().
-- n - The number of sections to be simulated. 
-- airfoils - A vector of Airfoil structs, one corresponding to each section to be simulated. 
-"""
-struct Larsen{TI} <: DSModel
-    detype::DEType 
-    n::TI #Number of airfoils simulated
-    airfoils::Array{Airfoil,1}
+        if alphasep[1]<alpha[i]<alphasep[2]
+            f=1
+        end
+
+        fvec[i] = f
+    end
+    return fvec
 end
 
-export Oye
+### AeroDyn separation point fit based on the static lift curve #TODO: Might need to rotate to the normal coefficient. 
+separationpoint(sfun::ADFSP, airfoil::Airfoil, alpha) = sfun.ffit(alpha)
 
-"""
-    Oye(detype::DEType, n::Int, airfoils::Array{Airfoil, 1})
+### Beddoes Leishman separation point function 
+function separationpoint(sfun::BLSP, airfoil::Airfoil, alpha) 
+    if isapprox(alpha, -pi, atol=1e-4)
+        println("Beddoes Leishman sep function called. ")
+    end
 
-The Øye model struct. It stores airfoil data for every section to be simulated. It can be used as a method to return updated states or state rates depending on it's DEType. 
+    alpha1, alpha2 = airfoil.alphasep
+    S = sfun.S
 
-### Inputs
-- detype - The type of model it is, Functional(), Iterative(), or Indicial().
-- n - The number of sections to be simulated. 
-- airfoils - A vector of Airfoil structs, one corresponding to each section to be simulated. 
-"""
-struct Oye{TI} <: DSModel
-    detype::DEType 
-    n::TI #Number of airfoils simulated
-    airfoils::Array{Airfoil,1}
+    if alpha1<=alpha<=alpha2
+        return 1.0-0.3*exp((alpha1-alpha)/S[1])
+    elseif alpha<alpha1
+        return 0.04 + 0.66*exp((alpha-alpha1)/S[2])
+    else
+        return 0.04 + 0.66*exp((alpha2-alpha)/S[2]) #One paper has a plus here, another has a minus. 
+    end
 end
+
+
+
+# function fst_riso(alpha, liftfit, dcldalpha, alpha0)
+    
+#     f =  (2*sqrt(abs(liftfit(alpha)/(dcldalpha*(alpha-alpha0)))) - 1)^2
+#     if f>= 1 || isnan(f)
+#         return 1.0
+#     elseif f<0
+#         return 0.0
+#     else
+#         return f
+#     end
+    
+# end
+
+### Riso separation point function, including some corrections. 
+function separationpoint(sfun::RSP, airfoil::Airfoil, alpha)
+    if isapprox(alpha, -pi, atol=1e-4)
+        println("Riso sep function called. ")
+    end
+
+    afm, afp = airfoil.alphasep
+    clfit = airfoil.cl
+    dcldalpha = airfoil.dcldalpha
+    alpha0 = airfoil.alpha0
+    #TODO: I'm not really sure that using the minimum of these two is really the way to avoid the problem of this blowing up to infinity. (When alpha=alpha0) (This check happens in the if statement.)
+
+    #TODO: I'm not sure that using the absolute value here is the correct way to dodge the problem of crossing the x axis at different times.
+
+    #Todo. I don't like using if statements for angles of attack outside of the range of attached flow. I want the function to just drive to zero. -> Todo. Plot the seperation function as a function of alpha. -> Removed the if statements and the function naturally drives to zero like the paper (not at the angles as described by Hansen.)
+    
+    
+    ### The theory says that if the angle of attack is less (or greater than) than the seperation point aoa, then the function should return 0. -> However, using these if statements create discontinuities in the seperation point function that don't appear to be in Hansen's implementation. -> It only creates discontinuties if the incorrect values for afm and afp are used. If afm and afp are really where f(alpha)=0 then, the function won't have any discontinuities. 
+    # if alpha<afm # -> TODO: If I'm getting rid of this, then I can get rid of the afm and afp arguments. 
+    #     return typeof(alpha)(0)
+    # elseif alpha>afp
+    #     return typeof(alpha)(0)
+    # end
+    # error("We got here. ")
+    # println(alpha)
+
+    # @show afm, alpha, afp
+    if !(afm < alpha < afp) #Check if alpha is in the bounds. 
+        # println("f was set to zero. ")
+        return typeof(alpha)(0)
+    end
+    
+    cl_static = clfit(alpha)
+    cl_linear = dcldalpha*(alpha-alpha0)
+    f = (2*sqrt(abs(cl_static/cl_linear))-1)^2
+    # println(f)  
+
+    if f>1 #Question: What if I don't return this? I might get Inf.... or possibly NaN... but I will less likely get 1.0... which is my problem child in the seperated coefficient of lift function. -> I fixed the fully seperated coefficient of lift function... I just plugged this function inside the other and simplified. 
+        return typeof(alpha)(1)
+    elseif isnan(f)
+        # println("f return NaN")
+        return typeof(alpha)(1)
+    end
+
+    #Todo. Hansen must have some sort of switch that stops this function from reattaching when the aoa gets really high. -> like the one where you automatically set f=0 when you're outside the bounds of afm, afp
+    return f
+end
+
+separationpoint(sfun::Function, airfoil::Airfoil, alpha) = sfun(alpha)
+
+
+

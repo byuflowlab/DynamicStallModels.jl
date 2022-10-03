@@ -2,15 +2,6 @@ using DifferentialEquations
 using Roots
 using FiniteDiff
 
-function Heavi(t)
-    if t>0
-        return 1
-    else
-        return 0
-    end
-end
-
-
 
 
 """
@@ -36,7 +27,7 @@ end
 
 ### Notes:
 """
-function BeddoesLeishman(U, Udot, V, Vdot, alpha, alphadot, alphaddot, c, dcldalpha, alpha0, alphav, maxcl, A, S, w; ffunction=:Leishman, u0=zeros(8), a=343, Cd0=NaN)
+function BeddoesLeishmanLarsen(U, Udot, V, Vdot, alpha, alphadot, alphaddot, c, dcldalpha, alpha0, alphav, maxcl, A, S, w; ffunction=:Leishman, u0=zeros(8), a=343, Cd0=NaN)
 
     if length(u0)!=8
         error("Length of inital states must be 8.")

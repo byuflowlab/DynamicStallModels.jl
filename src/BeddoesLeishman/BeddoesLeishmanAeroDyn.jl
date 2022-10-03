@@ -5,7 +5,7 @@ AeroDyn's implementation of the Beddoes-Leishman model.
 
 
 function getloads_BLA(dsmodel::BeddoesLeishman, states, p, airfoil)
-    c, a, dcndalpha, alpha0, Cd0, Cm0, A1, A2, b1, b2, Tf0, Tv0, Tp, Tvl, Cn1, alpha1, alpha2, S1, S2, S3, S4, xcp, U, _ = p
+    c, a, dcndalpha, alpha0, Cd0, Cm0, A1, A2, b1, b2, Tf0, Tv0, Tp, Tvl, Cn1, xcp, U, _ = p
     Cnfit = airfoil.cl
 
     Cn, Cc, Cl, Cd, Cm = BLAD_coefficients(dsmodel::BeddoesLeishman, states, U, c, Cnfit, dcndalpha, alpha0, Cd0, Cm0, A1, A2, b1, b2, Tvl, xcp, a)
@@ -14,25 +14,10 @@ end
 
 
 
-function seperationpoint(alpha, alpha0, alpha1, alpha2, S1, S2, S3, S4)
-    #Question: I think alpha1==afp and alpha2==afm
-    if (alpha0 <= alpha < alpha1)
-        return 1 - 0.3*exp((alpha-alpha1)/S1)
-    elseif (alpha2 <= alpha < alpha0)
-        return 1 - 0.3*exp((alpha2-alpha)/S3)
-    elseif alpha>alpha1
-        return 0.04 + 0.66*exp((alpha1-alpha)/S2)
-    elseif alpha<alpha2
-        return 0.04 + 0.66*exp((alpha-alpha2)/S4)
-    end
-
-    @warn("No seperation point found. Returning 1.0.")
-    return 1.0
-end
 
 
 #AeroDyn original implementation. 
-function update_states_ADO(dsmodel::BeddoesLeishman, oldstates, c, a, U, deltat, aoa, dcndalpha, alpha0, A1, A2, b1, b2, Tf0, Tv0, Tp, Tvl, Cn1, alpha1, alpha2, S1, S2, S3, S4) 
+function update_states_ADO(dsmodel::BeddoesLeishman, oldstates, c, a, U, deltat, aoa, dcndalpha, alpha0, A1, A2, b1, b2, Tf0, Tv0, Tp, Tvl, Cn1, afidx) #Todo: I need to pass in airfoil. -> The airfoils are getting passed in via the dsmodel, and the coefficients are being passed in via the parameters vector..... I might need to redesign p... or not have some of these things as an option? Also? Am I using the airfoils inside of the dsmodel? Should I take those out? 
 
     ### Unpack
     alpha_m, alphaf_m, q_m, Ka_m, Kq_m, X1_m, X2_m, Kpa_m, Kpq_m, Kppq_m, Kpppq_m, Dp_m, Df_m, Cpotn_m, fp_m, fpp_m, tauv, Cvn_m, Cv_m, LESF_m, TESF_m, VRTX_m = oldstates #The underscore m means that it is the previous time step (m comes before n).
@@ -235,7 +220,8 @@ function update_states_ADO(dsmodel::BeddoesLeishman, oldstates, c, a, U, deltat,
 
     states[2] = alphaf = Cpn/Cc_na + alpha0 #EQ 1.34, delayed effective angle of incidence  
 
-    states[15] = fp = seperationpoint(alphaf, alpha0, alpha1, alpha2, S1, S2, S3, S4) #EQ 1.33 
+    airfoil = dsmodel.airfoils[afidx]
+    states[15] = fp = separationpoint(airfoil, alphaf) #EQ 1.33 
     states[13] = Df = Df_m*exp(-deltas/Tf) + (fp - fp_m)*exp(-deltas/(2*Tf)) #EQ 1.36b
     states[16] = fpp = fp - Df #EQ 1.36, delayed effective seperation point. 
     
@@ -427,8 +413,7 @@ function initialize_ADO(Uvec, aoavec, tvec, airfoil::Airfoil, c, a)
     A1, A2 = airfoil.A
     b1, b2 = airfoil.b
     Tp, Tf0, Tv0, Tvl = airfoil.T
-    alpha2, alpha1 = airfoil.alphasep
-    S1, S2, S3, S4 = airfoil.S
+    _, alpha1 = airfoil.alphasep
     xcp = airfoil.xcp
 
     Cn1 = airfoil.cl(alpha1)
@@ -459,14 +444,14 @@ function initialize_ADO(Uvec, aoavec, tvec, airfoil::Airfoil, c, a)
     loads = [airfoil.cl(aoa), airfoil.cd(aoa), airfoil.cl(aoa), airfoil.cd(aoa), airfoil.cm(aoa)]
 
 
-    p = [c, a, dcndalpha, alpha0, Cd0, Cm0, A1, A2, b1, b2, Tf0, Tv0, Tp, Tvl, Cn1, alpha1, alpha2, S1, S2, S3, S4, xcp]
+    p = [c, a, dcndalpha, alpha0, Cd0, Cm0, A1, A2, b1, b2, Tf0, Tv0, Tp, Tvl, Cn1, xcp] #16 elements (-> total of 18 elements in p. )
 
     envvars = [Uvec[1], aoavec[1]]
 
     return states, loads, vcat(p, envvars)
 end
 
-function updateenvironment_ADO(p, U, aoa)
-    p[23] = U
-    p[24] = aoa
+function updateenvironment_ADO(p, U, aoa) #Todo:
+    p[17] = U
+    p[18] = aoa
 end
