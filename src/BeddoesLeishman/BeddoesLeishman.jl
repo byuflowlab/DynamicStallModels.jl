@@ -38,19 +38,32 @@ function (model::BeddoesLeishman)(x, p, t, dt)
             newstates = Array{eltype(p), 1}(undef, ns)
             for i = 1:model.n
                 ps = view(p, 18*(i-1)+1:18*i)
-                #[c, a, dcndalpha, alpha0, Cd0, Cm0, A1, A2, b1, b2, Tf0, Tv0, Tp, Tvl, Cn1, alpha1, alpha2, xcp]
+                #[c, a, dcndalpha, alpha0, Cd0, Cm0, A1, A2, b1, b2, Tf0, Tv0, Tp, Tvl, Cn1, xcp]
                 c, a, dcndalpha, alpha0, _, _, A1, A2, b1, b2, Tf0, Tv0, Tp, Tvl, Cn1, _, U, aoa = ps #Inputs  
-                # if i==model.n
-                #     # @show dcndalpha, U, aoa #These look correct. 
-                # end
+                
                 xs = view(x, 22*(i-1)+1:22*i)
 
                 idx = 22*(i-1)+1:22*i
                 newstates[idx] = update_states_ADO(model, xs, c, a, U, dt, aoa, dcndalpha, alpha0, A1, A2, b1, b2, Tf0, Tv0, Tp, Tvl, Cn1, i)
             end
             return newstates
+
         elseif model.version==3
-            @warn("AeroDyn Beddoe-Leishman with Gonzalez's modifications not prepared for use yet.")
+            # @warn("AeroDyn Beddoe-Leishman with Gonzalez's modifications not prepared for use yet.")
+            ns = numberofstates(model)
+            newstates = Array{eltype(p), 1}(undef, ns)
+            for i = 1:model.n
+                ps = view(p, 18*(i-1)+1:18*i)
+    
+                c, a, dcndalpha, alpha0, _, _, A1, A2, b1, b2, Tf0, Tv0, Tp, Tvl, Cn1, _, U, aoa = ps #Inputs  
+                
+                xs = view(x, 24*(i-1)+1:24*i)
+
+                idx = 24*(i-1)+1:24*i
+                newstates[idx] = update_states_ADG(model, xs, c, a, U, dt, aoa, dcndalpha, alpha0, A1, A2, b1, b2, Tf0, Tv0, Tp, Tvl, Cn1, i)
+            end
+            return newstates
+
         elseif model.version==4
             @warn("AeroDyn Beddoe-Leishman with Minema's modifications not prepared for use yet.")
         end
@@ -66,7 +79,8 @@ function getloads(dsmodel::BeddoesLeishman, states, p, airfoil)
         elseif dsmodel.version==2
             return getloads_BLA(dsmodel, states, p, airfoil)
         elseif dsmodel.version==3
-            @warn("AeroDyn Beddoe-Leishman with Gonzalez's modifications not prepared for use yet.")
+            # @warn("AeroDyn Beddoe-Leishman with Gonzalez's modifications not prepared for use yet.")
+            return getloads_BLAG(dsmodel, states, p, airfoil)
         elseif dsmodel.version==4
             @warn("AeroDyn Beddoe-Leishman with Minema's modifications not prepared for use yet.")
         end
@@ -80,10 +94,10 @@ function numberofstates(dsmodel::BeddoesLeishman) #TODO: This probably need to b
     elseif dsmodel.version==2
         return 22*dsmodel.n
     elseif dsmodel.version==3
-        @warn("The orginal Beddoes-Leishman model is not yet prepared.")
-        return 22*dsmodel.n
+        # @warn("The Gozalez Beddoes-Leishman model is not yet prepared.")
+        return 24*dsmodel.n
     elseif dsmodel.version==4
-        @warn("The orginal Beddoes-Leishman model is not yet prepared.")
+        @warn("The Minema Beddoes-Leishman model is not yet prepared.")
         return 22*dsmodel.n
     end
 end
@@ -95,10 +109,10 @@ function numberofloads(dsmodel::BeddoesLeishman) #TODO: This probably need to be
     elseif dsmodel.version==2
         return 5
     elseif dsmodel.version==3
-        @warn("The orginal Beddoes-Leishman model is not yet prepared.")
+        # @warn("The Gonzalez Beddoes-Leishman model is not yet prepared.")
         return 5
     elseif dsmodel.version==4
-        @warn("The orginal Beddoes-Leishman model is not yet prepared.")
+        @warn("The Minema Beddoes-Leishman model is not yet prepared.")
         return 5
     end
 end
@@ -109,8 +123,10 @@ function initialize(dsmodel::BeddoesLeishman, Uvec, aoavec, tvec, airfoil::Airfo
     elseif isa(dsmodel.detype, Iterative)
         @warn("Beddoes Leishman Iterative implementation isn't prepared yet. - initialize()")
     else #Model is indicial
-        if dsmodel.version==2
+        if dsmodel.version==2 # Original AeroDyn Implementation
             return initialize_ADO(Uvec, aoavec, tvec, airfoil, c, a)
+        elseif dsmodel.version==3 # AeroDyn with Gonzalez modifications. 
+            return initialize_ADG(Uvec, aoavec, tvec, airfoil, c, a)
         end
     end
 end
@@ -121,8 +137,10 @@ function update_environment!(dsmodel::BeddoesLeishman, p, U, aoa)
     elseif isa(dsmodel.detype, Iterative)
         @warn("Beddoes Leishman Iterative implementation isn't prepared yet. - initialize()")
     else #Model is indicial
-        if dsmodel.version==2
+        if dsmodel.version==2 # Original AeroDyn Implementation
             return updateenvironment_ADO(p, U, aoa)
+        elseif dsmodel.version==3 # AeroDyn with Gonzalez modifications. 
+            return updateenvironment_ADG(p, U, aoa)
         end
     end
 end

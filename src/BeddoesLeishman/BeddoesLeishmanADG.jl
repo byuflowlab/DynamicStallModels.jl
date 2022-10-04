@@ -1,14 +1,14 @@
 #=
-AeroDyn's original implementation of the Beddoes-Leishman model. 
+AeroDyn's implementation of the Beddoes-Leishman model with Gonzalez's modifications. 
 
 =#
 
 
-function getloads_BLA(dsmodel::BeddoesLeishman, states, p, airfoil)
+function getloads_BLAG(dsmodel::BeddoesLeishman, states, p, airfoil)
     c, a, dcndalpha, alpha0, Cd0, Cm0, A1, A2, b1, b2, Tf0, Tv0, Tp, Tvl, Cn1, xcp, U, _ = p
     Cnfit = airfoil.cl
 
-    Cn, Cc, Cl, Cd, Cm = BLAD_coefficients(dsmodel::BeddoesLeishman, states, U, c, Cnfit, dcndalpha, alpha0, Cd0, Cm0, A1, A2, b1, b2, Tvl, xcp, a)
+    Cn, Cc, Cl, Cd, Cm = BLADG_coefficients(dsmodel::BeddoesLeishman, states, U, c, Cnfit, dcndalpha, alpha0, Cd0, Cm0, A1, A2, b1, b2, Tvl, xcp, a)
     return [Cn, Cc, Cl, Cd, Cm]
 end
 
@@ -17,10 +17,10 @@ end
 
 
 #AeroDyn original implementation. 
-function update_states_ADO(dsmodel::BeddoesLeishman, oldstates, c, a, U, deltat, aoa, dcndalpha, alpha0, A1, A2, b1, b2, Tf0, Tv0, Tp, Tvl, Cn1, afidx) #Todo: I need to pass in airfoil. -> The airfoils are getting passed in via the dsmodel, and the coefficients are being passed in via the parameters vector..... I might need to redesign p... or not have some of these things as an option? Also? Am I using the airfoils inside of the dsmodel? Should I take those out? 
+function update_states_ADG(dsmodel::BeddoesLeishman, oldstates, c, a, U, deltat, aoa, dcndalpha, alpha0, A1, A2, b1, b2, Tf0, Tv0, Tp, Tvl, Cn1, afidx)  #Todo: Ryan seems tot think that all of this airfoil information should pass in from the airfoil struct just fine and not affect how derivatives are calculated. 
 
     ### Unpack
-    alpha_m, alphaf_m, q_m, Ka_m, Kq_m, X1_m, X2_m, Kpa_m, Kpq_m, Kppq_m, Kpppq_m, Dp_m, Df_m, Cpotn_m, fp_m, fpp_m, tauv, Cvn_m, Cv_m, LESF_m, TESF_m, VRTX_m = oldstates #The underscore m means that it is the previous time step (m comes before n).
+    alpha_m, alphaf_m, q_m, Ka_m, Kq_m, X1_m, X2_m, X3_m, X4_m, Kpa_m, Kpq_m, Kppq_m, Kpppq_m, Dp_m, Df_m, Cpotn_m, fp_m, fpp_m, tauv, Cvn_m, Cv_m, LESF_m, TESF_m, VRTX_m = oldstates #The underscore m means that it is the previous time step (m comes before n).
 
     # if c==4.557
     #     @show aoa
@@ -34,27 +34,29 @@ function update_states_ADO(dsmodel::BeddoesLeishman, oldstates, c, a, U, deltat,
     5 - Kq
     6 - X1
     7 - X2
-    8 - Kpa
-    9 - Kpq
-    10 - Kppq
-    11 - Kpppq
-    12 - Dp
-    13 - Df
-    14 - Cpotn
-    15 - fp
-    16 - fpp
-    17 - tauv
-    18 - Cvn
-    19 - Cv
-    20 - LESF::Bool
-    21 - TESF::Bool
-    22 - VRTX::Bool
+    8 - X3
+    9 - X4
+    10 - Kpa
+    11 - Kpq
+    12 - Kppq
+    13 - Kpppq
+    14 - Dp
+    15 - Df
+    16 - Cpotn
+    17 - fp
+    18 - fpp
+    19 - tauv
+    20 - Cvn
+    21 - Cv
+    22 - LESF::Bool
+    23 - TESF::Bool
+    24 - VRTX::Bool
     =#
 
 
-    states = zeros(22)
+    states = zeros(24) #Todo: Consider putting a function to return this value. 
 
-
+    # @show length(states)
 
 
     zeta, A5, b5, Tsh, _ = dsmodel.constants 
@@ -162,10 +164,10 @@ function update_states_ADO(dsmodel::BeddoesLeishman, oldstates, c, a, U, deltat,
 
 
     ### Non-circulatory components of normal force
-    states[8] = Kpa = Kpa_m*exp(-deltat/Talpha) + (Ka - Ka_m)*exp(-deltat/(2*Talpha)) #Equation 1.18b, Deficiency function for eq. 1.18 
+    states[10] = Kpa = Kpa_m*exp(-deltat/Talpha) + (Ka - Ka_m)*exp(-deltat/(2*Talpha)) #Equation 1.18b, Deficiency function for eq. 1.18 
     Cnc_nalpha = 4*Talpha*(Ka-Kpa)/M #Equation 1.18, Noncirculatory component of normal force due to changes in alpha
 
-    states[9] = Kpq = Kpq_m*exp(-deltat/Tq) + (Kq - Kq_m)*exp(-deltat/(2*Tq)) #Equation 1.19b, deficiency function for eq. 1.19
+    states[11] = Kpq = Kpq_m*exp(-deltat/Tq) + (Kq - Kq_m)*exp(-deltat/(2*Tq)) #Equation 1.19b, deficiency function for eq. 1.19
     Cnc_nq = Tq*(Kq - Kpq)/M #Equation 1.19, Noncirculatory component of normal force due to changes in pitching rate. #TODO. The documentation conflicts on whether or not a minus should be included here. -> I'm going to assume that it is positive. And if I'm wrong... I'll change it. It seems to be correct with positive. 
 
     Cnc_naq = Cnc_nalpha + Cnc_nq #Equation 1.17, Noncirculatory component of normal force via superposition. 
@@ -179,6 +181,7 @@ function update_states_ADO(dsmodel::BeddoesLeishman, oldstates, c, a, U, deltat,
     ### Update states 1 and 2
     beta2 = beta^2 #beta squared
     delta_alpha = alpha - alpha_m #Note: Not explicitly defined in the documentation. Assumed. 
+    deltaq = q - q_m #Not explicityly stated in the docs. Assumed
 
     states[6] = X1 = X1_m*exp(-b1*beta2*deltas) + A1*exp(-b1*beta2*deltas/2)*delta_alpha #EQ 1.15a
     states[7] = X2 = X2_m*exp(-b2*beta2*deltas) + A2*exp(-b2*beta2*deltas/2)*delta_alpha #EQ 1.15b
@@ -189,18 +192,22 @@ function update_states_ADO(dsmodel::BeddoesLeishman, oldstates, c, a, U, deltat,
     alphae = (alpha - alpha0) - X1 - X2 #EQ 1.14, Effective angle of attack
 
     Cc_na = dcndalpha/beta #EQ 1.12, Circulatory component of the normal force coefficient response to step change in alpha. 
-    Cc_naq = Cc_na*alphae #EQ 1.13, Circulatory component of normal force via lumped approach. #TODO: This appears to be equal to Cpotcn
 
+    states[8] = X3 = X3_m*exp(-b1*beta2*deltas) + A1*exp(-b1*beta2*deltas/2)*deltaq #EQ 1.16a 
+    states[9] = X4 = X4_m*exp(-b2*beta2*deltas) + A2*exp(-b2*beta2*deltas/2)*deltaq #EQ 1.16a
+    Cc_nq = Cc_na*(q - X3 - X4)/2 #EQ 1.16, Circulatory component of the normal force coefficient response to step change in pitch. 
 
+    Cc_naq = Cc_na*alphae + Cc_nq #EQ 1.13, Circulatory component of normal force via lumped approach. #TODO: This appears to be equal to Cpotcn
+
+    
 
     ### Circulatory component of moment. #Question: Why did they calculate the moment here? Do I need some of these things here? Is there a better spot to put this? 
-    deltaq = q - q_m #Not explicityly stated in the docs. Assumed
-    states[11] = Kpppq = Kpppq_m*exp(-b5*beta2*deltas) + A5*deltaq*exp(-b5*beta2*deltas/2) #EQ 1.26
+    states[13] = Kpppq = Kpppq_m*exp(-b5*beta2*deltas) + A5*deltaq*exp(-b5*beta2*deltas/2) #EQ 1.26
 
 
 
     ### Total normal force under attached conditions
-    states[14] = Cpotn = Cc_naq + Cnc_naq #Equation 1.20
+    states[16] = Cpotn = Cc_naq + Cnc_naq #Equation 1.20
     # if c== 1.419
     #     @show Cc_naq, Cnc_naq
     # end
@@ -209,32 +216,32 @@ function update_states_ADO(dsmodel::BeddoesLeishman, oldstates, c, a, U, deltat,
     ### Noncirculatory component of moment due to change in pitch #Note: If this can, this should probably go with the other moment calculation. 
     bot = 15*(1-M) + 3*dcndalpha*A5*b5*beta*M*M/2  
     kmq = 7/bot #EQ 1.29b
-    states[10] = Kppq = Kppq_m*exp(-deltat/(kmq*kmq*TI)) + (Kq - Kq_m)*exp(-deltat/(2*kmq*kmq*TI)) #EQ 1.29c
+    states[12] = Kppq = Kppq_m*exp(-deltat/(kmq*kmq*TI)) + (Kq - Kq_m)*exp(-deltat/(2*kmq*kmq*TI)) #EQ 1.29c
 
 
 
     ####### boundary layer response 
-    states[12] = Dp = Dp_m*exp(-deltas/Tp) + (Cpotn - Cpotn_m)*exp(-deltas/(Tp*2)) #EQ1.35b, deficiency function. 
+    states[14] = Dp = Dp_m*exp(-deltas/Tp) + (Cpotn - Cpotn_m)*exp(-deltas/(Tp*2)) #EQ1.35b, deficiency function. 
     Cpn = Cpotn - Dp #EQ 1.35, lagged circulatory normal force 
 
 
     states[2] = alphaf = Cpn/Cc_na + alpha0 #EQ 1.34, delayed effective angle of incidence  
 
     airfoil = dsmodel.airfoils[afidx]
-    states[15] = fp = separationpoint(airfoil, alphaf) #EQ 1.33 
-    states[13] = Df = Df_m*exp(-deltas/Tf) + (fp - fp_m)*exp(-deltas/(2*Tf)) #EQ 1.36b
-    states[16] = fpp = fp - Df #EQ 1.36, delayed effective seperation point. 
+    states[17] = fp = separationpoint(airfoil, alphaf) #EQ 1.33 
+    states[15] = Df = Df_m*exp(-deltas/Tf) + (fp - fp_m)*exp(-deltas/(2*Tf)) #EQ 1.36b
+    states[18] = fpp = fp - Df #EQ 1.36, delayed effective seperation point. 
     
 
 
     ### 
-    fterm = (1 + sqrt(fpp))/2
+    fterm = (1 + 2*sqrt(fpp))/3
 
 
 
-    states[19] = Cv = Cc_na*alphae*(1 - fterm)^2 #EQ 1.49, Normal force coefficient due to accumulated vorticity
+    states[21] = Cv = Cc_na*alphae*(1 - fterm)^2 #EQ 1.50, Normal force coefficient due to accumulated vorticity
 
-    states[18] = Cvn = Cvn_m*exp(-deltas/Tv) + (Cv - Cv_m)*exp(-deltas/(2*Tv)) #EQ 1.47
+    states[20] = Cvn = Cvn_m*exp(-deltas/Tv) + (Cv - Cv_m)*exp(-deltas/(2*Tv)) #EQ 1.47
     #Note: Cv has to be the same sign as Cfs_n
     # if c==1.419
     #     @show Cvn, Cc_na, alphae, fterm
@@ -275,17 +282,17 @@ function update_states_ADO(dsmodel::BeddoesLeishman, oldstates, c, a, U, deltat,
 
     
 
-    states[17] = tauv
-    states[20] = LESF
-    states[21] = TESF
-    states[22] = VRTX
+    states[19] = tauv
+    states[22] = LESF
+    states[23] = TESF
+    states[24] = VRTX
 
 
 
     return states
 end
 
-function BLAD_coefficients(dsmodel::BeddoesLeishman, states, U, c, af::Airfoil, a)
+function BLADG_coefficients(dsmodel::BeddoesLeishman, states, U, c, af::Airfoil, a)
     cnfit = af.cl
     dcndalpha = af.dcldalpha
     alpha0 = af.alpha0
@@ -298,17 +305,17 @@ function BLAD_coefficients(dsmodel::BeddoesLeishman, states, U, c, af::Airfoil, 
     Tvl = af.T[4]
     xcp = af.xcp
 
-    return BLAD_coefficients(dsmodel, states, U, c, cnfit, dcndalpha, alpha0, Cd0, Cm0, A1, A2, b1, b2, Tvl, xcp, a)
+    return BLADG_coefficients(dsmodel, states, U, c, cnfit, dcndalpha, alpha0, Cd0, Cm0, A1, A2, b1, b2, Tvl, xcp, a)
 end
 
-function BLAD_coefficients(dsmodel::BeddoesLeishman, states, U, c, Cnfit, dcndalpha, alpha0, Cd0, Cm0, A1, A2, b1, b2, Tvl, xcp, a)
+function BLADG_coefficients(dsmodel::BeddoesLeishman, states, U, c, Cnfit, dcndalpha, alpha0, Cd0, Cm0, A1, A2, b1, b2, Tvl, xcp, a)
 
     _, A5, b5, _, eta = dsmodel.constants 
 
     Ka = states[4]
-    Kpa = states[8]
+    Kpa = states[10]
     Kq = states[5]
-    Kpq = states[9]
+    Kpq = states[11]
 
     M = U/a # Mach number
     beta = sqrt(1 - M^2) #Prandtl-Glauert compressibility correction factor
@@ -339,24 +346,35 @@ function BLAD_coefficients(dsmodel::BeddoesLeishman, states, U, c, Cnfit, dcndal
     # end
 
     alpha = states[1]
+    q = states[3]
+
     X1 = states[6]
     X2 = states[7]
+    X3 = states[8] #EQ 1.16a 
+    X4 = states[9] #EQ 1.16a
     alphae = (alpha - alpha0) - X1 - X2 #EQ 1.14, Effective angle of attack
+
     Cc_na = dcndalpha/beta #EQ 1.12, Circulatory component of the normal force coefficient response to step change in alpha. 
-    Cc_naq = Cc_na*alphae #EQ 1.13, Circulatory component of normal force via lumped approach.
+    Cc_nq = Cc_na*(q - X3 - X4)/2 #EQ 1.16
 
-    fpp = states[16]
-    fterm = (1 + sqrt(fpp))/2
+    Cc_naq = Cc_na*alphae + Cc_nq #EQ 1.13, Circulatory component of normal force via lumped approach.
 
-    Cfsn = Cnc_naq + Cc_naq*(fterm)^2 #EQ 1.38, Normal force coefficient after accounting for separated flow from TE
+    
+
+
+
+    fpp = states[18]
+    fterm = (1 + 2sqrt(fpp))/3
+
+    Cfsn = Cnc_naq + Cc_naq*(fterm)^2 + Cc_nq #EQ 1.39, Normal force coefficient after accounting for separated flow from TE
     # if c== 1.419
     #     @show Cnc_naq, Cc_naq, fterm #Both the Cnc and the Cc terms are large, the Cnc term is especially large. 
     # end
 
-    Cvn = states[18]
+    Cvn = states[20]
 
     ### Total normal force 
-    Cn = Cfsn + Cvn #EQ 1.53 
+    Cn = Cfsn + Cvn #EQ 1.53b
 
     # if c== 1.419
     #     @show Cfsn, Cvn #Problem is Cfsn
@@ -369,8 +387,7 @@ function BLAD_coefficients(dsmodel::BeddoesLeishman, states, U, c, Cnfit, dcndal
     Cfsc = Cpotc*eta*sqrt(fpp) #EQ 1.40 #(sqrt(fpp)-0.2) #Gonzalez modifications
 
     ### Chordwise force 
-    tauv = states[17]
-    Cc = Cfsc + Cvn*tan(alphae)(1 - tauv/Tvl) #EQ 1.55  #Todo: I'm not sure that this is the correct equation. I think this is Pierce's variation. 
+    Cc = Cfsc #EQ 1.55b
 
 
 
@@ -384,7 +401,7 @@ function BLAD_coefficients(dsmodel::BeddoesLeishman, states, U, c, Cnfit, dcndal
 
 
     q = states[3]
-    Kpppq = states[11]
+    Kpppq = states[13]
     Cc_mq = -dcndalpha*(q-Kpppq)*c/(16*beta*U) #Equation 1.22c
 
     ### Noncirculatory component of moment due to change in alpha
@@ -392,22 +409,22 @@ function BLAD_coefficients(dsmodel::BeddoesLeishman, states, U, c, Cnfit, dcndal
 
     bot = 15*(1-M) + 3*dcndalpha*A5*b5*beta*M*M/2  
     kmq = 7/bot #EQ 1.29b
-    Kppq = states[10]
+    Kppq = states[12]
     Cnc_mq = -7*TI*kmq*kmq*(Kq-Kppq)/(12*M) #EQ 1.29, Circulatory component of moment.
 
-    
+    tauv = states[19]
     xbarcp = 0.2 #Todo: Is this different from xcp? They call it x bar bar cp
     xvcp = xbarcp*(1-cos(pi*tauv/(Tvl))) #1.57b
     Cvm = -xvcp*Cvn #1.57a
 
     ### Moment
-    Cm = Cm0 - Cc_naq*(xcp - 0.25) + Cc_mq + Cnc_ma + Cnc_mq + Cvm #Equation 1.58
+    Cm = Cn*fpp + Cc_mq + Cnc_ma + Cnc_mq + Cvm #Equation 1.60
 
 
     return Cn, Cc, Cl, Cd, Cm
 end
 
-function initialize_ADO(Uvec, aoavec, tvec, airfoil::Airfoil, c, a) 
+function initialize_ADG(Uvec, aoavec, tvec, airfoil::Airfoil, c, a) 
     # Cnfit = airfoil.cl
     dcndalpha = airfoil.dcldalpha
     alpha0 = airfoil.alpha0
@@ -429,7 +446,7 @@ function initialize_ADO(Uvec, aoavec, tvec, airfoil::Airfoil, c, a)
     alpha = alphaf = aoavec[1]
     aoadot = q = Ka = 0 #(aoavec[2] - aoavec[1])/dt #Ka was initialized too high. aoadot isn't used. I might be able to use q = (aoavec[2] - aoavec[1])*c/(U*deltat) and ka = q*U/deltat... Why are q and Ka both states?... if one is just a multiple of the other. I guess U and delta t change, so it isn't the same multiple across time. 
     Kq = 0.0
-    X1 = X2 = 0.0
+    X1 = X2 = X3 = X4 = 0.0
     Kpa = Kpq = Kppq = Kpppq = 0.0
     Dp = Df = 0.0
     Cpotn = airfoil.cl(aoavec[1])
@@ -440,7 +457,7 @@ function initialize_ADO(Uvec, aoavec, tvec, airfoil::Airfoil, c, a)
 
     LESF = TESF = VRTX = 0
 
-    states = [alpha, alphaf, q, Ka, Kq, X1, X2, Kpa, Kpq, Kppq, Kpppq, Dp, Df, Cpotn, fp, fpp, tauv, Cvn, Cv, LESF, TESF, VRTX]
+    states = [alpha, alphaf, q, Ka, Kq, X1, X2, X3, X4, Kpa, Kpq, Kppq, Kpppq, Dp, Df, Cpotn, fp, fpp, tauv, Cvn, Cv, LESF, TESF, VRTX]
 
     loads = [airfoil.cl(aoa), airfoil.cd(aoa), airfoil.cl(aoa), airfoil.cd(aoa), airfoil.cm(aoa)]
 
@@ -452,7 +469,7 @@ function initialize_ADO(Uvec, aoavec, tvec, airfoil::Airfoil, c, a)
     return states, loads, vcat(p, envvars)
 end
 
-function updateenvironment_ADO(p, U, aoa) #Todo:
+function updateenvironment_ADG(p, U, aoa) #Todo:
     p[17] = U
     p[18] = aoa
 end
