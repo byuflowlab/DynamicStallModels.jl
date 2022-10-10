@@ -1,4 +1,4 @@
-using DynamicStallModels, OpenFASTsr, FLOWMath, Plots, Plots.PlotMeasures, DelimitedFiles
+using DynamicStallModels, OpenFASTsr, FLOWMath, Plots, Plots.PlotMeasures, DelimitedFiles, LaTeXStrings
 
 #=
 Test the Beddoes-Leishman model as given in the documentation. I had to make some minor modifications as not all of the equations were given. 
@@ -13,7 +13,7 @@ cd(path)
 
 
 # /Users/adamcardoza/.julia/dev/DynamicStallModels/data/
-fullout = readdlm("../../../data/aerodynout_fordynamicstall.csv", ',')
+fullout = readdlm("../../../data/gonzalezouts.csv", ',')
 # fullout = readdlm("../../../data/aerodyn_outputs.csv", ',')
 names = fullout[1,:]
 names[1] = "Time"
@@ -84,20 +84,25 @@ Cn = loads[:,1]
 
 
 
-staticCn = clfit.(aoavec)
+staticCn = clfit.(aoavec) #Todo: This will need to be rotated... methinks
 
 cnplt = plot(xaxis="time (s)", yaxis="Cn", right_margin=20mm, leg=:topleft)
 plot!(tvec, Cn, lab="BL_AD")
 plot!(tvec, staticCn, lab="static")
 plot!(tvec, outs["AB1N011Cn"], linestyle=:dash, lab="OpenFAST")
 plot!(twinx(), tvec, aoavec.*(180/pi), lab="AOA", leg=:bottomright, linecolor=:purple, linestyle=:dot, yaxis="AOA")
-display(cnplt)
+# display(cnplt)
 
-#=
-Hey hey, that matches pretty stinkin well. That suggests that at least the model in the attached region is working properly. -> I'll need to get something that experiences a little more deflection and see how it compares. 
-Adam Cardoza 8/25/22
 
-=#
+staticCc = cdfit.(aoavec)
+Cc = loads[:,2]
+
+ccplt = plot(xaxis="Time (s)", yaxis=L"C_c", right_margin=20mm, leg=:topleft)
+plot!(tvec, Cc, lab="BL_AD")
+plot!(tvec, staticCc, lab="static")
+plot!(tvec, outs["AB1N011Ct"], linestyle=:dash, lab="OpenFAST")
+# plot!(twinx(), tvec, aoavec.*(180/pi), lab="AOA", leg=:bottomright, linecolor=:purple, linestyle=:dot, yaxis="AOA")
+display(ccplt)
 
 # nt, na = size(states)
 
