@@ -232,7 +232,9 @@ function update_states_ADG(dsmodel::BeddoesLeishman, oldstates, c, a, U, deltat,
     states[15] = Df = Df_m*exp(-deltas/Tf) + (fp - fp_m)*exp(-deltas/(2*Tf)) #EQ 1.36b
     states[18] = fpp = fp - Df #EQ 1.36, delayed effective seperation point. 
     
-
+    # println("update states fpp: ", fpp, " , ", states[18])
+    # @show fp, fpp, Df
+    # @show fp_m, fpp_m, Df_m #Question. How is Df_m getting set to 1.0? -> Rotors was using initializeADO. 
 
     ### 
     fterm = (1 + 2*sqrt(fpp))/3
@@ -364,7 +366,8 @@ function BLADG_coefficients(dsmodel::BeddoesLeishman, states, U, c, Cnfit, dcnda
 
 
     fpp = states[18]
-    fterm = (1 + 2sqrt(fpp))/3
+    # println("coefficients fpp: ", fpp)
+    fterm = (1 + 2*sqrt(fpp))/3
 
     Cfsn = Cnc_naq + Cc_naq*(fterm)^2 + Cc_nq #EQ 1.39, Normal force coefficient after accounting for separated flow from TE
     # if c== 1.419
@@ -460,6 +463,8 @@ function initialize_ADG(Uvec, aoavec, tvec, airfoil::Airfoil, c, a)
     states = [alpha, alphaf, q, Ka, Kq, X1, X2, X3, X4, Kpa, Kpq, Kppq, Kpppq, Dp, Df, Cpotn, fp, fpp, tauv, Cvn, Cv, LESF, TESF, VRTX]
 
     loads = [airfoil.cl(aoa), airfoil.cd(aoa), airfoil.cl(aoa), airfoil.cd(aoa), airfoil.cm(aoa)]
+
+    # println("Df initialize: ", Df)
 
 
     p = [c, a, dcndalpha, alpha0, Cd0, Cm0, A1, A2, b1, b2, Tf0, Tv0, Tp, Tvl, Cn1, xcp] #16 elements (-> total of 18 elements in p. )

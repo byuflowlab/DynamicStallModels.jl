@@ -370,7 +370,7 @@ function BLAD_coefficients(dsmodel::BeddoesLeishman, states, U, c, Cnfit, dcndal
 
     ### Chordwise force 
     tauv = states[17]
-    Cc = Cfsc + Cvn*tan(alphae)(1 - tauv/Tvl) #EQ 1.55  #Todo: I'm not sure that this is the correct equation. I think this is Pierce's variation. 
+    Cc = Cfsc + Cvn*tan(alphae)*(1 - tauv/Tvl) #EQ 1.55  #Todo: I'm not sure that this is the correct equation. I think this is Pierce's variation. 
 
 
 
