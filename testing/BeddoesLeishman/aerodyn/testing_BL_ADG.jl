@@ -73,7 +73,7 @@ Uvec = [sqrt(outs["AB1N011Vx"][i]^2 + outs["AB1N011Vy"][i]^2) for i in 1:nt] #m/
 aoavec = outs["AB1N011Alpha"].*(pi/180)
 
 
-
+errfun(x, xt) = (x-xt)/xt
 
 
 
@@ -96,13 +96,20 @@ plot!(twinx(), tvec, aoavec.*(180/pi), lab="AOA", leg=:bottomright, linecolor=:p
 
 staticCc = cdfit.(aoavec)
 Cc = loads[:,2]
+Cd0 = af.cd(af.alpha0)
 
-ccplt = plot(xaxis="Time (s)", yaxis=L"C_c", right_margin=20mm, leg=:topleft)
-plot!(tvec, Cc, lab="BL_AD")
+ccplt = plot(xaxis="Time (s)", yaxis=L"C_c", right_margin=20mm, leg=:bottomleft)
+plot!(tvec, Cc, lab="BL_ADG") 
 plot!(tvec, staticCc, lab="static")
 plot!(tvec, outs["AB1N011Ct"], linestyle=:dash, lab="OpenFAST")
 # plot!(twinx(), tvec, aoavec.*(180/pi), lab="AOA", leg=:bottomright, linecolor=:purple, linestyle=:dot, yaxis="AOA")
 display(ccplt)
+
+Cterr = errfun.(Cc, outs["AB1N011Ct"])
+
+#=
+Most of the time it is hovering just below 1% error. (median is -0.72% error.) I'm going to guess this is due to the fact that I'm not using a tangential separation point function. It could also be due to the fact that I might need to rotate the slope of the lift curve. Although, the slope that I'm currently using from the AeroDyn data is the slope of the normal curve, so.... it should be solid. 
+=#
 
 # nt, na = size(states)
 
