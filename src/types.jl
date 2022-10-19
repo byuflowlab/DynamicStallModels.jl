@@ -37,7 +37,7 @@ end
 
 abstract type SeparationPoint end
 
-struct SP{fit} <:SeparationPoint #TODO: I probably don't want to call this cardoza... but whatever for now. -> Maybe just call it separation fit...
+struct SP{fit} <:SeparationPoint 
     ffit::fit
 end
 
@@ -55,7 +55,7 @@ struct ADSP{TF} <: SeparationPoint
     S::Array{TF, 1}
 end
 
-struct ADFSP{fit} <: SeparationPoint
+struct ADFSP{fit} <: SeparationPoint #AeroDyn separation point fit. 
     ffit::fit
 end
 

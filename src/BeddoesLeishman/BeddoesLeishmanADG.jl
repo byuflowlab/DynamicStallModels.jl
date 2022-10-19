@@ -6,9 +6,9 @@ AeroDyn's implementation of the Beddoes-Leishman model with Gonzalez's modificat
 
 function getloads_BLAG(dsmodel::BeddoesLeishman, states, p, airfoil)
     c, a, dcndalpha, alpha0, Cd0, Cm0, A1, A2, b1, b2, Tf0, Tv0, Tp, Tvl, Cn1, xcp, U, _ = p
-    Cnfit = airfoil.cl
+    clfit = airfoil.cl #TODO: We might as well do this inside the blag coefficients. 
 
-    Cn, Cc, Cl, Cd, Cm = BLADG_coefficients(dsmodel::BeddoesLeishman, states, U, c, Cnfit, dcndalpha, alpha0, Cd0, Cm0, A1, A2, b1, b2, Tvl, xcp, a)
+    Cn, Cc, Cl, Cd, Cm = BLADG_coefficients(dsmodel::BeddoesLeishman, states, U, c, clfit, dcndalpha, alpha0, Cd0, Cm0, A1, A2, b1, b2, Tvl, xcp, a)
     return [Cn, Cc, Cl, Cd, Cm]
 end
 
@@ -310,7 +310,7 @@ function BLADG_coefficients(dsmodel::BeddoesLeishman, states, U, c, af::Airfoil,
     return BLADG_coefficients(dsmodel, states, U, c, cnfit, dcndalpha, alpha0, Cd0, Cm0, A1, A2, b1, b2, Tvl, xcp, a)
 end
 
-function BLADG_coefficients(dsmodel::BeddoesLeishman, states, U, c, Cnfit, dcndalpha, alpha0, Cd0, Cm0, A1, A2, b1, b2, Tvl, xcp, a)
+function BLADG_coefficients(dsmodel::BeddoesLeishman, states, U, c, Clfit, dcndalpha, alpha0, Cd0, Cm0, A1, A2, b1, b2, Tvl, xcp, a)
 
     _, A5, b5, _, eta = dsmodel.constants 
 
@@ -369,7 +369,8 @@ function BLADG_coefficients(dsmodel::BeddoesLeishman, states, U, c, Cnfit, dcnda
     # println("coefficients fpp: ", fpp)
     fterm = (1 + 2*sqrt(fpp))/3
 
-    Cfsn = Cnc_naq + Cc_naq*(fterm)^2 + Cc_nq #EQ 1.39, Normal force coefficient after accounting for separated flow from TE
+    Cfsn = Cnc_naq + Cc_naq*(fterm)^2 #+ Cc_nq #EQ 1.39, Normal force coefficient after accounting for separated flow from TE #Todo: I'm not sure that this matches Gonzalez's modifcations. #Note: There is a typo in their equation. The first part of 1.53b says that it is Cfsn, and the second part is missing the Cc_nq term from 1.39, thus either they added an extra term in 1.39, or they missed a term in 1.53b. -> It didn't make much of a difference in the NREL 5MW verification case. 
+
     # if c== 1.419
     #     @show Cnc_naq, Cc_naq, fterm #Both the Cnc and the Cc terms are large, the Cnc term is especially large. 
     # end
@@ -387,7 +388,8 @@ function BLADG_coefficients(dsmodel::BeddoesLeishman, states, U, c, Cnfit, dcnda
 
     ######### Prepare inputs for chordwise force coefficient. 
     Cpotc = Cc_naq*tan(alphae + alpha0) #Equation 1.21  
-    Cfsc = Cpotc*eta*sqrt(fpp) #EQ 1.40 #(sqrt(fpp)-0.2) #Gonzalez modifications
+    # Cfsc = Cpotc*eta*(sqrt(fpp)-0.2) #EQ 1.40, Gonzalez modifications #Todo: This modification is pushing it crazy off. 
+    Cfsc = Cpotc*eta*(sqrt(fpp))
 
     ### Chordwise force 
     Cc = Cfsc #EQ 1.55b
@@ -397,9 +399,7 @@ function BLADG_coefficients(dsmodel::BeddoesLeishman, states, U, c, Cnfit, dcnda
 
     ### Lift and Drag
     Cl = Cn*cos(alpha) + Cc*sin(alpha)
-    Cd = Cn*sin(alpha) - Cc*cos(alpha) + Cd0
-
-
+    Cd = Cn*sin(alpha) - Cc*cos(alpha) + Cd0 #Adding frictional drag back in. 
 
 
 
@@ -408,7 +408,7 @@ function BLADG_coefficients(dsmodel::BeddoesLeishman, states, U, c, Cnfit, dcnda
     Cc_mq = -dcndalpha*(q-Kpppq)*c/(16*beta*U) #Equation 1.22c
 
     ### Noncirculatory component of moment due to change in alpha
-    Cnc_ma = -Cnfit(alpha)/4 #EQ 1.27 Note: This equation was missed in the documented algorithm.
+    Cnc_ma = -Cnc_nalpha/4 #EQ 1.27 Noncirculatory component of the normal force coefficient response to step change in alpha  Note: This equation was missed in the documented algorithm. #Todo. Should I use the dynamic normal coefficient or the static noormal coefficient. Neither. It should be using equation 1.18. :) 
 
     bot = 15*(1-M) + 3*dcndalpha*A5*b5*beta*M*M/2  
     kmq = 7/bot #EQ 1.29b
@@ -421,8 +421,12 @@ function BLADG_coefficients(dsmodel::BeddoesLeishman, states, U, c, Cnfit, dcnda
     Cvm = -xvcp*Cvn #1.57a
 
     ### Moment
-    Cm = Cn*fpp + Cc_mq + Cnc_ma + Cnc_mq + Cvm #Equation 1.60
+    Cm = Cn*fpp + Cc_mq + Cnc_ma + Cnc_mq + Cvm #Equation 1.60 #Todo: I don't think that this has seen the correction from Gonzalez, see equation 1.45 and 1.60
 
+    ### Add viscoousity back into the normal and tangent coefficients
+    #Todo: Need to update Cn and Cc to have frictional drag. 
+    Cn = Cl*cos(alpha) + Cd*sin(alpha) #Cd has friction added back in. 
+    Cc = Cl*sin(alpha) - Cd*cos(alpha)
 
     return Cn, Cc, Cl, Cd, Cm
 end
@@ -437,8 +441,9 @@ function initialize_ADG(Uvec, aoavec, tvec, airfoil::Airfoil, c, a)
     _, alpha1 = airfoil.alphasep
     xcp = airfoil.xcp
 
-    Cn1 = airfoil.cl(alpha1)
     Cd0 = airfoil.cd(alpha0)
+
+    Cn1 = airfoil.cl(alpha1)*cos(alpha1) + (airfoil.cd(alpha1) - Cd0)*sin(alpha1) #Removing the effect of frictional drag
     Cm0 = airfoil.cm(alpha0)
 
 
@@ -446,13 +451,15 @@ function initialize_ADG(Uvec, aoavec, tvec, airfoil::Airfoil, c, a)
     dt = tvec[2] - tvec[1]
 
     aoa = aoavec[1]
-    alpha = alphaf = aoavec[1]
+    alpha = alphaf = aoavec[1] #No delay to begin. 
     aoadot = q = Ka = 0 #(aoavec[2] - aoavec[1])/dt #Ka was initialized too high. aoadot isn't used. I might be able to use q = (aoavec[2] - aoavec[1])*c/(U*deltat) and ka = q*U/deltat... Why are q and Ka both states?... if one is just a multiple of the other. I guess U and delta t change, so it isn't the same multiple across time. 
+
     Kq = 0.0
     X1 = X2 = X3 = X4 = 0.0
     Kpa = Kpq = Kppq = Kpppq = 0.0
     Dp = Df = 0.0
-    Cpotn = airfoil.cl(aoavec[1])
+    
+    Cpotn = airfoil.cl(alpha) +(airfoil.cd(alpha)-Cd0)*sin(alpha)
     fp = fpp = 1.0
     tauv = 0.0
     Cvn = 0.0
@@ -462,7 +469,10 @@ function initialize_ADG(Uvec, aoavec, tvec, airfoil::Airfoil, c, a)
 
     states = [alpha, alphaf, q, Ka, Kq, X1, X2, X3, X4, Kpa, Kpq, Kppq, Kpppq, Dp, Df, Cpotn, fp, fpp, tauv, Cvn, Cv, LESF, TESF, VRTX]
 
-    loads = [airfoil.cl(aoa), airfoil.cd(aoa), airfoil.cl(aoa), airfoil.cd(aoa), airfoil.cm(aoa)]
+    Cn = airfoil.cl(alpha)*cos(alpha) + airfoil.cd(alpha)*sin(alpha)
+    Cc = airfoil.cl(alpha)*sin(alpha) - airfoil.cd(alpha)*cos(alpha)
+
+    loads = [Cn, Cc, airfoil.cl(aoa), airfoil.cd(aoa), airfoil.cm(aoa)]
 
     # println("Df initialize: ", Df)
 
