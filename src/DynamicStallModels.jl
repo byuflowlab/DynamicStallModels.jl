@@ -22,7 +22,7 @@ abstract type DSModel end
 # export DSModel
 
 include("./utils.jl")
-include("./types.jl")
+include("./airfoils.jl")
 include("./Riso/Riso.jl")
 include("./BeddoesLeishman/BeddoesLeishman.jl")
 include("./BeddoesLeishman/BeddoesLeishmanAeroDyn.jl")

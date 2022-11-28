@@ -1,9 +1,11 @@
-using DynamicStallModels, OpenFASTsr, FLOWMath, Plots, Plots.PlotMeasures, DelimitedFiles
+using DynamicStallModels, OpenFASTsr, FLOWMath, Plots, Plots.PlotMeasures, DelimitedFiles, LaTeXStrings
 
 #=
 Test the separation point functions. (Starting with the AeroDyn original separation point fit (Equation 1.32 inversed.))
 
 Adam present 9/27/22
+
+Chordwise separation point functions added. - Adam 11/28/22
 =#
 
 of = OpenFASTsr
@@ -24,11 +26,15 @@ du21_a17 = of.read_airfoilinput("../data/DU21_A17.dat")
 af, constants = of.make_dsairfoil(du21_a17)
 
 
-af = update_airfoil(af; dcldalpha=af.dcldalpha*1.2)
+# af = update_airfoil(af; dcldalpha=af.dcldalpha*1.2) 
 
 
 
 alpha = (-180:1:180).*(pi/180)
+clvec = af.cl(alpha)
+cdvec = af.cd(alpha)
+cnvec = af.cn(alpha)
+ccvec = af.cc(alpha)
 aoavec = alpha.*(180/pi)
 
 linearlift(airfoil, aoa) = airfoil.dcldalpha*(aoa-airfoil.alpha0)
@@ -50,9 +56,9 @@ display(clplt)
 
 #TODO: Change the name to just SP, so it doesn't have my name. 
 #Todo: I wonder why there is a difference betewen the ADO fit and the my fit. 
-sp = dsm.SP(af.polar, af.alpha0, af.alphasep, af.dcldalpha)
+sp = dsm.SP(alpha, cnvec, ccvec, af.alpha0, af.alphasep, af.dcldalpha, af.eta)
 f_present = dsm.separationpoint.(Ref(sp), Ref(af), alpha)
-
+fc_present = dsm.chordwiseseparationpoint.(Ref(sp), Ref(af), alpha)
 
 S = [du21_a17.s1, du21_a17.s2, du21_a17.s3, du21_a17.s4]
 ado = dsm.ADSP(S) 
@@ -60,6 +66,7 @@ f_ADO = dsm.separationpoint.(Ref(ado), Ref(af), alpha)
 
 
 ffitvec_ADO = dsm.separationpoint.(Ref(af.sfun), Ref(af), alpha)
+fcfitvec_ADO = dsm.chordwiseseparationpoint.(Ref(af.sfun), Ref(af), alpha)
 
 BLsep = dsm.BLSP([0.01, 0.03])#S coefficients from NACA 0012
 f_BL = dsm.separationpoint.(Ref(BLsep), Ref(af), alpha) 
@@ -96,7 +103,7 @@ vline!([af.alphasep].*(180/pi), lab="Alpha sep")
 
 fplt = plot(f1plt, f2plt, layout=(2,1))
 display(fplt)
-savefig("fsepplt.png")
+# savefig("fsepplt.png")
 
 #=
 f_ADO is so jacked up because the S constants are all zero. 
@@ -110,6 +117,33 @@ Something must be broken with sparationpoint_riso. How odd... even using the alp
 
 I think that I realized why fit ADO and fit present are different. The difference is the input dcldalpha. I update the dcldalpha, but the ADO function gets initialized with the old dcldalpha. 
 
+=#
+
+f3plt = plot( xaxis="Angle of Attack (deg)", yaxis=L"f'_c", leg=:topleft, xlims=(-180,10))
+plot!(aoavec, fcfitvec_ADO, lab="fit ADO")
+plot!(aoavec, fc_present, lab="fit present")
+# plot!(aoavec, f_ADO, lab="f ADO")
+# plot!(aoavec, f_BL, lab="f BL")
+# plot!(aoavec, f_riso, lab="f_riso, ADO alphasep", markershape=:cross)
+# plot!(aoavec, f_riso_risosep, lab="f_riso, Riso alphasep", markershape=:x)
+vline!([af.alphasep].*(180/pi), lab="Alpha sep")
+
+f4plt = plot( xaxis="Angle of Attack (deg)", yaxis=L"f'_c", leg=false, xlims=(-20,180))
+plot!(aoavec, fcfitvec_ADO, lab="fit ADO")
+plot!(aoavec, fc_present, lab="fit present")
+# plot!(aoavec, f_ADO, lab="f ADO")
+# plot!(aoavec, f_BL, lab="f BL")
+# plot!(aoavec, f_riso, lab="f_riso, ADO alphasep",markershape=:cross)
+# plot!(aoavec, f_riso_risosep, lab="f_riso, Riso alphasep", markershape=:x)
+vline!([af.alphasep].*(180/pi), lab="Alpha sep")
+
+fcplt = plot(f3plt, f4plt, layout=(2,1))
+display(fcplt)
+
+#=
+ I was redefining dcndalpha before after I initiated the fit function for the ADO, so my fit was different. If I don't do that, then the chordwise separation point functions match (for now). 
+
+I don't expect the little dip in the center. I wonder if AeroDyn does that as well. I'll just have to compare. 
 =#
 
 

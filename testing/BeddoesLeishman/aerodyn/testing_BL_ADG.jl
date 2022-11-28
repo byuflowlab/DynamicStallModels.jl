@@ -91,7 +91,7 @@ plot!(tvec, Cn, lab="BL_AD")
 plot!(tvec, staticCn, lab="static")
 plot!(tvec, outs["AB1N011Cn"], linestyle=:dash, lab="OpenFAST")
 plot!(twinx(), tvec, aoavec.*(180/pi), lab="AOA", leg=:bottomright, linecolor=:purple, linestyle=:dot, yaxis="AOA")
-# display(cnplt)
+display(cnplt)
 
 
 staticCc = cdfit.(aoavec)

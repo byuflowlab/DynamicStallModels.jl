@@ -25,7 +25,10 @@ struct Airfoil{TF, Tfit, Fun}
     cl::Tfit
     cd::Tfit
     cm::Tfit
+    cn::Tfit
+    cc::Tfit
     dcldalpha::TF
+    dcndalpha::TF
     alpha0::TF
     alphasep::Array{TF,1}
     A::Array{TF,1}
@@ -33,21 +36,22 @@ struct Airfoil{TF, Tfit, Fun}
     T::Array{TF,1}
     sfun::Fun
     xcp::TF
+    eta::TF
 end
 
 abstract type SeparationPoint end
 
 struct SP{fit} <:SeparationPoint 
     ffit::fit
+    fcfit::fit
 end
 
-function SP(polar, alpha0, alphasep, dcndalpha)
-    alpha = view(polar, :, 1)
-    cn = view(polar, :, 2)
+function SP(alpha, cn, cc, alpha0, alphasep, dcndalpha, eta)
 
-    fvec = reverse_separationpointcalculation(alpha, cn, dcndalpha, alpha0, alphasep)
-    ffit = Akima(alpha, fvec)
-    return SP(ffit)
+    fvec, fcvec = reverse_separationpointcalculation(alpha, cn, cc, dcndalpha, alpha0, alphasep, eta)
+    ffit = Akima(alpha, fvec)  
+    fcfit = Akima(alpha, fcvec)
+    return SP(ffit, fcfit)
 end
 
 
@@ -57,15 +61,15 @@ end
 
 struct ADFSP{fit} <: SeparationPoint #AeroDyn separation point fit. 
     ffit::fit
+    fcfit::fit
 end
 
-function ADFSP(polar, alpha0, alphasep, dcndalpha)
-    alpha = view(polar, :, 1)
-    cn = view(polar, :, 2)
+function ADFSP(alpha, cn, cc, alpha0, alphasep, dcndalpha, eta)
 
-    fvec = reverse_separationpointcalculation_ADO(alpha, cn, dcndalpha, alpha0, alphasep)
-    ffit = Akima(alpha, fvec)
-    return ADFSP(ffit)
+    fvec, fcvec = reverse_separationpointcalculation_ADO(alpha, cn, cc, dcndalpha, alpha0, alphasep, eta)
+    ffit = Akima(alpha, fvec) 
+    fcfit = Akima(alpha, fcvec)
+    return ADFSP(ffit, fcfit)
 end
 
 struct BLSP{TF} <: SeparationPoint
@@ -93,24 +97,37 @@ A function that takes a simple airfoil polar to make a dynamic airfoil. The func
 
 """
 function simpleairfoil(polar)
-    cl = Akima(polar[:,1], polar[:,2])
-    cd = Akima(polar[:,1], polar[:,3])
-    cm = Akima(polar[:,1], zeros(length(polar[:,1])))
+    alphavec = @view(polar[:,1])
+    clvec = @view(polar[:,2])
+    cdvec = @view(polar[:,3])
+
+    cl = Akima(alphavec, clvec)
+    cd = Akima(alphavec, cdvec)
+    cm = Akima(alphavec, zeros(length(alphavec)))
+
+    cnvec = @. clvec*cos(alphavec) + cdvec*sin(alphavec)
+    ccvec = @. clvec*sin(alphavec) - cdvec*cos(alphavec)
+
+    cn = Akima(alphavec, cnvec)
+    cc = Akima(alphavec, ccvec)
+
+
     dcldalpha = 2*pi
     alpha0 = 0.0
     A = [0.3, 0.7] #Todo: Maybe do tuples... Since they aren't going to change... That might make it faster. 
     b = [0.14, 0.53]
     T = [1.7, 3.0]
 
-    _, minclidx = findmin(polar[:,2]) #Todo: I have the find_seperation_alpha function. 
-    _, maxclidx = findmax(polar[:,2])
+    _, minclidx = findmin(clvec) #Todo: I have the find_seperation_alpha function. 
+    _, maxclidx = findmax(clvec)
 
-    alphasep = [polar[minclidx, 1], polar[maxclidx,1]]
+    alphasep = [alphavec[minclidx], alphavec[maxclidx]]
 
     sfun(x) = 0.0
 
     xcp = 0.2
-    return Airfoil(polar, cl, cd, cm, dcldalpha, alpha0, alphasep, A, b, T, sfun, xcp)
+    eta = 1.0
+    return Airfoil(polar, cl, cd, cm, cn, cc, dcldalpha, dcldalpha, alpha0, alphasep, A, b, T, sfun, xcp, eta)
 end
 
 
@@ -131,12 +148,24 @@ A slightly more complex version of simpleairfoil. Takes a polar and numerically 
 ### Outputs
 - Airfoil
 """
-function airfoil(polar; A = [0.3, 0.7], b = [0.14, 0.53], T = [1.7, 3.0], xcp=0.2, sfun::Union{SeparationPoint, Function}=ADFSP(1), S=zeros(4))
+function airfoil(polar; A = [0.3, 0.7], b = [0.14, 0.53], T = [1.7, 3.0], xcp=0.2, eta=1.0, sfun::Union{SeparationPoint, Function}=ADFSP(1, 1), S=zeros(4))
     #Todo: Need some sort of behavior when the provided polar is too small. 
+
+    alphavec = @view(polar[:,1])
+    clvec = @view(polar[:,2])
+    cdvec = @view(polar[:,3])
 
     cl = Akima(polar[:,1], polar[:,2])
     cd = Akima(polar[:,1], polar[:,3])
     cm = Akima(polar[:,1], zeros(length(polar[:,1])))
+
+    cnvec = @. clvec*cos(alphavec) + cdvec*sin(alphavec)
+    ccvec = @. clvec*sin(alphavec) - cdvec*cos(alphavec)
+
+    cn = Akima(alphavec, cnvec)
+    cc = Akima(alphavec, ccvec) #Todo: Find dcn dalpha
+
+
     alpha0, _ = brent(cl, -0.25, 0.25)
     _, minclidx = findmin(polar[:,2])
     _, maxclidx = findmax(polar[:,2])
@@ -161,18 +190,18 @@ function airfoil(polar; A = [0.3, 0.7], b = [0.14, 0.53], T = [1.7, 3.0], xcp=0.
     end
 
     if isa(sfun, ADFSP)
-        sfun = ADFSP(polar, alpha0, alphasep, dcldalpha)
-    elseif !isa(sfun, Union{Function, SeparationPoint}) #If it isn't a function or a SeparationPoint.
+        sfun = ADFSP(alphavec, cnvec, ccvec, alpha0, alphasep, dcldalpha, eta)
+    elseif !isa(sfun, Union{Function, SeparationPoint}) #TODO: If it isn't a function or a SeparationPoint.... Does this do anything? I enforced function and SeparationPoint in the function arguments. 
         @warn("The separation point function must be a function, or one of the provided options. Returning to default ADSP().")
-        sfun = ADFSP(polar, alpha0, alphasep, dcldalpha)
+        sfun = ADFSP(alphavec, cnvec, ccvec, alpha0, alphasep, dcldalpha, eta)
     end
 
-    return Airfoil(polar, cl, cd, cm, dcldalpha, alpha0, alphasep, A, b, T, sfun, xcp)
+    return Airfoil(polar, cl, cd, cm, cn, cc, dcldalpha, dcldalpha, alpha0, alphasep, A, b, T, sfun, xcp, eta)
 end
 
 export update_airfoil
 
-function update_airfoil(airfoil::Airfoil; polar=nothing, dcldalpha=nothing, alpha0=nothing, alphasep=nothing, A=nothing, b=nothing, T=nothing, sfun=nothing, xcp=nothing)
+function update_airfoil(airfoil::Airfoil; polar=nothing, dcldalpha=nothing, dcndalpha=nothing, alpha0=nothing, alphasep=nothing, A=nothing, b=nothing, T=nothing, sfun=nothing, xcp=nothing, eta=nothing)
 
     if !(polar == nothing)
         newpolar = polar
@@ -183,10 +212,22 @@ function update_airfoil(airfoil::Airfoil; polar=nothing, dcldalpha=nothing, alph
     newcd = Akima(newpolar[:,1], newpolar[:,3])
     newcm = Akima(newpolar[:,1], newpolar[:,4])
 
+    cnvec = @. newpolar[:,2]*cos(newpolar[:,1]) + newpolar[:,3]*sin(newpolar[:,1])
+    ccvec = @. newpolar[:,2]*sin(newpolar[:,1]) - newpolar[:,3]*cos(newpolar[:,1])
+
+    newcn = Akima(newpolar[:,1], cnvec)
+    newcc = Akima(newpolar[:,1], ccvec)
+
     if !(dcldalpha==nothing)
         newslope = dcldalpha
     else
         newslope = airfoil.dcldalpha
+    end
+
+    if !(dcndalpha==nothing)
+        newdcndalpha = dcndalpha
+    else
+        newdcndalpha = airfoil.dcndalpha
     end
 
     if !(alpha0==nothing)
@@ -231,8 +272,14 @@ function update_airfoil(airfoil::Airfoil; polar=nothing, dcldalpha=nothing, alph
         newxcp = airfoil.xcp
     end
 
+    if !(eta==nothing)
+        neweta = eta
+    else
+        neweta = airfoil.eta
+    end
 
-    return Airfoil(newpolar, newcl, newcd, newcm, newslope, newalpha0, newalphasep, newA, newb, newT, newsfun, newxcp)
+
+    return Airfoil(newpolar, newcl, newcd, newcm, newcn, newcc, newslope, newdcndalpha, newalpha0, newalphasep, newA, newb, newT, newsfun, newxcp, neweta)
 end
 
 
@@ -242,14 +289,21 @@ separationpoint(airfoil::Airfoil, alpha) = separationpoint(airfoil.sfun, airfoil
 
 separationpoint(sfun::SP, airfoil::Airfoil, alpha) = sfun.ffit(alpha)
 
+const fclimit = (1.0 + 0.2)^2
+
+function reverse_separationpointcalculation(alpha, Cn, Cc, dcndalpha, alpha0, alphasep, eta)
+
+    if !(length(alpha)==length(Cn)==length(Cc))
+        error("reverse_separationpointcalculation(): alpha, normal coefficient, and chordwise coefficient need to all be the same length.")
+    end
 
 
-function reverse_separationpointcalculation(alpha, cn, dcndalpha, alpha0, alphasep)
-    n = length(cn)
-    fvec = Array{eltype(cn)}(undef, n)
+    n = length(Cn)
+    fvec = Array{eltype(Cn)}(undef, n)
+    fcvec = Array{eltype(Cn)}(undef, n)
 
     for i = 1:n
-        sqrtarg = abs(cn[i]/(dcndalpha*(alpha[i]-alpha0)))
+        sqrtarg = abs(Cn[i]/(dcndalpha*(alpha[i]-alpha0)))
         f = (2*sqrt(sqrtarg) - 1)^2
 
         if f>1
@@ -263,8 +317,32 @@ function reverse_separationpointcalculation(alpha, cn, dcndalpha, alpha0, alphas
         end
 
         fvec[i] = f
+
+        ### Chordwise separation point function
+        bot = eta*dcndalpha*(alpha[i]-alpha0)*tan(alpha[i])
+        fc = (Cc[i]/bot + 0.2)^2 #EQ 1.32b
+
+        if fc>fclimit #OpenFAST v3.3.0 - UnsteadyAreo.f90 line 262
+            fc = fclimit
+        elseif isapprox(0.0, dcndalpha, atol=1e-3)
+            fc = fclimit
+        elseif isapprox(0.0, alpha[i], atol=1e-5)
+            fc = fclimit
+        elseif isapprox(alpha[i], alpha0, atol=1e-5)
+            fc = fclimit
+        end
+
+        ### Force regions in unseparation region to max. 
+        if alphasep[1]<alpha[i]<alphasep[2]
+            fc = fclimit
+        end
+
+        fcvec[i] = fc
     end
 
+    #Todo: I probably want to apply this same high aoa limiting on the chordwise separation point. 
+
+    #### Limit reattachment outside of normal angles of attack. 
     _, alpha1idx = nearestto(alpha, alphasep[1]) # Find negative stall angle
     _, alpha2idx = nearestto(alpha, alphasep[2]) # Find positive stall angle
     
@@ -275,7 +353,18 @@ function reverse_separationpointcalculation(alpha, cn, dcndalpha, alpha0, alphas
     fvec[1:minidx_negativestall] .= min_negativestall # Replace all of the post negative stall region with the minimum. 
 
 
-    return fvec
+    ##### Same as above but for chordwise separation point function. 
+    min_positivestall, minidx_positivestall = findmin(fcvec[alpha2idx:end]) # Search the positive stall region for the minimum
+    min_negativestall, minidx_negativestall = findmin(fcvec[1:alpha1idx]) # Search the negative stall region for the minimum
+
+    fcvec[alpha2idx+minidx_positivestall:end] .= min_positivestall # Replace all of the post positive stall region with the minimum. 
+    fcvec[1:minidx_negativestall] .= min_negativestall # Replace all of the post negative stall region with the minimum. 
+
+
+    
+
+
+    return fvec, fcvec
 end
 
 
@@ -302,12 +391,14 @@ function separationpoint(sfun::ADSP, airfoil::Airfoil, alpha)
     return 1.0
 end
 
-function reverse_separationpointcalculation_ADO(alpha, cn, dcndalpha, alpha0, alphasep)
-    n = length(cn)
-    fvec = Array{eltype(cn)}(undef, n)
+function reverse_separationpointcalculation_ADO(alpha, Cn, Cc, dcndalpha, alpha0, alphasep, eta)
+
+    n = length(Cn)
+    fvec = Array{eltype(Cn)}(undef, n)
+    fcvec = Array{eltype(Cn)}(undef, n)
 
     for i = 1:n
-        sqrtarg = abs(cn[i]/(dcndalpha*(alpha[i]-alpha0)))
+        sqrtarg = abs(Cn[i]/(dcndalpha*(alpha[i]-alpha0)))
         f = (2*sqrt(sqrtarg) - 1)^2
 
         if f>1
@@ -321,12 +412,23 @@ function reverse_separationpointcalculation_ADO(alpha, cn, dcndalpha, alpha0, al
         end
 
         fvec[i] = f
+
+        ### Chordwise separation point function
+        bot = eta*dcndalpha*(alpha[i]-alpha0)*tan(alpha[i])
+        fc = (Cc[i]/bot + 0.2)^2 #EQ 1.32b
+
+        if fc>fclimit #OpenFAST v3.3.0 - UnsteadyAreo.f90 line 262
+            fc = fclimit
+        end
+
+        fcvec[i] = fc
     end
-    return fvec
+
+    return fvec, fcvec
 end
 
 ### AeroDyn separation point fit based on the static lift curve #TODO: Might need to rotate to the normal coefficient. 
-separationpoint(sfun::ADFSP, airfoil::Airfoil, alpha) = sfun.ffit(alpha)
+separationpoint(sfun::ADFSP, airfoil::Airfoil, alpha) = sfun.ffit(alpha) #Todo: These other separation point functions need the chordwise separation point function. 
 
 ### Beddoes Leishman separation point function 
 function separationpoint(sfun::BLSP, airfoil::Airfoil, alpha) 
@@ -413,3 +515,20 @@ separationpoint(sfun::Function, airfoil::Airfoil, alpha) = sfun(alpha)
 
 
 
+chordwiseseparationpoint(airfoil::Airfoil, alpha) = chordwiseseparationpoint(airfoil.sfun, airfoil, alpha)
+
+chordwiseseparationpoint(sfun::SP, airfoil::Airfoil, alpha) = sfun.fcfit(alpha)
+
+chordwiseseparationpoint(sfun::ADFSP, airfoil::Airfoil, alpha) = sfun.fcfit(alpha)
+
+function chordwiseseparationpoint(sfun::ADSP, airfoil::Airfoil, alpha)
+    return separationpoint(airfoil, alpha)
+end
+
+function chordwiseseparationpoint(sfun::BLSP, airfoil::Airfoil, alpha)
+    return separationpoint(airfoil, alpha)
+end
+
+function chordwiseseparationpoint(sfun::RSP, airfoil::Airfoil, alpha)
+    return separationpoint(airfoil, alpha)
+end
