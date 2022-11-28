@@ -57,9 +57,9 @@ function (model::BeddoesLeishman)(x, p, t, dt)
     
                 c, a, dcndalpha, alpha0, _, _, A1, A2, b1, b2, Tf0, Tv0, Tp, Tvl, Cn1, _, U, aoa = ps #Inputs  
                 
-                xs = view(x, 24*(i-1)+1:24*i)
+                xs = view(x, 27*(i-1)+1:27*i)
 
-                idx = 24*(i-1)+1:24*i
+                idx = 27*(i-1)+1:27*i
                 newstates[idx] = update_states_ADG(model, xs, c, a, U, dt, aoa, dcndalpha, alpha0, A1, A2, b1, b2, Tf0, Tv0, Tp, Tvl, Cn1, i)
             end
             return newstates
@@ -88,14 +88,14 @@ function getloads(dsmodel::BeddoesLeishman, states, p, airfoil)
 end
 
 function numberofstates(dsmodel::BeddoesLeishman) #TODO: This probably need to be augmented to check if the model is a functional, an iterative, or an indicial. 
-    if dsmodel.version==1
+    if dsmodel.version==1 #Todo: This function should be changed to reflect the number of states for a single 2D airfoil, not the total number of states.... or I should have two different functions. 
         @warn("The orginal Beddoes-Leishman model is not yet prepared.")
         return 0
     elseif dsmodel.version==2
         return 22*dsmodel.n
     elseif dsmodel.version==3
         # @warn("The Gozalez Beddoes-Leishman model is not yet prepared.")
-        return 24*dsmodel.n
+        return 27*dsmodel.n
     elseif dsmodel.version==4
         @warn("The Minema Beddoes-Leishman model is not yet prepared.")
         return 22*dsmodel.n

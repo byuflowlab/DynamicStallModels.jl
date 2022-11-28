@@ -3,12 +3,13 @@ AeroDyn's original implementation of the Beddoes-Leishman model.
 
 =#
 
-
+#Todo: I need to rotate the loads properly. 
 function getloads_BLA(dsmodel::BeddoesLeishman, states, p, airfoil)
     c, a, dcndalpha, alpha0, Cd0, Cm0, A1, A2, b1, b2, Tf0, Tv0, Tp, Tvl, Cn1, xcp, U, _ = p
     Cnfit = airfoil.cl
+    eta = airfoil.eta
 
-    Cn, Cc, Cl, Cd, Cm = BLAD_coefficients(dsmodel::BeddoesLeishman, states, U, c, Cnfit, dcndalpha, alpha0, Cd0, Cm0, A1, A2, b1, b2, Tvl, xcp, a)
+    Cn, Cc, Cl, Cd, Cm = BLAD_coefficients(dsmodel::BeddoesLeishman, states, U, c, Cnfit, dcndalpha, alpha0, Cd0, Cm0, A1, A2, b1, b2, Tvl, xcp, eta, a)
     return [Cn, Cc, Cl, Cd, Cm]
 end
 
@@ -57,7 +58,7 @@ function update_states_ADO(dsmodel::BeddoesLeishman, oldstates, c, a, U, deltat,
 
 
 
-    zeta, A5, b5, Tsh, _ = dsmodel.constants 
+    zeta, A5, b5, Tsh = dsmodel.constants 
     #=
     zeta - Low-pass-fileter frequency cutoff. #TODO: Should this have the negative or should the equation have the negative? 
     Tsh - Strouhal's frequency 0.19
@@ -297,13 +298,14 @@ function BLAD_coefficients(dsmodel::BeddoesLeishman, states, U, c, af::Airfoil, 
     b2 = af.b[2]
     Tvl = af.T[4]
     xcp = af.xcp
+    eta = af.eta
 
-    return BLAD_coefficients(dsmodel, states, U, c, cnfit, dcndalpha, alpha0, Cd0, Cm0, A1, A2, b1, b2, Tvl, xcp, a)
+    return BLAD_coefficients(dsmodel, states, U, c, cnfit, dcndalpha, alpha0, Cd0, Cm0, A1, A2, b1, b2, Tvl, xcp, eta, a)
 end
 
-function BLAD_coefficients(dsmodel::BeddoesLeishman, states, U, c, Cnfit, dcndalpha, alpha0, Cd0, Cm0, A1, A2, b1, b2, Tvl, xcp, a)
+function BLAD_coefficients(dsmodel::BeddoesLeishman, states, U, c, Cnfit, dcndalpha, alpha0, Cd0, Cm0, A1, A2, b1, b2, Tvl, xcp, eta, a)
 
-    _, A5, b5, _, eta = dsmodel.constants 
+    _, A5, b5, _ = dsmodel.constants 
 
     Ka = states[4]
     Kpa = states[8]
