@@ -1,10 +1,12 @@
-using DynamicStallModels, OpenFASTsr, FLOWMath, Plots, Plots.PlotMeasures, DelimitedFiles, LaTeXStrings, Revise
+using DynamicStallModels, OpenFASTsr, FLOWMath, Plots, Plots.PlotMeasures, DelimitedFiles, LaTeXStrings, Revise, Statistics
 
 #=
 Test the Beddoes-Leishman model as given in the documentation. I had to make some minor modifications as not all of the equations were given. 
 
 Adam Cardoza 10/3/22
 =#
+
+#Todo: alpha (generic function with 5 methods). I'm not sure that there should be 5 methods. 
 
 of = OpenFASTsr
 
@@ -14,7 +16,7 @@ cd(path)
 include("parseaerodyn.jl")
 
 # items = ["t", "alpha", "Cc_pot", "fprime_c", "fprimeprime_c", "Df", "Cn", "Cc", "PI"] 
-items = ["t", "tau", "Cn_FS", "Cn_v", "Cn_inviscid", "Cn_alpha_q_nc", "Cn_q_circ", "Cn_alpha_q_circ", "f''", "Cn_alpha_nc", "Cn_q_nc", "T_alpha", "Kalpha_f", "Kprime_alpha", "M", "q_f_cur", "U", "c", "alpha", "Cn_viscous"]
+items = ["t", "tau", "Cn_FS", "Cn_v", "Cn_inviscid", "Cn_alpha_q_nc", "Cn_q_circ", "Cn_alpha_q_circ", "f''", "Cn_alpha_nc", "Cn_q_nc", "T_alpha", "Kalpha_f", "Kprime_alpha", "M", "q_f_cur", "U", "c", "alpha", "alpha_filt", "k_alpha", "a_s", "C_nalpha", "A1", "b1", "A2", "b2", "alpha_e", "Cn_alpha_nc", "Cn_q_nc", "Kq_f", "Kpq", "Df", "f'", "alphaf", "eta_e", "Cc_pot", "fppc", "Gonzalez factor"]
 file = "/Users/adamcardoza/.julia/dev/DynamicStallModels/data/aerodyn_intermediates.txt"
 
 entries = readdlm(file, ',')
@@ -92,7 +94,7 @@ end
 
 # Uvec = [sqrt(outs["AB1N011Vx"][i]^2 + outs["AB1N011Vy"][i]^2) for i in 1:nt] #m/s
 Uvec = outs["AB1N"*num*"VRel"]
-aoavec = outs["AB1N"*num*"Alpha"].*(pi/180)
+aoavec = (outs["AB1N"*num*"Alpha"].+0.01334).*(pi/180)
 
 Uvec[3:end] = mat[:,17]
 aoavec[3:end] = mat[:,19]
@@ -104,29 +106,27 @@ errfun(x, xt) = (x-xt)/xt
 # aoavec = aoavec[1].*ones(length(tvec))
 
 ### Solve
-states, loads = solve_indicial(dsmodel, [c], tvec, Uvec, aoavec)
+states, loads = solve_indicial(dsmodel, [c], tvec, Uvec, aoavec; a=335.0)
 
 Cn = loads[:,1]
 
 
-
-staticCn = clfit.(aoavec) #Todo: This will need to be rotated... methinks
-
-cnplt = plot(xaxis="time (s)", yaxis="Cn", right_margin=20mm, leg=:topright)
+cnplt = plot(xaxis="time (s)", yaxis="Cn", right_margin=20mm, leg=:bottomright)
 plot!(tvec, Cn, lab="BL_AD")
-plot!(tvec, staticCn, lab="static")
 plot!(outs["Time"], outs["AB1N"*num*"Cn"], linestyle=:dash, lab="OpenFAST")
+# plot!(mat[:,1], mat[:,36], lab="OpenFAST intermediate", linestyle=:dash)
 # plot!(twinx(), tvec, aoavec.*(180/pi), lab="AOA", leg=:bottomright, linecolor=:purple, linestyle=:dot, yaxis="AOA")
 # display(cnplt)
 
+# cnerror = errfun.(Cn[3:end], mat[:,36])*100
+#-> Now there is less than half a percent error. Which.... I'm quite happy with. Like.... it could/should be better... but... it seems good enough. Their output seems heavily rounded. Like there is no oscillation. Which means that my solver should account for more fatique? or just more noise... one of the two. -> When comparing to the intermediate step (the easily accessed output is rounded down), the max percent relative error is 0.183%. Which... is pretty good methinks. I don't know what is causing the difference? 
 
-staticCc = cdfit.(aoavec)
+
 Cc = loads[:,2]
 Cd0 = af.cd(af.alpha0)
 
 ccplt = plot(xaxis="Time (s)", yaxis=L"C_c", right_margin=20mm, leg=:topright)
 plot!(tvec, Cc, lab="BL_ADG") 
-plot!(tvec, staticCc, lab="static")
 plot!(outs["Time"], outs["AB1N011Ct"], linestyle=:dash, lab="OpenFAST")
 # plot!(twinx(), tvec, aoavec.*(180/pi), lab="AOA", leg=:bottomright, linecolor=:purple, linestyle=:dot, yaxis="AOA")
 # display(ccplt)
@@ -148,22 +148,29 @@ Most of the time it is hovering just below 1% error. (median is -0.72% error.) I
 
 #=
 12/9/22
-The angles of attack that are getting passed to my solver and the ones getting passed to their solver are slightly different... I don't know if it's enough... I mean... it looks like its 0.018%.... so insignificant. So it's something else. 
+The angles of attack that are getting passed to my solver and the ones getting passed to their solver are slightly different... I don't know if it's enough... I mean... it looks like its 0.018%.... so insignificant. So it's something else.  -> 12/22/22 Well... actually...  it was making a difference. 
 =#
 
-Cfsn, Cvn, Nnc_aq, Nc_q, Nc_aq, Nnc_a, Nnc_q, Talpha, M = extractintermediatestates(states, Uvec, c, af)
+##############################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################
+
+Cfsn, Cvn, Nnc_aq, Nc_q, Nc_aq, Nnc_a, Nnc_q, Talpha, M, k_alpha, TI, alphae, k_q, Cpot = extractintermediatestates(states, Uvec, c, af; a=335.0)
+
+TI_of = mat[:,18]./mat[:,22] #c/a #The same. 
 
 CNFSplt = plot(mat[:,1], mat[:,3], lab="OpenFAST", ylab="Cnfs")
 plot!(tvec, Cfsn, lab="DSM")
-# display(CNFSplt)
+# display(CNFSplt) 
+# Todo. Constant and off. -> I wonder if the Cvn is actually getting applied. -> The fp was off, so it was throwing this off. #Todo: There is this large hit at the beginning, but other than that, it looks like it is spot on. 
 
 Cvnplt = plot(mat[:,1], mat[:,4], lab="OpenFAST", ylab="Cvn")
 plot!(tvec, Cvn, lab="DSM")
 # display(Cvnplt)
+#Todo: Constant for most of it, then mine picks up but theirs doesn't. The overall variance isn't large.... so I don't think it's a problem. 
 
 tauplt = plot(mat[:,1], mat[:,2], lab="OpenFAST", ylab="Tau")
 plot!(tvec, states[:, 22], lab="DSM")
 # display(tauplt)
+#Todo: Theirs constantly increases, mine increases and drops repeatedly. They appear to be the same slope. 
 
 #=
 12/12/22
@@ -176,33 +183,63 @@ While I was looking through, I found this UA_BlendSteady() function... that got 
 I guess I just need to keep going down the rabbit hole til I find where things are different. 
 =#
 
-# Nnc_aqplt = plot(mat[:,1], mat[:,6], lab="OpenFAST", ylab="Nnc_aq")
-# plot!(tvec, Nnc_aq, lab="DSM")
+Nc_aq_plt = plot(mat[:,1], mat[:,8], lab="OpenFAST", ylab=L"N^c_{aq}")
+plot!(tvec, Nc_aq, lab="DSM")
+# display(Nc_aq_plt)  #Good. 
+
+Nnc_aqplt = plot(mat[:,1], mat[:,6], lab="OpenFAST", ylab="Nnc_aq")
+plot!(tvec, Nnc_aq, lab="DSM")
 # display(Nnc_aqplt)
+#Todo. This is off. It almost looks like it is phase shifted. ... The values are tiny... so I don't know if it'll even have that much of an effect on the overall outcome. I'm just worried that the difference will make a difference later done the line. -> Fixed this components. 
 
-#Mine is constant, and theirs drops off.... 
+Cnoncirc_a_plt = plot(mat[:,1], mat[:,29], lab="OpenFAST", ylab=L"N^{nc}_\alpha")
+# plot!(tvec, Nnc_a, lab="DSM") 
+# display(Cnoncirc_a_plt) #Good
 
-# Ncirc_qplt = plot(mat[:,1], mat[:,7], lab="OpenFAST", ylab="Ncirc_q")
-# plot!(tvec, Nc_q, lab="DSM")
-# display(Ncirc_qplt)
+Cnc_q_plt = plot(mat[:,1], mat[:,30], lab="OpenFAST", ylab=L"N^{nc}_q")
+plot!(tvec, Nnc_q, lab="DSM") 
+# display(Cnc_q_plt) #Todo. Oscillates the wrong way. Fixed. I was missing a negative. 
 
-#Same again, mine is constant, and theirs drops off. How odd....
+Kqplt = plot(mat[:,1], mat[:,31], lab="OpenFAST", ylab=L"K_q")
+plot!(tvec, states[:,5], lab="DSM")
+# display(Kqplt) #Todo. Off from each other. I bet there's something wrong with the filtering here as well. ... Well... I shifted from using the filtered values to using the unfiltered values, like they did... but that made things worse. -> Added q_f as a state, now it matches. 
 
-# Nnc_aplt = plot(mat[:,1], mat[:,10], lab="OpenFAST", ylab="Nnc_a")
-# plot!(tvec, Nnc_a, lab="DSM")
+Kpq_plt = plot(mat[:,1], mat[:,32], lab="OpenFAST", ylab=L"K'_q")
+plot!(tvec, states[:,11], lab="DSM")
+# display(Kpq_plt) #TODO: Follows decently well, there is some odd discontinuity after the first pass but then quickly converges. 
+
+
+
+
+
+Ncirc_qplt = plot(mat[:,1], mat[:,7], lab="OpenFAST", ylab="Ncirc_q")
+plot!(tvec, Nc_q, lab="DSM")
+# display(Ncirc_qplt) #Todo. This appears phase shifted. -> I hadn't filtered pitch rate to using 
+
+alphaeplt = plot(mat[:,1], mat[:,28], lab="OpenFAST", ylab=L"\alpha_e")
+plot!(tvec, alphae, lab="DSM") 
+# display(alphaeplt)
+
+
+
+Nnc_aplt = plot(mat[:,1], mat[:,10], lab="OpenFAST", ylab="Nnc_a")
+plot!(tvec, Nnc_a, lab="DSM")
 # display(Nnc_aplt)
 
 #Again, mine is constant. That just doesn't make sense. Am I reading in the data incorrectly? 
 
-# Talphaplt = plot(mat[:,1], mat[:,12], lab="OpenFAST", ylab="Talpha")
-# plot!(tvec, Talpha, lab="DSM")
+k_alpha_plt = plot(mat[:,1], mat[:,21], lab="OpenFAST", ylab=L"k_\alpha")
+plot!(tvec, k_alpha, lab="DSM")
+# display(k_alpha_plt) #It appears there is some fluctuation in the value, and it isn't constant. dcndalpha, M, A1, A2, b1, b2 all appear to be the same. An error of -0.0571%... I don't expect there to be any error, because that can compound... but I think I'm just going to have to accept it for now. 
+
+Talphaplt = plot(mat[:,1], mat[:,12], lab="OpenFAST", ylab="Talpha")
+plot!(tvec, Talpha, lab="DSM")
 # display(Talphaplt)
+# Todo. Both constant, -2.43% error, they are both very very small. -> Now it's the same error of -0.057%. 
 
-# Both constant, -2.43% error, they are both very very small. 
-
-Kaplt = plot(mat[:,1], mat[:,11], lab="OpenFAST", ylab="Ka")
+Kaplt = plot(mat[:,1], mat[:,13], lab="OpenFAST", ylab="Ka")
 plot!(tvec, states[:,4], lab="DSM")
-display(Kaplt)
+# display(Kaplt) #Todo. There's a difference here. -> They were updating Ka using the filtered q values after. 
 
 #=
 I may have found the error. This is remaining zero, and OpenFAST does a little arc. 
@@ -212,24 +249,57 @@ I may have found the error. This is remaining zero, and OpenFAST does a little a
 The difference in how I do the initialization makes me out of phase and have a larger initial amplitude. 
 =# 
 
-Kpaplt = plot(mat[:,1], mat[:,12], lab="OpenFAST", ylab="Kpa")
+Kpaplt = plot(mat[:,1], mat[:,14], lab="OpenFAST", ylab="Kpa", leg=:bottomright)
 plot!(tvec, states[:,10], lab="DSM")
-display(Kpaplt) #Todo: There is still a constant difference here. 
+# display(Kpaplt) #Todo. There is still a constant difference here. -> I was plotting the wrong thing. There still is a difference, but I was plotting the wrong thing. This is probably off because Talpha is off, because it's a function of Ka and Talpha. Ka is on now, so Talpha must be off. -> There was a slight error in my extraction function, now it should be good. 
 
 
 
-qplt = plot(mat[:,1], mat[:,16], lab="OpenFAST", ylab="q", leg=:bottomright)
-plot!(tvec, states[:,3], lab="DSM")
-display(qplt)
+qfplt = plot(mat[:,1], mat[:,16], lab="OpenFAST", ylab=L"q_f", leg=:bottomright)
+plot!(tvec, states[:,29], lab="DSM")
+# display(qfplt)
+
+alphaplt = plot(mat[:,1], mat[:,20], lab="OpenFAST", ylab=L"\alpha_{filt}", leg=:bottomright)
+plot!(tvec, states[:,1], lab="DSM")
+# display(alphaplt)
 
 #=
 Interesting... our low pass constants are giving different values. #Todo. Currently comparing low pass constants. But I need to be looking at why our pitching values are different. 
 
-There appears to be slight differences in the input velocity. I'm going to guess there are slight differences in the input angle as well... They're probably rounding for output. -> Their filter cutoff value is actually 0.5.... so I don't know where it gets changed to that... but that is really odd. #Todo: Find where the filter cutoff value is changed. 
+There appears to be slight differences in the input velocity. I'm going to guess there are slight differences in the input angle as well... They're probably rounding for output. -> Their filter cutoff value is actually 0.5.... so I don't know where it gets changed to that... but that is really odd. #Todo. Find where the filter cutoff value is changed. -> I copied what they did in their files.... so we good. I guess. 
 
 Alright, Now I'm passing in the exact U and aoa values that OpenFAST is passing to the dynamic stall model and now q converges to the values that they have. 
-
+-> Turns out that I wasn't. The aoa values that are passed out of OpenFAST are rounded degrees, which apparently makes a difference. Now I've got aoa matching. Which made q match. 
 
 =#
+
+
+fppplt = plot(mat[:,1], mat[:,9], lab="OpenFAST", ylab=L"f''", leg=:bottomright, markershape=:x)
+plot!(tvec, states[:,19], lab="DSM")
+# display(fppplt) #Todo. Offset -> I fix fp. 
+
+fpplt = plot(mat[:,1], mat[:,34], lab="OpenFAST", ylab=L"f'", leg=:bottomright, markershape=:x)
+plot!(tvec, states[:,18], lab="DSM")
+# display(fpplt) #Todo. Offset -> Used there separation point function. Like I almost copied and pasted it. They calculate fst at every iteration... which is probably faster. TODO: There is a blip at the beginning. OpenFAST seems to just cut it off. I think I'm just going to leave it for now and make the system just report the static cl and cd (and therefore the static cn and cc). 
+
+alphafplt = plot(mat[:,1], mat[:,35], lab="OpenFAST", ylab=L"\alpha_f", leg=:bottomright)
+plot!(tvec, states[:,2], lab="DSM")
+# display(alphafplt) #Okay, this is good, which means that it's my separation point function. 
+
+
+#=
+12/29/22 Debugging Cc
+
+I'm going to guess that there is a problem with fppc and now that I'm looking at it, I see that they use a Ccpot... I have Cpot... which if I'm following my notation scheme, then it would be the same value, but there's always possibility for error there. 
+
+
+Eta-e checks out, they're both set to 1.0.
+
+=#
+
+Cpotplt = plot(mat[:,1], mat[:,37], lab="OpenFAST", ylab=L"C_{pot}", leg=:topright)
+plot!(tvec, Cpot, lab="DSM")
+display(Cpotplt) #Todo: Close, but phase shifted. -> They use the unfiltered alpha here.... which is problematic in my POV. It means that I have to add another state. 
+
 
 nothing
