@@ -57,9 +57,9 @@ function (model::BeddoesLeishman)(x, p, t, dt)
     
                 c, a, dcndalpha, alpha0, _, _, A1, A2, b1, b2, Tf0, Tv0, Tp, Tvl, Cn1, _, U, aoa = ps #Inputs  
                 
-                xs = view(x, 27*(i-1)+1:27*i)
+                xs = view(x, 29*(i-1)+1:29*i)
 
-                idx = 27*(i-1)+1:27*i
+                idx = 29*(i-1)+1:29*i
                 newstates[idx] = update_states_ADG(model, xs, c, a, U, dt, aoa, dcndalpha, alpha0, A1, A2, b1, b2, Tf0, Tv0, Tp, Tvl, Cn1, i)
             end
             return newstates
@@ -95,7 +95,7 @@ function numberofstates(dsmodel::BeddoesLeishman) #TODO: This probably need to b
         return 22*dsmodel.n
     elseif dsmodel.version==3
         # @warn("The Gozalez Beddoes-Leishman model is not yet prepared.")
-        return 27*dsmodel.n
+        return 29*dsmodel.n
     elseif dsmodel.version==4
         @warn("The Minema Beddoes-Leishman model is not yet prepared.")
         return 22*dsmodel.n
