@@ -417,7 +417,8 @@ function reverse_separationpointcalculation_ADO(alpha, Cn, Cc, dcndalpha, alpha0
         fvec[i] = f
 
         ### Chordwise separation point function
-        bot = eta*dcndalpha*(alpha[i]-alpha0)*tan(alpha[i])
+        # bot = eta*dcndalpha*(alpha[i]-alpha0)*tan(alpha[i])
+        bot = eta*dcndalpha*(alpha[i]-alpha0)*alpha[i]
         fc = (Cc[i]/bot + 0.2)^2 #EQ 1.32b
 
         if fc>fclimit #OpenFAST v3.3.0 - UnsteadyAreo.f90 line 262

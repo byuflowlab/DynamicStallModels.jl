@@ -55,9 +55,10 @@ function getintermediatestates(states, U, a, c, dcndalpha, A1, A2, b1, b2)
 
     Cvn = states[23]
 
-    Cpot = dcndalpha_circ*alphae*alpha
+    aoa = states[30]
+    Cpot = dcndalpha_circ*alphae*aoa
 
-    return Cfsn, Cvn, Nnoncirc_aq, Ncirc_q, Ncirc_aq, fpp, Nnoncirc_a, Nnoncirc_q, Talpha, M, k_alpha, TI, alphae, k_q, Cpot
+    return Cfsn, Cvn, Nnoncirc_aq, Ncirc_q, Ncirc_aq, fpp, Nnoncirc_a, Nnoncirc_q, Talpha, M, k_alpha, TI, alphae, k_q, Cpot, dcndalpha_circ
 end
 
 function extractintermediatestates(states, Uvec, c, airfoil; a=343.0)
@@ -78,10 +79,11 @@ function extractintermediatestates(states, Uvec, c, airfoil; a=343.0)
     alphae = zeros(n)
     k_q = zeros(n)
     Cpot = zeros(n)
+    dcndalpha_circ = zeros(n)
 
     for i = 1:n
-        Cfsn[i], Cvn[i], Nnc_aq[i], Nc_q[i], Nc_aq[i], fpp[i], Nnc_a[i], Nnc_q[i], Talpha[i], M[i], k_alpha[i], TI[i], alphae[i], k_q[i], Cpot[i] = getintermediatestates(states[i,:], Uvec[i], a, c, airfoil.dcndalpha, airfoil.A[1], airfoil.A[2], airfoil.b[1], airfoil.b[2])
+        Cfsn[i], Cvn[i], Nnc_aq[i], Nc_q[i], Nc_aq[i], fpp[i], Nnc_a[i], Nnc_q[i], Talpha[i], M[i], k_alpha[i], TI[i], alphae[i], k_q[i], Cpot[i], dcndalpha_circ[i] = getintermediatestates(states[i,:], Uvec[i], a, c, airfoil.dcndalpha, airfoil.A[1], airfoil.A[2], airfoil.b[1], airfoil.b[2])
     end
 
-    return Cfsn, Cvn, Nnc_aq, Nc_q, Nc_aq, Nnc_a, Nnc_q, Talpha, M, k_alpha, TI, alphae, k_q, Cpot
+    return Cfsn, Cvn, Nnc_aq, Nc_q, Nc_aq, Nnc_a, Nnc_q, Talpha, M, k_alpha, TI, alphae, k_q, Cpot, dcndalpha_circ
 end

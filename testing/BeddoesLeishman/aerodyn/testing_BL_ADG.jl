@@ -16,7 +16,7 @@ cd(path)
 include("parseaerodyn.jl")
 
 # items = ["t", "alpha", "Cc_pot", "fprime_c", "fprimeprime_c", "Df", "Cn", "Cc", "PI"] 
-items = ["t", "tau", "Cn_FS", "Cn_v", "Cn_inviscid", "Cn_alpha_q_nc", "Cn_q_circ", "Cn_alpha_q_circ", "f''", "Cn_alpha_nc", "Cn_q_nc", "T_alpha", "Kalpha_f", "Kprime_alpha", "M", "q_f_cur", "U", "c", "alpha", "alpha_filt", "k_alpha", "a_s", "C_nalpha", "A1", "b1", "A2", "b2", "alpha_e", "Cn_alpha_nc", "Cn_q_nc", "Kq_f", "Kpq", "Df", "f'", "alphaf", "eta_e", "Cc_pot", "fppc", "Gonzalez factor"]
+items = ["t", "tau", "Cn_FS", "Cn_v", "Cn_inviscid", "Cn_alpha_q_nc", "Cn_q_circ", "Cn_alpha_q_circ", "f''", "Cn_alpha_nc", "Cn_q_nc", "T_alpha", "Kalpha_f", "Kprime_alpha", "M", "q_f_cur", "U", "c", "alpha", "alpha_filt", "k_alpha", "a_s", "C_nalpha", "A1", "b1", "A2", "b2", "alpha_e", "Cn_alpha_nc", "Cn_q_nc", "Kq_f", "Kpq", "Df", "f'", "alphaf", "eta_e", "Cc_pot", "fppc", "Gonzalez factor", "fpc", "dcndalpha_circ"] #, "Cn_visc", "Cc_visc"]
 file = "/Users/adamcardoza/.julia/dev/DynamicStallModels/data/aerodyn_intermediates.txt"
 
 entries = readdlm(file, ',')
@@ -114,27 +114,32 @@ Cn = loads[:,1]
 cnplt = plot(xaxis="time (s)", yaxis="Cn", right_margin=20mm, leg=:bottomright)
 plot!(tvec, Cn, lab="BL_AD")
 plot!(outs["Time"], outs["AB1N"*num*"Cn"], linestyle=:dash, lab="OpenFAST")
-# plot!(mat[:,1], mat[:,36], lab="OpenFAST intermediate", linestyle=:dash)
+# plot!(mat[:,1], mat[:,40], lab="OpenFAST intermediate", linestyle=:dash)
 # plot!(twinx(), tvec, aoavec.*(180/pi), lab="AOA", leg=:bottomright, linecolor=:purple, linestyle=:dot, yaxis="AOA")
 # display(cnplt)
 
-# cnerror = errfun.(Cn[3:end], mat[:,36])*100
+cnerror = errfun.(Cn[3:end], mat[:,40]).*100
 #-> Now there is less than half a percent error. Which.... I'm quite happy with. Like.... it could/should be better... but... it seems good enough. Their output seems heavily rounded. Like there is no oscillation. Which means that my solver should account for more fatique? or just more noise... one of the two. -> When comparing to the intermediate step (the easily accessed output is rounded down), the max percent relative error is 0.183%. Which... is pretty good methinks. I don't know what is causing the difference? 
 
 
 Cc = loads[:,2]
 Cd0 = af.cd(af.alpha0)
 
-ccplt = plot(xaxis="Time (s)", yaxis=L"C_c", right_margin=20mm, leg=:topright)
+ccplt = plot(xaxis="Time (s)", yaxis=L"C_c", right_margin=20mm, leg=:bottomright)
 plot!(tvec, Cc, lab="BL_ADG") 
-plot!(outs["Time"], outs["AB1N011Ct"], linestyle=:dash, lab="OpenFAST")
+plot!(outs["Time"], outs["AB1N001Ct"], linestyle=:dash, lab="OpenFAST")
+# plot!(mat[:,1], mat[:,41], lab="OpenFAST intermediate", linestyle=:dash)
 # plot!(twinx(), tvec, aoavec.*(180/pi), lab="AOA", leg=:bottomright, linecolor=:purple, linestyle=:dot, yaxis="AOA")
 # display(ccplt)
 
-# Cterr = errfun.(Cc, outs["AB1N011Ct"])
+# Cterr = errfun.(Cc, outs["AB1N001Ct"]).*100
+# ccerror = errfun.(Cc[3:end], mat[:,41]).*100
+
 
 #=
-Most of the time it is hovering just below 1% error. (median is -0.72% error.) I'm going to guess this is due to the fact that I'm not using a tangential separation point function. It could also be due to the fact that I might need to rotate the slope of the lift curve. Although, the slope that I'm currently using from the AeroDyn data is the slope of the normal curve, so.... it should be solid. 
+Max error is 0.8%, which is pretty good, but not as low as I'd like. I'd like to say that it's negligible because the total difference is pretty small. Like the difference we'd see in the total loading should be pretty small, right? Well... if they're both scaled by the same factor, we should still be 0.8% off... so it still has a higher error than I'd like. But... this is the rounded error, so it might be less. 
+
+Well.. that brought it down to 0.71%. Still not quite as close as I'd like. I really wonder what the difference is. -> I was rotating the final time by alpha instead of aoa.. which decreased error to 0.65%. 
 =#
 
 # nt, na = size(states)
@@ -153,7 +158,7 @@ The angles of attack that are getting passed to my solver and the ones getting p
 
 ##############################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################
 
-Cfsn, Cvn, Nnc_aq, Nc_q, Nc_aq, Nnc_a, Nnc_q, Talpha, M, k_alpha, TI, alphae, k_q, Cpot = extractintermediatestates(states, Uvec, c, af; a=335.0)
+Cfsn, Cvn, Nnc_aq, Nc_q, Nc_aq, Nnc_a, Nnc_q, Talpha, M, k_alpha, TI, alphae, k_q, Cpot, dcndalpha_circ = extractintermediatestates(states, Uvec, c, af; a=335.0)
 
 TI_of = mat[:,18]./mat[:,22] #c/a #The same. 
 
@@ -275,17 +280,22 @@ Alright, Now I'm passing in the exact U and aoa values that OpenFAST is passing 
 
 
 fppplt = plot(mat[:,1], mat[:,9], lab="OpenFAST", ylab=L"f''", leg=:bottomright, markershape=:x)
-plot!(tvec, states[:,19], lab="DSM")
-# display(fppplt) #Todo. Offset -> I fix fp. 
+plot!(tvec[3:end], states[3:end,19], lab="DSM")
+# display(fppplt) #Todo. Offset -> I fix fp.
 
 fpplt = plot(mat[:,1], mat[:,34], lab="OpenFAST", ylab=L"f'", leg=:bottomright, markershape=:x)
 plot!(tvec, states[:,18], lab="DSM")
 # display(fpplt) #Todo. Offset -> Used there separation point function. Like I almost copied and pasted it. They calculate fst at every iteration... which is probably faster. TODO: There is a blip at the beginning. OpenFAST seems to just cut it off. I think I'm just going to leave it for now and make the system just report the static cl and cd (and therefore the static cn and cc). 
 
+fperr = errfun.(states[3:end, 18], mat[:,34]).*100
+### Todo: I think that fp is the source of the error in my Cn.... I wonder if there is a difference in the alpha_f
+
 alphafplt = plot(mat[:,1], mat[:,35], lab="OpenFAST", ylab=L"\alpha_f", leg=:bottomright)
 plot!(tvec, states[:,2], lab="DSM")
 # display(alphafplt) #Okay, this is good, which means that it's my separation point function. 
 
+alphaferr = errfun.(states[3:end,2], mat[:,35]).*100
+#The relative error of alpha_f is really low, the average is 4.06e-6%... so miniscule. 
 
 #=
 12/29/22 Debugging Cc
@@ -295,11 +305,35 @@ I'm going to guess that there is a problem with fppc and now that I'm looking at
 
 Eta-e checks out, they're both set to 1.0.
 
+The gonzalez factor also checks out. (both are 0.2)
+
 =#
 
 Cpotplt = plot(mat[:,1], mat[:,37], lab="OpenFAST", ylab=L"C_{pot}", leg=:topright)
 plot!(tvec, Cpot, lab="DSM")
-display(Cpotplt) #Todo: Close, but phase shifted. -> They use the unfiltered alpha here.... which is problematic in my POV. It means that I have to add another state. 
+# display(Cpotplt) #Todo. Close, but phase shifted. -> They use the unfiltered alpha here.... which is problematic in my POV. It means that I have to add another state. -> Boom, it was the fact that they use the unfiltered aoa. 
+
+cpoterr = errfun.(Cpot[3:end], mat[:,37]).*100
+
+fppcplt = plot(mat[:,1], mat[:,38], lab="OpenFAST", ylab=L"f''_c", leg=:topright, markershape=:x)
+plot!(tvec, states[:,21], lab="DSM")
+# display(fppcplt) #Todo. There is a minor shift. -> But it might be significant. Fixed it. They were using the circulation dcndalpha. 
+
+fppcerr = errfun.(states[3:end,21], mat[:,38]).*100
+### Todo: The error here is 0.47% on average... which isn't huge, but explains the error. W
 
 
+fpcplt = plot(mat[:,1], mat[:,40], lab="OpenFAST", ylab=L"f'_c", leg=:topright, markershape=:x)
+plot!(tvec, states[:,20], lab="DSM")
+# display(fpcplt)
+
+fpcerr = errfun.(states[3:end, 20], mat[:,40]).*100
+### Todo: The error is the same as fppc, so it suggests that the delay function doesn't significantly increase the error. 
+
+dcndalpha_circplt = plot(mat[:,1], mat[:,41], lab="OpenFAST", ylab=L"\frac{dC_n}{d\alpha}_c", leg=:topright, markershape=:x)
+plot!(tvec, dcndalpha_circ, lab="DSM")
+# display(dcndalpha_circplt)
+
+dcnerr = errfun.(dcndalpha_circ[3:end], mat[:,41]).*100
+### The mean error here is -5.93e-15%. Which is incredibly small. So I can safely assume that this is not wrong... at all. 
 nothing
