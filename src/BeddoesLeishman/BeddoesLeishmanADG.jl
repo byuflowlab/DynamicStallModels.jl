@@ -42,6 +42,16 @@ function flookup_gonzalez(airfoil, alpha, dCndalpha_circ)
     return fst
 end
 
+function fclookup_gonzalez(airfoil, alpha, dCndalpha_circ)
+
+    Cc = airfoil.cl(alpha)*sin(alpha) - (airfoil.cd(alpha) - airfoil.cd(airfoil.alpha0))*cos(alpha)
+    D = airfoil.eta*dCndalpha_circ*(alpha-airfoil.alpha0)*alpha
+
+    fc = (Cc/D + 0.2)^2
+
+    return min(fc, fclimit)
+end
+
 
 
 #AeroDyn original implementation. 
@@ -57,7 +67,7 @@ function update_states_ADG(dsmodel::BeddoesLeishman, oldstates, c, a, U, deltat,
     #= States
     1 - alpha # Filtered angle of attack. 
     2 - alphaf #TODO: I'm not sure that this state is needed. Note: this is not the filtered angle of attack. 
-    3 - q
+    3 - q # Unfiltered pitching rate
     4 - Ka
     5 - Kq
     6 - X1
@@ -83,14 +93,15 @@ function update_states_ADG(dsmodel::BeddoesLeishman, oldstates, c, a, U, deltat,
     26 - TESF::Bool
     27 - VRTX::Bool
     28 - firstpass::Bool
-    29 - qf
+    29 - qf - Filtered pitching rate. 
     30 - aoa - unfiltered angle of attack. 
     =#
 
 
-    states = zeros(29) #Todo: Consider putting a function to return this value. 
+    states = zeros(30) #TODO: Consider putting a function to return this value. 
 
     # @show length(states)
+    states[30] = aoa #Unfiltered angle of attack. 
 
 
     zeta, A5, b5, Tsh = dsmodel.constants 
@@ -106,7 +117,7 @@ function update_states_ADG(dsmodel::BeddoesLeishman, oldstates, c, a, U, deltat,
     # @show c, a, TI
     deltas = 2*U*deltat/c# Equation 1.5b #Checked against OpenFAST v3.3.0
 
-    #Todo: Todo: I don't think that I need to set alpha_m because I've already set it. 
+    #TODO: I don't think that I need to set alpha_m because I've already set it. 
     # @show firstpass_m
     if firstpass_m==1.0
         alpha_m = aoa
@@ -345,7 +356,8 @@ function update_states_ADG(dsmodel::BeddoesLeishman, oldstates, c, a, U, deltat,
     states[19] = fpp = fp - Df #EQ 1.36, delayed effective seperation point. 
     # @show fpp
 
-    states[20] = fpc = chordwiseseparationpoint(airfoil, alphaf)
+    # states[20] = fpc = chordwiseseparationpoint(airfoil, alphaf)
+    states[20] = fpc = fclookup_gonzalez(airfoil, alphaf, dcndalpha_circ)
 
     if firstpass_m==1
         states[16] = Dfc = 0.0
@@ -539,7 +551,8 @@ function BLADG_coefficients(dsmodel::BeddoesLeishman, states, U, c, clfit, cdfit
 
     ######### Prepare inputs for chordwise force coefficient. 
     # Cpot = Ncirc_aq*tan(alphae + alpha0) #Equation 1.21   #Todo. What is Npot,circ? -> It's Ncirc_aq
-    Cpot = dcndalpha_circ*alphae*alpha #What OpenFAST v3.3.0 has. #Todo. What is alpha? -> It appears to be the unfiltered angle of attack #Todo: What is C_nalpha_circ? -> At first I thought I had misread... but no... they definitely have C_nalpha_circ.... which suggests that maybe they mistyped. 
+    aoa = states[30]
+    Cpot = dcndalpha_circ*alphae*aoa #What OpenFAST v3.3.0 has. #Todo. What is alpha? -> It appears to be the unfiltered angle of attack #Todo: What is C_nalpha_circ? -> At first I thought I had misread... but no... they definitely have C_nalpha_circ.... which suggests that maybe they mistyped. 
 
     fppc = states[21]
     # @show eta
@@ -554,13 +567,13 @@ function BLADG_coefficients(dsmodel::BeddoesLeishman, states, U, c, clfit, cdfit
 
 
     ### Lift and Drag
-    Cl = Cn*cos(alpha) + Cc*sin(alpha)
-    Cd = Cn*sin(alpha) - Cc*cos(alpha) + Cd0 #Adding frictional drag back in. 
+    Cl = Cn*cos(aoa) + Cc*sin(aoa)
+    Cd = Cn*sin(aoa) - Cc*cos(aoa) + Cd0 #Adding frictional drag back in. 
 
     firstpass = states[28]
     if firstpass==1.0
-        Cl = clfit(alpha)
-        Cd = cdfit(alpha)
+        Cl = clfit(aoa)
+        Cd = cdfit(aoa)
     end
 
 
@@ -586,8 +599,8 @@ function BLADG_coefficients(dsmodel::BeddoesLeishman, states, U, c, clfit, cdfit
     # Cm = Cn*fpp + Cc_mq + Cnc_ma + Cnc_mq + Cvm #Equation 1.60 #Todo: I don't think that this has seen the correction from Gonzalez, see equation 1.45 and 1.60
 
     ### Add viscoousity back into the normal and tangent coefficients
-    Cn = Cl*cos(alpha) + Cd*sin(alpha) #Cd has friction added back in. 
-    Cc = Cl*sin(alpha) - Cd*cos(alpha)
+    Cn = Cl*cos(aoa) + Cd*sin(aoa) #Cd has friction added back in. 
+    Cc = Cl*sin(aoa) - Cd*cos(aoa)
     Cm = 1
 
     return Cn, Cc, Cl, Cd, Cm
@@ -631,7 +644,7 @@ function initialize_ADG(Uvec, aoavec, tvec, airfoil::Airfoil, c, a)
     LESF = TESF = VRTX = 0
     firstpass = 1
 
-    states = [alpha, alphaf, q, Ka, Kq, X1, X2, X3, X4, Kpa, Kpq, Kppq, Kpppq, Dp, Df, Dfc, Cpotn, fp, fpp, fpc, fppc, tauv, Cvn, Cv, LESF, TESF, VRTX, firstpass, q]
+    states = [alpha, alphaf, q, Ka, Kq, X1, X2, X3, X4, Kpa, Kpq, Kppq, Kpppq, Dp, Df, Dfc, Cpotn, fp, fpp, fpc, fppc, tauv, Cvn, Cv, LESF, TESF, VRTX, firstpass, q, aoa]
 
     Cn = airfoil.cn(alpha) 
     Cc = airfoil.cc(alpha)
