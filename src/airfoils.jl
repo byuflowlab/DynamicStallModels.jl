@@ -434,7 +434,7 @@ end
 ### AeroDyn separation point fit based on the static lift curve #TODO: Might need to rotate to the normal coefficient. 
 separationpoint(sfun::ADFSP, airfoil::Airfoil, alpha) = sfun.ffit(alpha) #Todo: These other separation point functions need the chordwise separation point function. 
 
-function separationpoint(sfun::ADFSP, airfoil::Airfoil, alpha)
+function separationpoint(sfun::ADGSP, airfoil::Airfoil, alpha)
 
     Cn = airfoil.cl(alpha)*cos(alpha) + (airfoil.cd(alpha) - airfoil.cd(airfoil.alpha0))*sin(alpha)
 

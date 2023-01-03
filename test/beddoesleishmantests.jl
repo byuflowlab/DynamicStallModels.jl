@@ -1,9 +1,11 @@
-# using DynamicStallModels, DelimitedFiles, DifferentialEquations, OpenFASTsr, FLOWMath, Statistics
-# using Test
+using DynamicStallModels, DelimitedFiles, DifferentialEquations, OpenFASTsr, FLOWMath, Statistics
+using Test
 
-# DE = DifferentialEquations
-# ds = DynamicStallModels
-# of = OpenFASTsr
+#Todo: This appears to be broken. 
+
+DE = DifferentialEquations
+ds = DynamicStallModels
+of = OpenFASTsr
 
 fullout = readdlm("../data/aerodynout_fordynamicstall.csv", ',')
 names = fullout[1,:]

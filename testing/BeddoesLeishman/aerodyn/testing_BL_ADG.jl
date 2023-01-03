@@ -9,6 +9,7 @@ Adam Cardoza 10/3/22
 #Todo: alpha (generic function with 5 methods). I'm not sure that there should be 5 methods. 
 
 of = OpenFASTsr
+DSM = DynamicStallModels
 
 path = dirname(@__FILE__)
 cd(path)
@@ -158,7 +159,7 @@ The angles of attack that are getting passed to my solver and the ones getting p
 
 ##############################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################
 
-Cfsn, Cvn, Nnc_aq, Nc_q, Nc_aq, Nnc_a, Nnc_q, Talpha, M, k_alpha, TI, alphae, k_q, Cpot, dcndalpha_circ = extractintermediatestates(states, Uvec, c, af; a=335.0)
+Cfsn, Cvn, Nnc_aq, Nc_q, Nc_aq, Nnc_a, Nnc_q, Talpha, M, k_alpha, TI, alphae, k_q, Cpot, dcndalpha_circ = DSM.extractintermediatestates(states, Uvec, c, af; a=335.0)
 
 TI_of = mat[:,18]./mat[:,22] #c/a #The same. 
 
@@ -262,7 +263,7 @@ plot!(tvec, states[:,10], lab="DSM")
 
 qfplt = plot(mat[:,1], mat[:,16], lab="OpenFAST", ylab=L"q_f", leg=:bottomright)
 plot!(tvec, states[:,29], lab="DSM")
-# display(qfplt)
+display(qfplt)
 
 alphaplt = plot(mat[:,1], mat[:,20], lab="OpenFAST", ylab=L"\alpha_{filt}", leg=:bottomright)
 plot!(tvec, states[:,1], lab="DSM")

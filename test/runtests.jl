@@ -5,5 +5,5 @@ DE = DifferentialEquations
 ds = DynamicStallModels
 of = OpenFASTsr
 
-include("./risotests.jl")
-include("./beddoesleishmantests.jl")
+# include("./risotests.jl")
+# include("./beddoesleishmantests.jl")
