@@ -29,7 +29,7 @@ file = "../data/ADG_intermediates.txt"
 
 datavec = readdlm(file, ',')
 
-items = ["i", "t", "U", "alpha", "a_s", "M", "Gonzalez_factor", "c", "C_nalpha", "A1", "b1", "A2", "b2", "eta_e", "tau_v", "Cn_FS", "Cn_v", "Cn_alpha_q_nc", "Cn_q_circ", "Cn_alpha_q_circ", "fprimeprime", "Cn_alpha_nc", "Cn_q_nc", "T_alpha", "Kalpha_f", "Kprime_alpha", "q_f_cur", "alpha_filt_cur", "k_alpha", "alpha_e", "Kq_f", "Kprime_q", "Df", "fprime", "alpha_f", "Cc_pot", "fprime_c", "fprimeprime_c", "C_nalpha_circ", "Cn", "Cc"]
+items = ["i", "t", "U", "alpha", "a_s", "M", "Gonzalez_factor", "c", "C_nalpha", "A1", "b1", "A2", "b2", "eta_e", "tau_v", "Cn_FS", "Cn_v", "Cn_alpha_q_nc", "Cn_q_circ", "Cn_alpha_q_circ", "fprimeprime", "Cn_alpha_nc", "Cn_q_nc", "T_alpha", "Kalpha_f", "Kprime_alpha", "q_f_cur", "alpha_filt_cur", "k_alpha", "alpha_e", "Kq_f", "Kprime_q", "Df", "fprime", "alpha_f", "Cc_pot", "fprime_c", "fprimeprime_c", "C_nalpha_circ", "Cn", "Cc", "Cm"]
 
 
 ### Read in AeroDyn files
@@ -151,6 +151,9 @@ tvec = tspan[1]:dt:4.9
 
         Cnerr = relerr(loads[3:end,1], mat[:,40,i]).*100
         Ccerr = relerr(loads[3:end,2], mat[:,41,i]).*100
+        Cmerr = relerr(loads[3:end,5], mat[:,42,i]).*100
+
+        # @show mean(abs.(Ccerr))
 
 
         ### Using RMS because the value might be small and relative error can blow out of proportion really quick. 
@@ -187,8 +190,9 @@ tvec = tspan[1]:dt:4.9
         # @test tau_rms <= 1e-16 #Todo: Really good for everything but the root. (Same as comment above)
 
         ### Relative percent error
-        @test mean(abs.(Cnerr)) <= 0.1
-        @test mean(abs.(Ccerr)) <= 0.1
+        @test mean(abs.(Cnerr)) <= 0.01
+        @test mean(abs.(Ccerr)) <= 0.05
+        @test mean(abs.(Cmerr)) <= 0.05
 
     end #End looping through the nodes to test them. 
 
