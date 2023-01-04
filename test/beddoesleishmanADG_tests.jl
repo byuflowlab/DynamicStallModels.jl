@@ -115,17 +115,17 @@ tvec = tspan[1]:dt:4.9
 
 
         ### Calculate errors. 
-        alpha_filt_rms = RMS(states[3:end, 1], mat[:,28,i])
-        q_filt_rms = RMS(states[3:end, 29], mat[:,27,i])
+        alpha_filt_rms = RMS(states[3:end, 2], mat[:,28,i])
+        q_filt_rms = RMS(states[3:end, 4], mat[:,27,i])
 
         kalpha_rms = RMS(k_alpha[3:end], mat[:,29,i])
         Talpha_rms = RMS(Talpha[3:end], mat[:,24,i])
 
-        Ka_rms = RMS(states[3:end, 4], mat[:,25,i])
-        Kpa_rms = RMS(states[3:end, 10], mat[:,26,i])
+        Ka_rms = RMS(states[3:end, 5], mat[:,25,i])
+        Kpa_rms = RMS(states[3:end, 7], mat[:,26,i])
 
-        Kq_rms = RMS(states[3:end, 5], mat[:,31,i])
-        Kpq_rms = RMS(states[3:end, 11], mat[:,32,i])
+        Kq_rms = RMS(states[3:end, 6], mat[:,31,i])
+        Kpq_rms = RMS(states[3:end, 8], mat[:,32,i])
 
         alphae_rms = RMS(alphae[3:end], mat[:,30,i])
 
@@ -136,16 +136,17 @@ tvec = tspan[1]:dt:4.9
         Nnc_q_rms = RMS(Nnc_q[3:end], mat[:,23,i]) 
         Nnc_aq_rms = RMS(Nnc_aq[3:end], mat[:,18,i]) 
 
-        alpha_f_rms = RMS(states[3:end, 2], mat[:,35,i])
+        alpha_f_rms = RMS(states[3:end, 17], mat[:,35,i])
         fp_rms = RMS(states[3:end, 18], mat[:,34,i])
-        fpp_rms = RMS(states[3:end, 19], mat[:,21,i])
-        fpc_rms = RMS(states[3:end, 20], mat[:,38,i]) #TODO: Really good half the time, meh the other half. 
-        fppc_rms = RMS(states[3:end, 21], mat[:,37,i])
+        fpp_rms = RMS(states[3:end, 24], mat[:,21,i])
+
+        fpc_rms = RMS(states[3:end, 19], mat[:,38,i]) #TODO: Really good half the time, meh the other half. 
+        fppc_rms = RMS(states[3:end, 25], mat[:,37,i])
 
         CNFS_rms = RMS(Cfsn[3:end], mat[:,16,i])
         Cvn_rms = RMS(Cvn[3:end], mat[:,17,i])
 
-        tau_rms = RMS(states[3:end, 22], mat[:,15,i]) #Todo: Really good for everything but the root.
+        tau_rms = RMS(states[3:end, 29], mat[:,15,i]) #Todo: Really good for everything but the root.
 
         # @show fpc_rms, fppc_rms
 
@@ -153,7 +154,7 @@ tvec = tspan[1]:dt:4.9
         Ccerr = relerr(loads[3:end,2], mat[:,41,i]).*100
         Cmerr = relerr(loads[3:end,5], mat[:,42,i]).*100
 
-        # @show mean(abs.(Ccerr))
+        @show mean(abs.(Cnerr)), mean(abs.(Ccerr)), mean(abs.(Cmerr))
 
 
         ### Using RMS because the value might be small and relative error can blow out of proportion really quick. 
