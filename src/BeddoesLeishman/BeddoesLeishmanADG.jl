@@ -23,58 +23,47 @@ function update_states_ADG(dsmodel::BeddoesLeishman, oldstates, c, a, U, deltat,
     ### Unpack
     airfoil = dsmodel.airfoils[afidx]
 
-    # alpha_m, alphaf_m, q_m, Ka_m, Kq_m, X1_m, X2_m, X3_m, X4_m, Kpa_m, Kpq_m, Kppq_m, Kpppq_m, Dp_m, Df_m, Dfc_m, Npot_m, fp_m, fpp_m, fpc_m, fppc_m, tauv, Nv_m, Cv_m, LESF_m, TESF_m, VRTX_m, firstpass_m, qf_m, aoa_m, Dfm_m, fpm_m, fppm_m = oldstates 
-
-    aoa_m, alpha_m, q_m, qf_m, Ka_m, Kq_m, Kpa_m, Kpq_m, X1_m, X2_m, X3_m, X4_m, Npot_m, Kppq_m, Kpppq_m, Dp_m, alphaf_m, fp_m, fpc_m, fpm_m, Df_m, Dfc_m, Dfm_m, fpp_m, fppc_m, fppm_m, Cv_m, Nv_m, tauv, LESF_m, TESF_m, VRTX_m, firstpass_m = oldstates #The underscore m means that it is the previous time step (m comes before n).
+    _, alpha_m, q_m, qf_m, Ka_m, Kq_m, Kpa_m, Kpq_m, X1_m, X2_m, X3_m, X4_m, Npot_m, Kppq_m, Kpppq_m, Dp_m, fp_m, fpc_m, fpm_m, Df_m, Dfc_m, Dfm_m, fpp_m, fppc_m, fppm_m, Cv_m, Nv_m, tauv, LESF_m, TESF_m, VRTX_m, firstpass_m = oldstates #The underscore m means that it is the previous time step (m comes before n).
 
     #= States
     1 - aoa - unfiltered angle of attack.
     2 - alpha # Filtered angle of attack. 
     3 - q # Unfiltered pitching rate
     4 - qf - Filtered pitching rate. 
-
     5 - Ka
     6 - Kq
     7 - Kpa
     8 - Kpq
-
     9 - X1
     10 - X2
     11 - X3
     12 - X4
-
     13 - Npot
-
     14 - Kppq
     15 - Kpppq
-
     16 - Dp
-    17 - alphaf #TODO: I'm not sure that this state is needed. Note: this is not the filtered angle of attack. 
-    
-    18 - fp
-    19 - fpc
-    20 - fpm
-
-    21 - Df
-    22 - Dfc
-    23 - Dfm
-
-    24 - fpp
-    25 - fppc
-    26 - fppm
-
-    27 - Cv
-    28 - Nv
-    29 - tauv
-
-    30 - LESF::Bool
-    31 - TESF::Bool
-    32 - VRTX::Bool
-    33 - firstpass::Bool
+    17 - fp
+    18 - fpc
+    19 - fpm
+    20 - Df
+    21 - Dfc
+    22 - Dfm
+    23 - fpp
+    24 - fppc
+    25 - fppm
+    26 - Cv
+    27 - Nv
+    28 - tauv
+    29 - LESF::Bool
+    30 - TESF::Bool
+    31 - VRTX::Bool
+    32 - firstpass::Bool
     =#
 
+    #17 - alphaf #TODO: I'm not sure that this state is needed. -> It's a toss up if it's faster to have one less state and do the calculation both here and ... I was going to say do the calculation twice. But you don't use alphaf in the coefficient calculations.  Note: this is not the filtered angle of attack. 
 
-    states = zeros(33) #TODO: Consider putting a function to return this value. 
+
+    states = zeros(32) #TODO: Consider putting a function to return this value. 
 
     ########### Algorithm ############### (Converted from UA documentation)
     ### Initial constants
@@ -269,25 +258,25 @@ function update_states_ADG(dsmodel::BeddoesLeishman, oldstates, c, a, U, deltat,
 
     ####### boundary layer response 
     if firstpass_m==1
-        Npot_m=Npot
+        Npot_m = Npot
     end
     states[16] = Dp = Dp_m*exp(-deltas/Tp) + (Npot - Npot_m)*exp(-deltas/(Tp*2)) #EQ1.35b, deficiency function. 
     Cpn = Npot - Dp #EQ 1.35, lagged circulatory normal force 
 
 
-    states[17] = alphaf = Cpn/dcndalpha_circ + alpha0 #EQ 1.34, delayed effective angle of incidence  
+    alphaf = Cpn/dcndalpha_circ + alpha0 #EQ 1.34, delayed effective angle of incidence  
 
     
     #### Separation points
-    states[18] = fp = separationpoint(airfoil, alphaf, dcndalpha_circ) #EQ 1.33, modifications from OpenFAST v3.3.0
-    states[19] = fpc = chordwiseseparationpoint(airfoil, alphaf, dcndalpha_circ) 
+    states[17] = fp = separationpoint(airfoil, alphaf, dcndalpha_circ) #EQ 1.33, modifications from OpenFAST v3.3.0
+    states[18] = fpc = chordwiseseparationpoint(airfoil, alphaf, dcndalpha_circ) 
 
     Cntemp = airfoil.cl(alphaf)*cos(alphaf) + (airfoil.cd(alphaf) - airfoil.cd(airfoil.alpha0))*sin(alphaf) #TODO: Do I want too move this into a function? Like the who thing to get the moment separation point value. 
 
     if abs(Cntemp)<0.01
-        states[20] = fpm = 0 #TODO: Theoretically this makes more sense to be a one, but... whatever this is what OpenFAST v3.3.0 has. 
+        states[19] = fpm = 0 #TODO: Theoretically this makes more sense to be a one, but... whatever this is what OpenFAST v3.3.0 has. 
     else
-        states[20] = fpm = (airfoil.cm(alphaf)-airfoil.cm(airfoil.alpha0))/Cntemp
+        states[19] = fpm = (airfoil.cm(alphaf)-airfoil.cm(airfoil.alpha0))/Cntemp
     end
 
     
@@ -295,52 +284,52 @@ function update_states_ADG(dsmodel::BeddoesLeishman, oldstates, c, a, U, deltat,
 
     #### Deficiency functions
     if firstpass_m==1
-        states[21] = Df = 0.0
+        states[20] = Df = 0.0
     else
-        states[21] = Df = Df_m*exp(-deltas/Tf) + (fp - fp_m)*exp(-deltas/(2*Tf)) #EQ 1.36b
+        states[20] = Df = Df_m*exp(-deltas/Tf) + (fp - fp_m)*exp(-deltas/(2*Tf)) #EQ 1.36b
     end
 
     
     if firstpass_m==1
-        states[22] = Dfc = 0.0
+        states[21] = Dfc = 0.0
     else
-        states[22] = Dfc = Dfc_m*exp(-deltas/Tfc) + (fpc - fpc_m)*exp(-deltas/(2*Tfc)) #EQ 1.36b Chord wise separation point deficiency function
+        states[21] = Dfc = Dfc_m*exp(-deltas/Tfc) + (fpc - fpc_m)*exp(-deltas/(2*Tfc)) #EQ 1.36b Chord wise separation point deficiency function
     end
 
     if firstpass_m == 1.0 
-        states[23] = Dfm = 0
+        states[22] = Dfm = 0
     else
     
-        states[23] = Dfm = Dfm_m*exp(-deltas/Tfm) + (fpm - fpm_m)*exp(-deltas/(2*Tfm)) # Moment separation point deficiency function
+        states[22] = Dfm = Dfm_m*exp(-deltas/Tfm) + (fpm - fpm_m)*exp(-deltas/(2*Tfm)) # Moment separation point deficiency function
     end
 
 
 
 
     #### Delayed Effective separation points
-    states[24] = fpp = fp - Df #EQ 1.36, normal delayed effective seperation point. 
-    states[25] = fppc = fpc - Dfc #EQ 1.36a chordwise
-    states[26] = fppm = fpm - Dfm # Moment. 
+    states[23] = fpp = fp - Df #EQ 1.36, normal delayed effective seperation point. 
+    states[24] = fppc = fpc - Dfc #EQ 1.36a chordwise
+    states[25] = fppm = fpm - Dfm # Moment. 
 
 
 
     fterm = (1 + 2*sqrt(fpp))/3
-    states[27] = Cv = dcndalpha_circ*alphae*(1 - fterm)^2 #EQ 1.50, Normal force coefficient due to accumulated vorticity 
+    states[26] = Cv = dcndalpha_circ*alphae*(1 - fterm)^2 #EQ 1.50, Normal force coefficient due to accumulated vorticity 
 
     
     
     if firstpass_m==1
-        states[28] = Nv = 0.0
+        states[27] = Nv = 0.0
     else
         if (tauv>Tvl)&&(Ka*Delta_alpha0>0) #TODO: I wonder if this get's taken care of by the "other states" updates. -> I don't know what I meant by that anymore. 
-            states[28] = Nv = Nv_m*exp(-2*deltas/Tv)
+            states[27] = Nv = Nv_m*exp(-2*deltas/Tv)
         else
-            states[28] = Nv = Nv_m*exp(-deltas/Tv) + (Cv - Cv_m)*exp(-deltas/(2*Tv)) #EQ 1.47
+            states[27] = Nv = Nv_m*exp(-deltas/Tv) + (Cv - Cv_m)*exp(-deltas/(2*Tv)) #EQ 1.47
         end
     end
 
-    if states[28]<0 #TODO: Is this going to be a problem for optimization? 
-        states[28] = 0
+    if Nv<0 #TODO: Is this going to be a problem for optimization? 
+        states[27] = 0
     end
     
 
@@ -378,11 +367,11 @@ function update_states_ADG(dsmodel::BeddoesLeishman, oldstates, c, a, U, deltat,
 
     
 
-    states[29] = tauv
-    states[30] = LESF
-    states[31] = TESF
-    states[32] = VRTX
-    states[33] = firstpass = 0.0
+    states[28] = tauv
+    states[29] = LESF
+    states[30] = TESF
+    states[31] = VRTX
+    states[32] = firstpass = 0.0
 
 
 
@@ -412,11 +401,31 @@ end
 
 function BLADG_coefficients(dsmodel::BeddoesLeishman, states, U, c, clfit, cdfit, dcndalpha, alpha0, Cd0, Cm0, A1, A2, A5, b1, b2, b5, Tvl, xcp, eta, a)
 
+    aoa = states[1]
+    alpha = states[2]
 
+    qf = states[4]
     Ka = states[5]
     Kq = states[6]
     Kpa = states[7]
     Kpq = states[8]
+    X1 = states[9]
+    X2 = states[10]
+    X3 = states[11] 
+    X4 = states[12]
+
+    Kppq = states[14]
+    Kpppq = states[15]
+
+    fpp = states[23]
+    fppc = states[24]
+    fppm = states[25]
+
+    Cvn = states[27]
+    tauv = states[28]
+
+    firstpass = states[32]
+
 
     M = U/a # Mach number
     beta = sqrt(1 - M^2) #Prandtl-Glauert compressibility correction factor
@@ -441,13 +450,7 @@ function BLADG_coefficients(dsmodel::BeddoesLeishman, states, U, c, clfit, cdfit
 
 
 
-    alpha = states[2]
-    qf = states[4]
 
-    X1 = states[9]
-    X2 = states[10]
-    X3 = states[11] 
-    X4 = states[12]
     alphae = (alpha - alpha0) - X1 - X2 #EQ 1.14, Effective angle of attack
 
     dcndalpha_circ = dcndalpha/beta #EQ 1.12, Circulatory component of the normal force coefficient response to step change in alpha. #Checked that uses slope. 
@@ -458,14 +461,11 @@ function BLADG_coefficients(dsmodel::BeddoesLeishman, states, U, c, clfit, cdfit
 
     
 
-    fpp = states[24]
     
     fterm = (1 + 2*sqrt(fpp))/3
 
     Cfsn = Nnoncirc_aq + Ncirc_q + Ncirc_aq*(fterm^2) #Equation from OpenFAST v3.3.0. From Equations 1.38 & 1.39
 
-    Cvn = states[28]
-    tauv = states[29]
 
     ### Total normal force 
     if tauv>0 #OpenFAST v3.3.0 - UnsteadyAero.f90 line 3230  
@@ -477,11 +477,9 @@ function BLADG_coefficients(dsmodel::BeddoesLeishman, states, U, c, clfit, cdfit
 
 
     ######### Prepare inputs for chordwise force coefficient. 
-    # Cpot = Ncirc_aq*tan(alphae + alpha0) #Equation 1.21   #Todo. What is Npot,circ? -> It's Ncirc_aq
-    aoa = states[1]
+    # Cpot = Ncirc_aq*tan(alphae + alpha0) #Equation 1.21  
     Cpot = dcndalpha_circ*alphae*aoa #OpenFAST v3.3.0 # At first I thought I had misread... but no... they definitely have C_nalpha_circ.... which suggests that maybe they mistyped. Or something? It seems like an odd correction, but it's what they have. 
 
-    fppc = states[25]
     
     Cfsc = Cpot*eta*(sqrt(fppc)-0.2) #EQ 1.40, Gonzalez modifications 
 
@@ -495,7 +493,7 @@ function BLADG_coefficients(dsmodel::BeddoesLeishman, states, U, c, clfit, cdfit
     Cl = Cn*cos(aoa) + Cc*sin(aoa)
     Cd = Cn*sin(aoa) - Cc*cos(aoa) + Cd0 #Adding frictional drag back in. 
 
-    firstpass = states[28]
+    
     if firstpass==1.0
         Cl = clfit(aoa)
         Cd = cdfit(aoa)
@@ -507,18 +505,15 @@ function BLADG_coefficients(dsmodel::BeddoesLeishman, states, U, c, clfit, cdfit
 
 
     ### Moment
-    Kpppq = states[15]
     Mcirc_q = -dcndalpha*(qf-Kpppq)*c/(16*beta*U) #Equation 1.22c
 
     
     Mnoncirc_alpha = -Nnoncirc_a/4 #EQ 1.27 Noncirculatory component of the normal force coefficient response to step change in alpha
 
-    Kppq = states[14]
     bot = 15*(1-M) + 3*dcndalpha*A5*b5*beta*M*M/2  
     kmq = 7/bot #EQ 1.29b #Checked that uses slope. 
     Mnoncirc_q = -7*TI*kmq*kmq*(Kq-Kppq)/(12*M) #EQ 1.29, Circulatory component of moment.
 
-    fppm = states[26]
 
     Cm_common = Mcirc_q + Mnoncirc_alpha + Mnoncirc_q
     Mfs = Cm0 + Cfsn*fppm + Cm_common
@@ -555,7 +550,7 @@ function initialize_ADG(Uvec, aoavec, tvec, airfoil::Airfoil, c, a)
     dt = tvec[2] - tvec[1]
 
     aoa = aoavec[1]
-    alpha = alphaf = aoavec[1] #No delay to begin. 
+    alpha = aoavec[1] #No delay to begin. 
     aoadot = q = qf = Ka = 0 
 
     Kq = 0.0
@@ -574,7 +569,7 @@ function initialize_ADG(Uvec, aoavec, tvec, airfoil::Airfoil, c, a)
     LESF = TESF = VRTX = 0
     firstpass = 1
 
-    states = [aoa, alpha, q, qf, Ka, Kq,  Kpa, Kpq, X1, X2, X3, X4, Cpotn, Kppq, Kpppq, Dp, alphaf, fp, fpc, fpm, Df, Dfc, Dfm, fpp, fppc, fppm, Cv, Nv, tauv, LESF, TESF, VRTX, firstpass]
+    states = [aoa, alpha, q, qf, Ka, Kq,  Kpa, Kpq, X1, X2, X3, X4, Cpotn, Kppq, Kpppq, Dp, fp, fpc, fpm, Df, Dfc, Dfm, fpp, fppc, fppm, Cv, Nv, tauv, LESF, TESF, VRTX, firstpass]
 
     Cn = airfoil.cn(alpha) 
     Cc = airfoil.cc(alpha)
@@ -636,12 +631,12 @@ function getintermediatestates(states, U, a, c, dcndalpha, A1, A2, b1, b2, alpha
     Ncirc_q = dcndalpha_circ*qf/2 - X3 -X4
     Ncirc_aq = dcndalpha_circ*alphae 
 
-    fpp = states[24]
+    fpp = states[23]
     fterm = (1 + 2*sqrt(fpp))/3
 
     Cfsn = Nnoncirc_aq + Ncirc_q + Ncirc_aq*(fterm^2) 
 
-    Cvn = states[28]
+    Cvn = states[27]
 
     aoa = states[1]
     Cpot = dcndalpha_circ*alphae*aoa

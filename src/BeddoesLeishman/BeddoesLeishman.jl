@@ -57,9 +57,9 @@ function (model::BeddoesLeishman)(x, p, t, dt)
     
                 c, a, dcndalpha, alpha0, _, _, A1, A2, A5, b1, b2, b5, Tf0, Tv0, Tp, Tvl, Tsh, Cn1, _, zeta, U, aoa = ps #Inputs  
                 
-                xs = view(x, 33*(i-1)+1:33*i)
+                xs = view(x, 32*(i-1)+1:32*i)
 
-                idx = 33*(i-1)+1:33*i
+                idx = 32*(i-1)+1:32*i
                 newstates[idx] = update_states_ADG(model, xs, c, a, U, dt, aoa, dcndalpha, alpha0, A1, A2, A5, b1, b2, b5, Tf0, Tv0, Tp, Tvl, Tsh, Cn1, zeta, i)
             end
             return newstates
@@ -95,7 +95,7 @@ function numberofstates(dsmodel::BeddoesLeishman) #TODO: This probably need to b
         return 22*dsmodel.n
     elseif dsmodel.version==3
         # @warn("The Gozalez Beddoes-Leishman model is not yet prepared.")
-        return 33*dsmodel.n
+        return 32*dsmodel.n
     elseif dsmodel.version==4
         @warn("The Minema Beddoes-Leishman model is not yet prepared.")
         return 22*dsmodel.n
@@ -205,7 +205,7 @@ function states_liftonly!(du, u, p, t)
     ### Calculate matrix coefficients
     a11 = -2*b[1]*V(t)*(beta^2)/c
     a22 = -2*b[2]*V(t)*(beta^2)/c
-    a33 = -1/(k_alpha*Tl)
+    a32 = -1/(k_alpha*Tl)
     a44 = -1/(k_q*Tl)
     
     ### Calculate the attached state rates 
@@ -214,7 +214,7 @@ function states_liftonly!(du, u, p, t)
     du[2] = u[2]*a22 + alpha(t) + q(t)/2
 
     #noncirculatory angle of attack contribution
-    du[3] = u[3]*a33 + alpha(t)
+    du[3] = u[3]*a32 + alpha(t)
 
     #noncirculatory pitch rate contribution
     du[4] = u[4]*a44 + q(t)
@@ -344,7 +344,7 @@ function states_attachedflow!(du, u, p, t)
     ### Calculate matrix coefficients
     a11 = -2*b[1]*V*(beta^2)/c
     a22 = -2*b[2]*V*(beta^2)/c
-    a33 = -1/(k_alpha*Tl)
+    a32 = -1/(k_alpha*Tl)
     a44 = -1/(k_q*Tl)
     a55 = -1/(b[3]*k_alpha_m*Tl)
     a66 = -1/(b[4]*k_alpha_m*Tl)
@@ -355,7 +355,7 @@ function states_attachedflow!(du, u, p, t)
     # I decided to leave the state rates as a 1D array rather than a matrix. A matrix would have been easier to code... but I'm not sure if it would have been more computationally efficient. 
     du[1] = u[1]*a11 + alpha(t) + q(t)/2
     du[2] = u[2]*a22 + alpha(t) + q(t)/2
-    du[3] = u[3]*a33 + alpha(t)
+    du[3] = u[3]*a32 + alpha(t)
     du[4] = u[4]*a44 + q(t)
     du[5] = u[5]*a55 + alpha(t)
     du[6] = u[6]*a66 + alpha(t)
