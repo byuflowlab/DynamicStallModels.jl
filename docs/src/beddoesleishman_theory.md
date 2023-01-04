@@ -85,6 +85,12 @@ Which when you plug everything in, then you get a  different equation: (EQ A.5)
 ## Indicial Formulation (Original)
 
 
+## Beddoes-Leishman w/ Gonzalez's modifications (AeroDyn)
+
+What I have implemented isn't quite the same as what AeroDyn presents in their theory document, but it produces the same loads (<0.01%, <0.05% relative error for the normal, tangential, and moment loads respectively).
+
+
+
 
 ## Indicial Formulation (AeroDyn)$^3$
 
@@ -424,18 +430,3 @@ If we solve the equation for the normal coefficient for the separation point $f$
 
 For our implementation, we take the absolute value of the argument of the square root to improve numerical performance, because frequently the linear lift ($\frac{\partial C_n}{\partial \alpha}$) and the static lift don't match up exactly and there is a small region where the argument of the square root may go negative, when it really never should. 
 
-### What I've currently got implemented
-
-```math
-\begin{aligned}
-T_I &= \frac{c}{a} \\
-\Delta s &= \frac{2U \Delta t}{c} \\
-\zeta &= 20 \\
-\lambda &= \frac{\zeta}{\pi c} \text{max}\left(1, U\right) \\
-c_{lp} &= \exp\left(-2\pi \Delta t \lambda\right) \\
-x_1 &= \alpha_i = c_{lp} \alpha_{i-1} + (1-c_{lp})\alpha_{\text{uf}} \\
-\Delta \alpha &= \alpha_i - \alpha_{i-1} \\
-q_{\text{uf}} &= \frac{c \Delta \alpha}{U \Delta t} \\
-x_3 &= q_i = c_{lp}q_{i-1} + (1-c_{lp})q_{\text{uf}}
-\end{aligned}
-```
