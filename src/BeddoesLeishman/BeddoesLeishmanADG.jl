@@ -23,7 +23,7 @@ function update_states_ADG(dsmodel::BeddoesLeishman, oldstates, c, a, U, deltat,
     ### Unpack
     airfoil = dsmodel.airfoils[afidx]
 
-    alpha_m, alphaf_m, q_m, Ka_m, Kq_m, X1_m, X2_m, X3_m, X4_m, Kpa_m, Kpq_m, Kppq_m, Kpppq_m, Dp_m, Df_m, Dfc_m, Npot_m, fp_m, fpp_m, fpc_m, fppc_m, tauv, Nv_m, Cv_m, LESF_m, TESF_m, VRTX_m, firstpass_m, qf_m = oldstates #The underscore m means that it is the previous time step (m comes before n).
+    alpha_m, alphaf_m, q_m, Ka_m, Kq_m, X1_m, X2_m, X3_m, X4_m, Kpa_m, Kpq_m, Kppq_m, Kpppq_m, Dp_m, Df_m, Dfc_m, Npot_m, fp_m, fpp_m, fpc_m, fppc_m, tauv, Nv_m, Cv_m, LESF_m, TESF_m, VRTX_m, firstpass_m, qf_m, aoa_m, Dfm_m, fpm_m, fppm_m = oldstates #The underscore m means that it is the previous time step (m comes before n).
 
     
 
@@ -58,11 +58,14 @@ function update_states_ADG(dsmodel::BeddoesLeishman, oldstates, c, a, U, deltat,
     27 - VRTX::Bool
     28 - firstpass::Bool
     29 - qf - Filtered pitching rate. 
-    30 - aoa - unfiltered angle of attack. 
+    30 - aoa - unfiltered angle of attack.
+    31 - Dfm
+    32 - fpm
+    33 - fppm 
     =#
 
 
-    states = zeros(30) #TODO: Consider putting a function to return this value. 
+    states = zeros(33) #TODO: Consider putting a function to return this value. 
 
     states[30] = aoa #Unfiltered angle of attack. 
 
@@ -122,6 +125,7 @@ function update_states_ADG(dsmodel::BeddoesLeishman, oldstates, c, a, U, deltat,
     sigma1 = 1
     sigma3 = 1
     sigma1c = 1
+    sigma1m = 1
 
     if TESF_m == 1 #(Separation)
         if Ka_m*Delta_alpha0 < 0
@@ -214,6 +218,7 @@ function update_states_ADG(dsmodel::BeddoesLeishman, oldstates, c, a, U, deltat,
     Tv = Tv0/sigma3 #Equation 1.48
 
     Tfc = Tf0/sigma1c
+    Tfm = Tf0/sigma1m
 
 
 
@@ -256,7 +261,7 @@ function update_states_ADG(dsmodel::BeddoesLeishman, oldstates, c, a, U, deltat,
     
 
     ### Circulatory component of moment. #Question: Why did they calculate the moment here? Do I need some of these things here? Is there a better spot to put this? 
-    states[13] = Kpppq = Kpppq_m*exp(-b5*beta2*deltas) + A5*deltaq*exp(-b5*beta2*deltas/2) #EQ 1.26
+    states[13] = Kpppq = Kpppq_m*exp(-b5*beta2*deltas) + A5*deltaq*exp(-b5*beta2*deltas/2) #EQ 1.26 #Todo. Why is there three p's? Oh... it's the K3p_q... it's three primes. lol. 
 
 
 
@@ -283,8 +288,8 @@ function update_states_ADG(dsmodel::BeddoesLeishman, oldstates, c, a, U, deltat,
     states[2] = alphaf = Cpn/dcndalpha_circ + alpha0 #EQ 1.34, delayed effective angle of incidence  
 
     
+    #### Normal separation point
     states[18] = fp = separationpoint(airfoil, alphaf, dcndalpha_circ) #EQ 1.33, modifications from OpenFAST v3.3.0
-
 
     if firstpass_m==1
         states[15] = Df = 0.0
@@ -295,6 +300,8 @@ function update_states_ADG(dsmodel::BeddoesLeishman, oldstates, c, a, U, deltat,
     states[19] = fpp = fp - Df #EQ 1.36, delayed effective seperation point. 
 
 
+
+    #### Chord wise separation point
     states[20] = fpc = chordwiseseparationpoint(airfoil, alphaf, dcndalpha_circ) 
 
     if firstpass_m==1
@@ -305,6 +312,24 @@ function update_states_ADG(dsmodel::BeddoesLeishman, oldstates, c, a, U, deltat,
 
     states[21] = fppc = fpc - Dfc #EQ 1.36a (applied to the chordwise force). 
     
+
+    #### Moment separation point
+    Cntemp = airfoil.cl(alphaf)*cos(alphaf) + (airfoil.cd(alphaf) - airfoil.cd(airfoil.alpha0))*sin(alphaf)
+
+    if abs(Cntemp)<0.01
+        states[32] = fpm = 0 #TODO: Theoretically this makes more sense to be a one, but... whatever this is what OpenFAST v3.3.0 has. 
+    else
+        states[32] = fpm = (airfoil.cm(alphaf)-airfoil.cm(airfoil.alpha0))/Cntemp
+    end
+
+    if firstpass_m == 1.0
+        states[31] = Dfm = 0
+    else
+    
+        states[31] = Dfm = Dfm_m*exp(-deltas/Tfm) + (fpm - fpm_m)*exp(-deltas/(2*Tfm))
+    end
+
+    states[33] = fppm = fpm - Dfm
 
 
 
@@ -488,10 +513,12 @@ function BLADG_coefficients(dsmodel::BeddoesLeishman, states, U, c, clfit, cdfit
         Cd = cdfit(aoa)
     end
 
-
+    ### Add viscoousity back into the normal and tangent coefficients
+    Cn = Cl*cos(aoa) + Cd*sin(aoa) #Cd has friction added back in. 
+    Cc = Cl*sin(aoa) - Cd*cos(aoa)
 
     # q = states[3]
-    # Kpppq = states[13]
+    
     # Cc_mq = -dcndalpha*(q-Kpppq)*c/(16*beta*U) #Equation 1.22c #Checked that uses slope. 
 
     ### Noncirculatory component of moment due to change in alpha
@@ -510,10 +537,31 @@ function BLADG_coefficients(dsmodel::BeddoesLeishman, states, U, c, clfit, cdfit
     ### Moment
     # Cm = Cn*fpp + Cc_mq + Cnc_ma + Cnc_mq + Cvm #Equation 1.60 #Todo: I don't think that this has seen the correction from Gonzalez, see equation 1.45 and 1.60
 
-    ### Add viscoousity back into the normal and tangent coefficients
-    Cn = Cl*cos(aoa) + Cd*sin(aoa) #Cd has friction added back in. 
-    Cc = Cl*sin(aoa) - Cd*cos(aoa)
-    Cm = 1
+    Kpppq = states[13]
+    Mcirc_q = -dcndalpha*(qf-Kpppq)*c/(16*beta*U)
+
+    Mnoncirc_alpha = -Nnoncirc_a/4
+
+    Kppq = states[12]
+    bot = 15*(1-M) + 3*dcndalpha*A5*b5*beta*M*M/2  
+    kmq = 7/bot #EQ 1.29b #Checked that uses slope. 
+    Mnoncirc_q = -7*TI*kmq*kmq*(Kq-Kppq)/(12*M) #EQ 1.29, Circulatory component of moment.
+
+    fppm = states[33]
+
+    Cm_common = Mcirc_q + Mnoncirc_alpha + Mnoncirc_q
+    Mfs = Cm0 + Cfsn*fppm + Cm_common
+
+    Mv = xcp*(1-cos(pi*tauv/Tvl))*Cvn
+
+    if tauv<=0
+        Cm = Mfs
+    else
+        Cm = Mfs + Mv
+    end
+
+    
+    
 
     return Cn, Cc, Cl, Cd, Cm
 end
@@ -545,11 +593,12 @@ function initialize_ADG(Uvec, aoavec, tvec, airfoil::Airfoil, c, a)
     Kq = 0.0
     X1 = X2 = X3 = X4 = 0.0
     Kpa = Kpq = Kppq = Kpppq = 0.0
-    Dp = Df = Dfc = 0.0
+    Dp = Df = Dfc = Dfm = 0.0
     
     Cpotn = airfoil.cl(alpha) +(airfoil.cd(alpha)-Cd0)*sin(alpha)
     fp = fpp = 1.0
     fpc = fppc = fclimit
+    fpm = fppm = 0.0 #Todo: I'm not sure what to start this as. 
     tauv = 0.0
     Cvn = 0.0
     Cv = 0.0
@@ -557,7 +606,7 @@ function initialize_ADG(Uvec, aoavec, tvec, airfoil::Airfoil, c, a)
     LESF = TESF = VRTX = 0
     firstpass = 1
 
-    states = [alpha, alphaf, q, Ka, Kq, X1, X2, X3, X4, Kpa, Kpq, Kppq, Kpppq, Dp, Df, Dfc, Cpotn, fp, fpp, fpc, fppc, tauv, Cvn, Cv, LESF, TESF, VRTX, firstpass, q, aoa]
+    states = [alpha, alphaf, q, Ka, Kq, X1, X2, X3, X4, Kpa, Kpq, Kppq, Kpppq, Dp, Df, Dfc, Cpotn, fp, fpp, fpc, fppc, tauv, Cvn, Cv, LESF, TESF, VRTX, firstpass, q, aoa, Dfm, fpm, fppm]
 
     Cn = airfoil.cn(alpha) 
     Cc = airfoil.cc(alpha)

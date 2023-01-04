@@ -55,7 +55,7 @@ true          FLookup            - Flag to indicate whether a lookup for f' will
 "ccbladeairfoils/DU21_A17.dat"
 "ccbladeairfoils/NACA64_A17.dat"
 ======  Rotor/Blade Properties  =====================================================================
-false          UseBlCm            - Include aerodynamic pitching moment in calculations?  (flag)
+true          UseBlCm            - Include aerodynamic pitching moment in calculations?  (flag)
 "NREL5MW_adblade.dat"    ADBlFile(1)        - Name of file containing distributed aerodynamic properties for Blade #1 (-)
 "NREL5MW_adblade.dat"    ADBlFile(2)        - Name of file containing distributed aerodynamic properties for Blade #2 (-) [unused if NumBl < 2]
 "NREL5MW_adblade.dat"    ADBlFile(3)        - Name of file containing distributed aerodynamic properties for Blade #3 (-) [unused if NumBl < 3]
