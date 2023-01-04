@@ -136,17 +136,16 @@ tvec = tspan[1]:dt:4.9
         Nnc_q_rms = RMS(Nnc_q[3:end], mat[:,23,i]) 
         Nnc_aq_rms = RMS(Nnc_aq[3:end], mat[:,18,i]) 
 
-        alpha_f_rms = RMS(states[3:end, 17], mat[:,35,i])
-        fp_rms = RMS(states[3:end, 18], mat[:,34,i])
-        fpp_rms = RMS(states[3:end, 24], mat[:,21,i])
+        fp_rms = RMS(states[3:end, 17], mat[:,34,i])
+        fpp_rms = RMS(states[3:end, 23], mat[:,21,i])
 
-        fpc_rms = RMS(states[3:end, 19], mat[:,38,i]) #TODO: Really good half the time, meh the other half. 
-        fppc_rms = RMS(states[3:end, 25], mat[:,37,i])
+        fpc_rms = RMS(states[3:end, 18], mat[:,38,i]) #TODO: Really good half the time, meh the other half. 
+        fppc_rms = RMS(states[3:end, 24], mat[:,37,i])
 
         CNFS_rms = RMS(Cfsn[3:end], mat[:,16,i])
         Cvn_rms = RMS(Cvn[3:end], mat[:,17,i])
 
-        tau_rms = RMS(states[3:end, 29], mat[:,15,i]) #Todo: Really good for everything but the root.
+        tau_rms = RMS(states[3:end, 28], mat[:,15,i]) #Todo: Really good for everything but the root.
 
         # @show fpc_rms, fppc_rms
 
@@ -179,7 +178,6 @@ tvec = tspan[1]:dt:4.9
         @test Nnc_q_rms <= 1e-5
         @test Nnc_aq_rms <= 1e-5
 
-        @test alpha_f_rms <= 1e-5
         @test fp_rms <= 1e-2
         @test fpp_rms <= 1e-2
         @test fpc_rms <= 0.05
