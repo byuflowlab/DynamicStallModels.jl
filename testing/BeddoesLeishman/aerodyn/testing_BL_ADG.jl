@@ -64,7 +64,7 @@ S = [S1, S2, S3, S4]
 xcp = 0.2
 
 # af = Airfoil(polar, clfit, cdfit, cmfit, dcndalpha, alpha0, alphasep, A, b, T, S, xcp)
-af, constants = of.make_dsairfoil(du21_a17)
+af = of.make_dsairfoil(du21_a17)
 airfoils = Array{Airfoil, 1}(undef, 1)
 airfoils[1] = af
 
@@ -78,7 +78,7 @@ airfoils[1] = af
 # Tsh = du21_a17.st_sh #Strouhal Frequency
 # eta = du21_a17.eta_e #Recovery factor
 # constants = [zeta, A5, b5, Tsh, eta]
-dsmodel = BeddoesLeishman(Indicial(), 1, airfoils, 3, constants)
+dsmodel = BeddoesLeishman(Indicial(), 1, airfoils, 3)
 
 
 ### Create simulation data
@@ -199,7 +199,7 @@ plot!(tvec, Nnc_aq, lab="DSM")
 #Todo. This is off. It almost looks like it is phase shifted. ... The values are tiny... so I don't know if it'll even have that much of an effect on the overall outcome. I'm just worried that the difference will make a difference later done the line. -> Fixed this components. 
 
 Cnoncirc_a_plt = plot(mat[:,1], mat[:,29], lab="OpenFAST", ylab=L"N^{nc}_\alpha")
-# plot!(tvec, Nnc_a, lab="DSM") 
+plot!(tvec, Nnc_a, lab="DSM") 
 # display(Cnoncirc_a_plt) #Good
 
 Cnc_q_plt = plot(mat[:,1], mat[:,30], lab="OpenFAST", ylab=L"N^{nc}_q")

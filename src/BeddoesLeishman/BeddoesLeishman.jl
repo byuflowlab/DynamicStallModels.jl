@@ -19,12 +19,12 @@ The Beddoes-Leishman model struct. It stores airfoil data for every section to b
 - version - Which version of the indicial implementation. 1) original. 2) AeroDyn original. 3) AeroDyn Gonzalez. 4) AeroDyn Minema
 - constants - Constants that change with version of the model. 
 """
-struct BeddoesLeishman{TF, TI} <: DSModel
+struct BeddoesLeishman{TI} <: DSModel
     detype::DEType 
     n::TI #Number of airfoils simulated
     airfoils::Array{Airfoil,1}
     version::TI #Which version of the indicial implementation. 
-    constants::Array{TF, 1} #Model Constants #TODO: Maybe I'll make this a tuple? I don't know if that'll be any better. 
+    # constants::Array{TF, 1} #Model Constants #TODO: Maybe I'll make this a tuple? I don't know if that'll be any better. 
 end
 
 function (model::BeddoesLeishman)(x, p, t, dt) 
@@ -53,14 +53,14 @@ function (model::BeddoesLeishman)(x, p, t, dt)
             ns = numberofstates(model)
             newstates = Array{eltype(p), 1}(undef, ns)
             for i = 1:model.n
-                ps = view(p, 18*(i-1)+1:18*i)
+                ps = view(p, 22*(i-1)+1:22*i)
     
-                c, a, dcndalpha, alpha0, _, _, A1, A2, b1, b2, Tf0, Tv0, Tp, Tvl, Cn1, _, U, aoa = ps #Inputs  
+                c, a, dcndalpha, alpha0, _, _, A1, A2, A5, b1, b2, b5, Tf0, Tv0, Tp, Tvl, Tsh, Cn1, _, zeta, U, aoa = ps #Inputs  
                 
                 xs = view(x, 30*(i-1)+1:30*i)
 
                 idx = 30*(i-1)+1:30*i
-                newstates[idx] = update_states_ADG(model, xs, c, a, U, dt, aoa, dcndalpha, alpha0, A1, A2, b1, b2, Tf0, Tv0, Tp, Tvl, Cn1, i)
+                newstates[idx] = update_states_ADG(model, xs, c, a, U, dt, aoa, dcndalpha, alpha0, A1, A2, A5, b1, b2, b5, Tf0, Tv0, Tp, Tvl, Tsh, Cn1, zeta, i)
             end
             return newstates
 
