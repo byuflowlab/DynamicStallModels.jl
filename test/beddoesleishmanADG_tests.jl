@@ -1,5 +1,5 @@
 #=
-Test my implementation of AeroDyn's Beddoes-Leishman model using Gonzalez's modifications. 
+Test my implementation of AeroDyn's Beddoes-Leishman model using Gonzalez's modifications. I'm using the my modified NREL 5MW wind turbine as the basis for what I'm simulating. 
 
 Adam Cardoza 1/3/23
 =#
@@ -88,13 +88,15 @@ tvec = tspan[1]:dt:4.9
     ### Loop through the nodes and test them. 
     for i = 1:numnodes
 
+        ### Make sure that the nodes in the intermediate states file are correct. 
         @test isapprox(mat[1,1,i], i)
 
-        af, constants = make_dsairfoil(afs[i])
+        ### Prepare inputs that rely on the package. 
+        af = make_dsairfoil(afs[i])
         airfoils = Array{Airfoil, 1}(undef, 1) #TODO: I should probably change the type requirement. 
         airfoils[1] = af
 
-        dsmodel = BeddoesLeishman(Indicial(), 1, airfoils, 3, constants)
+        dsmodel = BeddoesLeishman(Indicial(), 1, airfoils, 3)
 
         Uvec = zero(tvec)
         aoavec = zero(tvec)
@@ -107,19 +109,84 @@ tvec = tspan[1]:dt:4.9
         ### Solve
         states, loads = solve_indicial(dsmodel, [chordvec[i]], tvec, Uvec, aoavec; a)
 
-        alpha_filt_rms = RMS(states[3:end,1], mat[:,28,i])
-        q_filt_rms = RMS(states[3:end,29], mat[:,27,i])
+
+        ### Calculate intermediate states and calculations. 
+        Cfsn, Cvn, Nnc_aq, Nc_q, Nc_aq, Nnc_a, Nnc_q, Talpha, M, k_alpha, TI, alphae, k_q, Cpot, dcndalpha_circ = DSM.extractintermediatestates(states, Uvec, chordvec[i], af; a) #Todo: I should calculate some states based on these intermediate states so if I change the main code but not the intermediate states code then they won't match and fail their tests. 
+
+
+        ### Calculate errors. 
+        alpha_filt_rms = RMS(states[3:end, 1], mat[:,28,i])
+        q_filt_rms = RMS(states[3:end, 29], mat[:,27,i])
+
+        kalpha_rms = RMS(k_alpha[3:end], mat[:,29,i])
+        Talpha_rms = RMS(Talpha[3:end], mat[:,24,i])
+
+        Ka_rms = RMS(states[3:end, 4], mat[:,25,i])
+        Kpa_rms = RMS(states[3:end, 10], mat[:,26,i])
+
+        Kq_rms = RMS(states[3:end, 5], mat[:,31,i])
+        Kpq_rms = RMS(states[3:end, 11], mat[:,32,i])
+
+        alphae_rms = RMS(alphae[3:end], mat[:,30,i])
+
+        Nc_q_rms = RMS(Nc_q[3:end], mat[:,19,i]) 
+        Nc_aq_rms = RMS(Nc_aq[3:end], mat[:,20,i]) 
+
+        Nnc_a_rms = RMS(Nnc_a[3:end], mat[:,22,i]) 
+        Nnc_q_rms = RMS(Nnc_q[3:end], mat[:,23,i]) 
+        Nnc_aq_rms = RMS(Nnc_aq[3:end], mat[:,18,i]) 
+
+        alpha_f_rms = RMS(states[3:end, 2], mat[:,35,i])
+        fp_rms = RMS(states[3:end, 18], mat[:,34,i])
+        fpp_rms = RMS(states[3:end, 19], mat[:,21,i])
+        fpc_rms = RMS(states[3:end, 20], mat[:,38,i]) #TODO: Really good half the time, meh the other half. 
+        fppc_rms = RMS(states[3:end, 21], mat[:,37,i])
+
+        CNFS_rms = RMS(Cfsn[3:end], mat[:,16,i])
+        Cvn_rms = RMS(Cvn[3:end], mat[:,17,i])
+
+        tau_rms = RMS(states[3:end, 22], mat[:,15,i]) #Todo: Really good for everything but the root.
+
+        # @show fpc_rms, fppc_rms
 
         Cnerr = relerr(loads[3:end,1], mat[:,40,i]).*100
         Ccerr = relerr(loads[3:end,2], mat[:,41,i]).*100
 
-        # @show mean(abs.(Cnerr)), mean(abs.(Ccerr))
 
         ### Using RMS because the value might be small and relative error can blow out of proportion really quick. 
         @test alpha_filt_rms <= 1e-5  
-        @test q_filt_rms <= 1e-5  
+        @test q_filt_rms <= 1e-5
+        
+        @test kalpha_rms <= 1e-14
+        @test Talpha_rms <= 1e-16
 
-        ### Going back to relative percent error
+        @test Ka_rms <= 1e-4
+        @test Kpa_rms <= 1e-7
+
+        @test Kq_rms <= 1e-5
+        @test Kpq_rms <= 1e-7
+
+        @test alphae_rms <= 1e-5
+
+        @test Nc_q_rms <= 1e-5
+        @test Nc_aq_rms <= 1e-4
+
+        @test Nnc_a_rms <= 1e-5
+        @test Nnc_q_rms <= 1e-5
+        @test Nnc_aq_rms <= 1e-5
+
+        @test alpha_f_rms <= 1e-5
+        @test fp_rms <= 1e-2
+        @test fpp_rms <= 1e-2
+        @test fpc_rms <= 0.05
+        @test fppc_rms <= 0.05
+
+        @test CNFS_rms <= 1e-2
+        @test Cvn_rms <= 1e-3
+
+        # @test tau_rms <= 1e-16 #Todo: Really good for everything but the root. (Same as comment above)
+
+        ### Relative percent error
         @test mean(abs.(Cnerr)) <= 0.1
         @test mean(abs.(Ccerr)) <= 0.1
 

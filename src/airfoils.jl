@@ -37,6 +37,7 @@ struct Airfoil{TF, Tfit, Fun}
     sfun::Fun
     xcp::TF
     eta::TF
+    zeta::TF
 end
 
 abstract type SeparationPoint end
@@ -64,7 +65,7 @@ struct ADFSP{fit} <: SeparationPoint #AeroDyn separation point fit.
     fcfit::fit
 end
 
-function ADFSP(alpha, cn, cc, alpha0, alphasep, dcndalpha, eta)
+function ADFSP(alpha, cn, cc, alpha0, alphasep, dcndalpha, eta) #Todo: Probably needs fixing (compare to OpenFAST)
 
     fvec, fcvec = reverse_separationpointcalculation_ADO(alpha, cn, cc, dcndalpha, alpha0, alphasep, eta)
     ffit = Akima(alpha, fvec) 
@@ -117,11 +118,11 @@ function simpleairfoil(polar)
 
     dcldalpha = 2*pi
     alpha0 = 0.0
-    A = [0.3, 0.7] #Todo: Maybe do tuples... Since they aren't going to change... That might make it faster. 
-    b = [0.14, 0.53]
-    T = [1.7, 3.0]
+    A = [0.3, 0.7, 1.0] #TODO: Maybe do tuples... Since they aren't going to change... That might make it faster. 
+    b = [0.14, 0.53, 5.0]
+    T = [1.7, 3.0, 0.19]
 
-    _, minclidx = findmin(clvec) #Todo: I have the find_seperation_alpha function. 
+    _, minclidx = findmin(clvec) #TODO: I have the find_seperation_alpha function. 
     _, maxclidx = findmax(clvec)
 
     alphasep = [alphavec[minclidx], alphavec[maxclidx]]
@@ -130,7 +131,8 @@ function simpleairfoil(polar)
 
     xcp = 0.2
     eta = 1.0
-    return Airfoil(polar, cl, cd, cm, cn, cc, dcldalpha, dcldalpha, alpha0, alphasep, A, b, T, sfun, xcp, eta)
+    zeta = 0.5
+    return Airfoil(polar, cl, cd, cm, cn, cc, dcldalpha, dcldalpha, alpha0, alphasep, A, b, T, sfun, xcp, eta, zeta)
 end
 
 
@@ -151,7 +153,7 @@ A slightly more complex version of simpleairfoil. Takes a polar and numerically 
 ### Outputs
 - Airfoil
 """
-function airfoil(polar; A = [0.3, 0.7], b = [0.14, 0.53], T = [1.7, 3.0], xcp=0.2, eta=1.0, sfun::Union{SeparationPoint, Function}=ADFSP(1, 1), S=zeros(4))
+function airfoil(polar; A = [0.3, 0.7, 1.0], b = [0.14, 0.53, 5.0], T = [1.7, 3.0, 0.19], xcp=0.2, eta=1.0, zeta=0.5, sfun::Union{SeparationPoint, Function}=ADFSP(1, 1), S=zeros(4))
     #Todo: Need some sort of behavior when the provided polar is too small. 
 
     alphavec = @view(polar[:,1])
@@ -199,12 +201,12 @@ function airfoil(polar; A = [0.3, 0.7], b = [0.14, 0.53], T = [1.7, 3.0], xcp=0.
         sfun = ADFSP(alphavec, cnvec, ccvec, alpha0, alphasep, dcldalpha, eta)
     end
 
-    return Airfoil(polar, cl, cd, cm, cn, cc, dcldalpha, dcldalpha, alpha0, alphasep, A, b, T, sfun, xcp, eta)
+    return Airfoil(polar, cl, cd, cm, cn, cc, dcldalpha, dcldalpha, alpha0, alphasep, A, b, T, sfun, xcp, eta, zeta)
 end
 
 export update_airfoil
 
-function update_airfoil(airfoil::Airfoil; polar=nothing, dcldalpha=nothing, dcndalpha=nothing, alpha0=nothing, alphasep=nothing, A=nothing, b=nothing, T=nothing, sfun=nothing, xcp=nothing, eta=nothing)
+function update_airfoil(airfoil::Airfoil; polar=nothing, dcldalpha=nothing, dcndalpha=nothing, alpha0=nothing, alphasep=nothing, A=nothing, b=nothing, T=nothing, sfun=nothing, xcp=nothing, eta=nothing, zeta=nothing)
 
     if !(polar == nothing)
         newpolar = polar
@@ -281,14 +283,22 @@ function update_airfoil(airfoil::Airfoil; polar=nothing, dcldalpha=nothing, dcnd
         neweta = airfoil.eta
     end
 
+    if !(zeta==nothing)
+        newzeta = zeta
+    else
+        newzeta = airfoil.zeta
+    end
 
-    return Airfoil(newpolar, newcl, newcd, newcm, newcn, newcc, newslope, newdcndalpha, newalpha0, newalphasep, newA, newb, newT, newsfun, newxcp, neweta)
+
+    return Airfoil(newpolar, newcl, newcd, newcm, newcn, newcc, newslope, newdcndalpha, newalpha0, newalphasep, newA, newb, newT, newsfun, newxcp, neweta, newzeta)
 end
 
 
 
 
 separationpoint(airfoil::Airfoil, alpha) = separationpoint(airfoil.sfun, airfoil, alpha)
+
+separationpoint(airfoil::Airfoil, alpha, dcndalpha_circ) = separationpoint(airfoil.sfun, airfoil, alpha, dcndalpha_circ)
 
 separationpoint(sfun::SP, airfoil::Airfoil, alpha) = sfun.ffit(alpha)
 
@@ -525,9 +535,41 @@ end
 
 separationpoint(sfun::Function, airfoil::Airfoil, alpha) = sfun(alpha)
 
+#=
+Gonzalez modification of the separation point function, as found in OpenFAST v3.3.0
+=#
+function separationpoint(sfun::ADGSP, airfoil::Airfoil, alpha, dcndalpha_circ)
+    delalpha = alpha-airfoil.alpha0
+
+    Cn = airfoil.cl(alpha)*cos(alpha) + (airfoil.cd(alpha) - airfoil.cd(airfoil.alpha0))*sin(alpha)
+
+    if isapprox(dcndalpha_circ, 0.0)
+        tr = 0
+    elseif alpha == airfoil.alpha0
+        tr = 0
+    elseif Cn == 0
+        tr = 0
+    else
+        tr = Cn/(dcndalpha_circ*delalpha)
+        if tr<0
+            tr=0
+        end
+    end
+
+    fst = ((3*sqrt(tr) - 1)/2)^2
+
+    if fst>1
+        fst = 1
+    end
+
+    return fst
+end
+
 
 
 chordwiseseparationpoint(airfoil::Airfoil, alpha) = chordwiseseparationpoint(airfoil.sfun, airfoil, alpha)
+
+chordwiseseparationpoint(airfoil::Airfoil, alpha, dcndalpha_circ) = chordwiseseparationpoint(airfoil.sfun, airfoil, alpha, dcndalpha_circ)
 
 chordwiseseparationpoint(sfun::SP, airfoil::Airfoil, alpha) = sfun.fcfit(alpha)
 
@@ -543,4 +585,16 @@ end
 
 function chordwiseseparationpoint(sfun::RSP, airfoil::Airfoil, alpha)
     return separationpoint(airfoil, alpha)
+end
+
+#=
+Gonzalez modification of the separation point function, as found in OpenFAST v3.3.0
+=#
+function chordwiseseparationpoint(sfun::ADGSP, airfoil::Airfoil, alpha, dcndalpha_circ)
+    Cc = airfoil.cl(alpha)*sin(alpha) - (airfoil.cd(alpha) - airfoil.cd(airfoil.alpha0))*cos(alpha)
+    D = airfoil.eta*dcndalpha_circ*(alpha-airfoil.alpha0)*alpha
+
+    fc = (Cc/D + 0.2)^2
+
+    return min(fc, fclimit)
 end
