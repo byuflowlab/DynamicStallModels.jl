@@ -1,34 +1,12 @@
 #=
 AeroDyn's implementation of the Beddoes-Leishman model with Gonzalez's modifications, similar to the method implemented in OpenFAST v3.3.0.
 
-=#
+The states that the theory doc says are required can be found in the BeddoesLeishmanAeroDyn.jl file. 
 
-
-function getloads_BLAG(dsmodel::BeddoesLeishman, states, p, airfoil)
-    c, a, dcndalpha, alpha0, Cd0, Cm0, A1, A2, A5, b1, b2, b5, Tf0, Tv0, Tp, Tvl, Tsh, Cn1, xcp, zeta, U, _ = p
-    clfit = airfoil.cl #TODO: We might as well do this inside the blag coefficients. 
-    cdfit = airfoil.cd
-    eta = airfoil.eta
-
-    Cn, Cc, Cl, Cd, Cm = BLADG_coefficients(dsmodel::BeddoesLeishman, states, U, c, clfit, cdfit, dcndalpha, alpha0, Cd0, Cm0, A1, A2, A5, b1, b2, b5, Tvl, xcp, eta, a)
-    return [Cn, Cc, Cl, Cd, Cm]
-end
-
-
-
-
-#AeroDyn original implementation. 
-function update_states_ADG(dsmodel::BeddoesLeishman, oldstates, c, a, U, deltat, aoa, dcndalpha, alpha0, A1, A2, A5, b1, b2, b5, Tf0, Tv0, Tp, Tvl, Tsh, Cn1, zeta, afidx)  #TODO: Ryan seems tot think that all of this airfoil information should pass in from the airfoil struct just fine and not affect how derivatives are calculated. 
-
-    ### Unpack
-    airfoil = dsmodel.airfoils[afidx]
-
-    _, alpha_m, q_m, qf_m, Ka_m, Kq_m, Kpa_m, Kpq_m, X1_m, X2_m, X3_m, X4_m, Npot_m, Kppq_m, Kpppq_m, Dp_m, fp_m, fpc_m, fpm_m, Df_m, Dfc_m, Dfm_m, fpp_m, fppc_m, fppm_m, Cv_m, Nv_m, tauv, LESF_m, TESF_m, VRTX_m, firstpass_m = oldstates #The underscore m means that it is the previous time step (m comes before n).
-
-    #= States
+The states I use are: 
     1 - aoa - unfiltered angle of attack.
-    2 - alpha # Filtered angle of attack. 
-    3 - q # Unfiltered pitching rate
+    2 - alpha - Filtered angle of attack. 
+    3 - q - Unfiltered pitching rate
     4 - qf - Filtered pitching rate. 
     5 - Ka
     6 - Kq
@@ -58,9 +36,29 @@ function update_states_ADG(dsmodel::BeddoesLeishman, oldstates, c, a, U, deltat,
     30 - TESF::Bool
     31 - VRTX::Bool
     32 - firstpass::Bool
-    =#
+=#
 
-    #17 - alphaf #TODO: I'm not sure that this state is needed. -> It's a toss up if it's faster to have one less state and do the calculation both here and ... I was going to say do the calculation twice. But you don't use alphaf in the coefficient calculations.  Note: this is not the filtered angle of attack. 
+
+function getloads_BLAG(dsmodel::BeddoesLeishman, states, p, airfoil)
+    c, a, dcndalpha, alpha0, Cd0, Cm0, A1, A2, A5, b1, b2, b5, Tf0, Tv0, Tp, Tvl, Tsh, Cn1, xcp, zeta, U, _ = p
+    clfit = airfoil.cl #TODO: We might as well do this inside the blag coefficients. 
+    cdfit = airfoil.cd
+    eta = airfoil.eta
+
+    Cn, Cc, Cl, Cd, Cm = BLADG_coefficients(dsmodel::BeddoesLeishman, states, U, c, clfit, cdfit, dcndalpha, alpha0, Cd0, Cm0, A1, A2, A5, b1, b2, b5, Tvl, xcp, eta, a)
+    return [Cn, Cc, Cl, Cd, Cm]
+end
+
+
+
+
+#AeroDyn original implementation. 
+function update_states_ADG(dsmodel::BeddoesLeishman, oldstates, c, a, U, deltat, aoa, dcndalpha, alpha0, A1, A2, A5, b1, b2, b5, Tf0, Tv0, Tp, Tvl, Tsh, Cn1, zeta, afidx)  #TODO: Ryan seems to think that all of this airfoil information should pass in from the airfoil struct just fine and not affect how derivatives are calculated. 
+
+    ### Unpack
+    airfoil = dsmodel.airfoils[afidx]
+
+    _, alpha_m, q_m, qf_m, Ka_m, Kq_m, Kpa_m, Kpq_m, X1_m, X2_m, X3_m, X4_m, Npot_m, Kppq_m, Kpppq_m, Dp_m, fp_m, fpc_m, fpm_m, Df_m, Dfc_m, Dfm_m, fpp_m, fppc_m, fppm_m, Cv_m, Nv_m, tauv, LESF_m, TESF_m, VRTX_m, firstpass_m = oldstates #The underscore m means that it is the previous time step (m comes before n).
 
 
     states = zeros(32) #TODO: Consider putting a function to return this value. 
@@ -253,9 +251,6 @@ function update_states_ADG(dsmodel::BeddoesLeishman, oldstates, c, a, U, deltat,
 
 
 
-
-
-
     ####### boundary layer response 
     if firstpass_m==1
         Npot_m = Npot
@@ -264,7 +259,7 @@ function update_states_ADG(dsmodel::BeddoesLeishman, oldstates, c, a, U, deltat,
     Cpn = Npot - Dp #EQ 1.35, lagged circulatory normal force 
 
 
-    alphaf = Cpn/dcndalpha_circ + alpha0 #EQ 1.34, delayed effective angle of incidence  
+    alphaf = Cpn/dcndalpha_circ + alpha0 #EQ 1.34, delayed effective angle of incidence  Note: this is not the filtered angle of attack. 
 
     
     #### Separation points
@@ -478,7 +473,7 @@ function BLADG_coefficients(dsmodel::BeddoesLeishman, states, U, c, clfit, cdfit
 
     ######### Prepare inputs for chordwise force coefficient. 
     # Cpot = Ncirc_aq*tan(alphae + alpha0) #Equation 1.21  
-    Cpot = dcndalpha_circ*alphae*aoa #OpenFAST v3.3.0 # At first I thought I had misread... but no... they definitely have C_nalpha_circ.... which suggests that maybe they mistyped. Or something? It seems like an odd correction, but it's what they have. 
+    Cpot = dcndalpha_circ*alphae*aoa #OpenFAST v3.3.0 #They change to this modification because they say it performs better. 
 
     
     Cfsc = Cpot*eta*(sqrt(fppc)-0.2) #EQ 1.40, Gonzalez modifications 
@@ -530,7 +525,7 @@ function BLADG_coefficients(dsmodel::BeddoesLeishman, states, U, c, clfit, cdfit
 end
 
 function initialize_ADG(Uvec, aoavec, tvec, airfoil::Airfoil, c, a) 
-    # Cnfit = airfoil.cl
+    
     dcndalpha = airfoil.dcndalpha
     alpha0 = airfoil.alpha0
     A1, A2, A5 = airfoil.A
@@ -561,7 +556,7 @@ function initialize_ADG(Uvec, aoavec, tvec, airfoil::Airfoil, c, a)
     Cpotn = airfoil.cl(alpha) +(airfoil.cd(alpha)-Cd0)*sin(alpha)
     fp = fpp = 1.0
     fpc = fppc = fclimit
-    fpm = fppm = 0.0 #Todo: I'm not sure what to start this as. 
+    fpm = fppm = 0.0 #TODO: I'm not sure what to start this as. -> It works as is, so I'll leave it. 
     tauv = 0.0
     Nv = 0.0
     Cv = 0.0
