@@ -3,11 +3,13 @@
 This package is a collection of different dynamic stall models. 
 
 Dynamic stall models included in this package: 
-- Beddoes-Leishman - State Space
-- Beddoes-Leishman - Indicial
-- Beddoes-Leishman - AeroDyn implementation
-- Risø (Hansen 2004) - State Space
-- Risø - Indicial
+- Beddoes-Leishman
+  - State Space 
+  - Indicial
+  - AeroDyn implementation (original and Gonzalez variants)
+- Risø (Hansen 2004)
+  - State Space
+  - Indicial
 - Larsen
 - Onera
 - Oye

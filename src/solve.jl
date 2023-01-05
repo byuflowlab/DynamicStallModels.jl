@@ -36,8 +36,14 @@ function solve_indicial(dsmodel::DSModel, cvec, tvec, Uvec, aoavec; a = 343.0, v
                 @show t
             end
             
-
-            states[i+1,idxs] = dsmodel(states[i,idxs], p, t, dt) #update_states_ADO(dsmodel, states[i,idxs], flags, c, a, U, dt, aoa, dcndalpha, alpha0, A1, A2, b1, b2, Tf0, Tv0, Tp, Tvl, Cn1, alpha1, alpha2, S1, S2, S3, S4)
+            if isa(dsmodel, BeddoesLeishman)
+                if dsmodel.version==3
+                    newstates = view(states, i+1, idxs)
+                    dsmodel(states[i,idxs], newstates, p, t, dt)
+                end
+            else
+                states[i+1, idxs] = dsmodel(states[i,idxs], p, t, dt)
+            end
 
             loads[i+1,:] = getloads(dsmodel, states[i,idxs], p, airfoil)
         end
