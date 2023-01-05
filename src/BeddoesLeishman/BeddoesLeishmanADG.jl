@@ -49,19 +49,22 @@ function getloads_BLAG(dsmodel::BeddoesLeishman, states, p, airfoil)
     return [Cn, Cc, Cl, Cd, Cm]
 end
 
+function update_states_ADG(dsmodel::BeddoesLeishman, oldstates, c, a, U, deltat, aoa, dcndalpha, alpha0, A1, A2, A5, b1, b2, b5, Tf0, Tv0, Tp, Tvl, Tsh, Cn1, zeta, afidx)
+    states = zeros(32) #TODO: Consider putting a function to return this value. 
 
+    update_states_ADG!(dsmodel, states, oldstates, c, a, U, deltat, aoa, dcndalpha, alpha0, A1, A2, A5, b1, b2, b5, Tf0, Tv0, Tp, Tvl, Tsh, Cn1, zeta, afidx)
+
+    return states
+end
 
 
 #AeroDyn original implementation. 
-function update_states_ADG(dsmodel::BeddoesLeishman, oldstates, c, a, U, deltat, aoa, dcndalpha, alpha0, A1, A2, A5, b1, b2, b5, Tf0, Tv0, Tp, Tvl, Tsh, Cn1, zeta, afidx)  #TODO: Ryan seems to think that all of this airfoil information should pass in from the airfoil struct just fine and not affect how derivatives are calculated. 
+function update_states_ADG!(dsmodel::BeddoesLeishman, states, oldstates, c, a, U, deltat, aoa, dcndalpha, alpha0, A1, A2, A5, b1, b2, b5, Tf0, Tv0, Tp, Tvl, Tsh, Cn1, zeta, afidx)  #TODO: Ryan seems to think that all of this airfoil information should pass in from the airfoil struct just fine and not affect how derivatives are calculated. 
 
     ### Unpack
     airfoil = dsmodel.airfoils[afidx]
 
     _, alpha_m, q_m, qf_m, Ka_m, Kq_m, Kpa_m, Kpq_m, X1_m, X2_m, X3_m, X4_m, Npot_m, Kppq_m, Kpppq_m, Dp_m, fp_m, fpc_m, fpm_m, Df_m, Dfc_m, Dfm_m, fpp_m, fppc_m, fppm_m, Cv_m, Nv_m, tauv, LESF_m, TESF_m, VRTX_m, firstpass_m = oldstates #The underscore m means that it is the previous time step (m comes before n).
-
-
-    states = zeros(32) #TODO: Consider putting a function to return this value. 
 
     ########### Algorithm ############### (Converted from UA documentation)
     ### Initial constants
@@ -367,10 +370,6 @@ function update_states_ADG(dsmodel::BeddoesLeishman, oldstates, c, a, U, deltat,
     states[30] = TESF
     states[31] = VRTX
     states[32] = firstpass = 0.0
-
-
-
-    return states
 end
 
 function BLADG_coefficients(dsmodel::BeddoesLeishman, states, U, c, af::Airfoil, a)

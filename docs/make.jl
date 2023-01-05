@@ -9,7 +9,7 @@ makedocs(
         pages = [
     "Introduction" => "index.md",
     "Getting Started" => "gettingstarted.md",
-    "Examples" => ["riso_example.md"],
+    "Examples" => ["riso_example.md", "beddoesleishman_example.md"],
     "Developers" => ["codeoutline.md", "riso_theory.md", "beddoesleishman_theory.md"],
     "API Reference" => "apireference.md",
     "References" => "references.md"],
