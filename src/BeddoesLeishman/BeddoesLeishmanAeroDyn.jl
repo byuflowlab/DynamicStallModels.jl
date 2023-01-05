@@ -1,33 +1,71 @@
 #=
 AeroDyn's original implementation of the Beddoes-Leishman model. 
 
-=#
+The states that the theory doc states are:
+1. alpha - the unfiltered angle of attack.
+2. alpha_lp - the low pass filtered angle of attack.
+3. alpha_f - the delayed effective angle of incidence. 
+4. q - the unfiltered pitching rate. 
+5. q_lp - the filtered pitching rate. 
+6. K_alpha,lp
+7. K_q,lp
+8. X1
+9. X2
+10. X3
+11. X4
+12. Kp_alpha
+13. Kp_q
+14. Kpp_q
+15. kppp_q
+16. Dp
+17. Df
+18. Dfc
+19. Cnpot
+20. fp
+21. fpc
+22. fpp
+23. fppc
+24. Tau_v
+25. Cnv
+26. Cv
+27. D_alpha,f - a deficiency function used in Minema's modifications. 
+28. sigma_1 (Other State)
+29. sigma_2 (Other State)
+30. blade_index (Other State)
+31. node_index (Other State)
+32. TESF (Other State)
+33. LESF (Other State)
+34. VRTX (Other State)
+35. Firstpass (Other State)
 
-#Todo: I need to rotate the loads properly. 
-function getloads_BLA(dsmodel::BeddoesLeishman, states, p, airfoil)
-    c, a, dcndalpha, alpha0, Cd0, Cm0, A1, A2, b1, b2, Tf0, Tv0, Tp, Tvl, Cn1, xcp, U, _ = p
-    Cnfit = airfoil.cl
-    eta = airfoil.eta
+I found that in the code they also include the following states in the code (I don't know if there are any of the above states that aren't used.):
+36. fpm
+37. fppm
+38. Dfm
+39. alpha_f
+40. Cnalpha_circ (dCn/dalpha_circ)
+41. deltas
+42. deltaalpha0
+43. k_alpha
+44. k_q
+45. Talpha
+46. T_q
+47. T_f
+48. T_fc
+49. T_fm
+50. Cn_alpha_nc
+51. Cn_q_nc
+52. Cn_aq_nc
+53. alpha_e
+54. Cn_aq_circ
+55. Cn_q_circ
+56. Cm_q_circ
+57. Cc_pot
+58. Cn_fs
+59. Tv
 
-    Cn, Cc, Cl, Cd, Cm = BLAD_coefficients(dsmodel::BeddoesLeishman, states, U, c, Cnfit, dcndalpha, alpha0, Cd0, Cm0, A1, A2, b1, b2, Tvl, xcp, eta, a)
-    return [Cn, Cc, Cl, Cd, Cm]
-end
+I don't use the above variable names below. Instead, the variable names I use for the states are: 
 
-
-
-
-
-#AeroDyn original implementation. 
-function update_states_ADO(dsmodel::BeddoesLeishman, oldstates, c, a, U, deltat, aoa, dcndalpha, alpha0, A1, A2, b1, b2, Tf0, Tv0, Tp, Tvl, Cn1, afidx) #Todo: I need to pass in airfoil. -> The airfoils are getting passed in via the dsmodel, and the coefficients are being passed in via the parameters vector..... I might need to redesign p... or not have some of these things as an option? Also? Am I using the airfoils inside of the dsmodel? Should I take those out? 
-
-    ### Unpack
-    alpha_m, alphaf_m, q_m, Ka_m, Kq_m, X1_m, X2_m, Kpa_m, Kpq_m, Kppq_m, Kpppq_m, Dp_m, Df_m, Cpotn_m, fp_m, fpp_m, tauv, Cvn_m, Cv_m, LESF_m, TESF_m, VRTX_m = oldstates #The underscore m means that it is the previous time step (m comes before n).
-
-    # if c==4.557
-    #     @show aoa
-    # end
-
-    #= States
     1 - alpha
     2 - alphaf #TODO: I'm not sure that this state is needed. 
     3 - q
@@ -50,7 +88,24 @@ function update_states_ADO(dsmodel::BeddoesLeishman, oldstates, c, a, U, deltat,
     20 - LESF::Bool
     21 - TESF::Bool
     22 - VRTX::Bool
-    =#
+
+
+
+This file is organized such that I have a function to update the states, a function to calculate the loads based on the states (and some dispatch functions to call that function), an initialization function, and other functions for updating input parameters. 
+=#
+
+
+
+
+
+
+
+
+#AeroDyn original implementation. 
+function update_states_ADO(dsmodel::BeddoesLeishman, oldstates, c, a, U, deltat, aoa, dcndalpha, alpha0, A1, A2, b1, b2, Tf0, Tv0, Tp, Tvl, Cn1, afidx) 
+
+    ### Unpack
+    alpha_m, alphaf_m, q_m, Ka_m, Kq_m, X1_m, X2_m, Kpa_m, Kpq_m, Kppq_m, Kpppq_m, Dp_m, Df_m, Cpotn_m, fp_m, fpp_m, tauv, Cvn_m, Cv_m, LESF_m, TESF_m, VRTX_m = oldstates #The underscore m means that it is the previous time step (m comes before n).
 
 
     states = zeros(22)
@@ -284,6 +339,15 @@ function update_states_ADO(dsmodel::BeddoesLeishman, oldstates, c, a, U, deltat,
 
 
     return states
+end
+
+function getloads_BLA(dsmodel::BeddoesLeishman, states, p, airfoil)
+    c, a, dcndalpha, alpha0, Cd0, Cm0, A1, A2, b1, b2, Tf0, Tv0, Tp, Tvl, Cn1, xcp, U, _ = p
+    Cnfit = airfoil.cl
+    eta = airfoil.eta
+
+    Cn, Cc, Cl, Cd, Cm = BLAD_coefficients(dsmodel::BeddoesLeishman, states, U, c, Cnfit, dcndalpha, alpha0, Cd0, Cm0, A1, A2, b1, b2, Tvl, xcp, eta, a)
+    return [Cn, Cc, Cl, Cd, Cm]
 end
 
 function BLAD_coefficients(dsmodel::BeddoesLeishman, states, U, c, af::Airfoil, a)

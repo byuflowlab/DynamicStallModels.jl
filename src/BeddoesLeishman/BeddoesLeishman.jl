@@ -17,14 +17,12 @@ The Beddoes-Leishman model struct. It stores airfoil data for every section to b
 - n - The number of sections to be simulated. 
 - airfoils - A vector of Airfoil structs, one corresponding to each section to be simulated. 
 - version - Which version of the indicial implementation. 1) original. 2) AeroDyn original. 3) AeroDyn Gonzalez. 4) AeroDyn Minema
-- constants - Constants that change with version of the model. 
 """
 struct BeddoesLeishman{TI} <: DSModel
     detype::DEType 
     n::TI #Number of airfoils simulated
     airfoils::Array{Airfoil,1}
-    version::TI #Which version of the indicial implementation. 
-    # constants::Array{TF, 1} #Model Constants #TODO: Maybe I'll make this a tuple? I don't know if that'll be any better. 
+    version::TI #Which version of the indicial implementation.  
 end
 
 function (model::BeddoesLeishman)(x, p, t, dt) 
