@@ -2,8 +2,14 @@ using Plots
 using DelimitedFiles
 using FLOWMath
 using Polynomials
+using OpenFASTsr
 
-include("Oye.jl")
+of = OpenFASTsr
+
+path = dirname(@__FILE__)
+cd(path)
+
+include("oldoye.jl")
 
 function nearestto(xvec, x)
     mins = abs.(xvec.-x)
@@ -12,7 +18,9 @@ function nearestto(xvec, x)
     return minval, minidx
 end
 
-polar = readdlm("/Users/adamcardoza/Library/CloudStorage/Box-Box/research/FLOW/bladeopt/experimentaldata/Leishman1989/leishman1989staticdata_fig1.csv", ',')
+# polar = readdlm("/Users/adamcardoza/Library/CloudStorage/Box-Box/research/FLOW/projects/bladeopt/experimentaldata/Leishman1989/leishman1989staticdata_fig1.csv", ',') #Todo: Add to repository and add relative path. 
+du21_a17 = of.read_airfoilinput("../../data/airfoils/DU40_A17.dat") 
+polar = hcat(du21_a17.aoa, du21_a17.cl, du21_a17.cd, du21_a17.cm)
 polar[:,1] = polar[:,1].*(pi/180)
 cl = Akima(polar[:,1], polar[:,2])
 
@@ -37,15 +45,18 @@ function U(t)
     return M*a
 end
 
-zeroalf, zeroidx = nearestto(polar[:,2], 0.0) #Nearest to zero lift
-tenalf, tenidx = nearestto(polar[:,1], 10.0*pi/180) #Ten is typically before stall #*pi/180
-linrng = zeroidx:tenidx
+zeroalf, zeroidx = nearestto(polar[50:100,2], 0.0) #Nearest to zero lift
+tenalf, tenidx = nearestto(polar[50:100,1], 10.0*pi/180) #Ten is typically before stall #*pi/180
+linrng = (zeroidx + 50):(tenidx +50)
 
 mxb = fit(polar[linrng,1], polar[linrng,2], 1)
 
-dcldalpha = mxb.coeffs[2] #least squares fit 
+# dcldalpha = mxb.coeffs[2] #least squares fit 
 
-alpha0 = roots(mxb)[1] #least squares fit   # NACA 0012 is a symmetric airfoil... so shouldn't the zero lift be at zero? 
+# alpha0 = roots(mxb)[1] #least squares fit   # NACA 0012 is a symmetric airfoil... so shouldn't the zero lift be at zero? 
+
+dcldalpha = du21_a17.c_nalpha
+alpha0 = du21_a17.alpha0*pi/180
 
 # polarplt = plot(polar[:,1], polar[:,2], leg=false)
 # plot!(mxb)
@@ -56,7 +67,7 @@ maxcl, maxclidx = findmax(polar[:,2]) #critical lift coefficient (given by Larse
 alphav = polar[maxclidx, 1] 
 
 maxcl = dcldalpha*(alphav-alpha0) #Projecting the inviscid lift to the static stall point
-maxcl = 1.2
+maxcl = maximum(polar[:,2])
 
 function clinv(alpha) #NOTE: I'm fudging the slope at zero lift value to match the experimental rather than calculating it
     return dcldalpha*(alpha-alpha0)
@@ -80,13 +91,13 @@ Clst = cl.(alphavec)
 mat = hcat(alfavec, Cld)
 # writedlm("/Users/adamcardoza/Box/research/FLOW/bladeopt/outputs/leishman1989/naca0012_8.1_10.3s_Cdn_Oye.csv", mat, ',')
 
-exppolar = readdlm("/Users/adamcardoza/Library/CloudStorage/Box-Box/research/FLOW/bladeopt/experimentaldata/Leishman1989/leishman1989fig8Cn.csv", ',')
+exppolar = readdlm("/Users/adamcardoza/Library/CloudStorage/Box-Box/research/FLOW/projects/bladeopt/experimentaldata/Leishman1989/leishman1989fig8Cn.csv", ',') #Todo: Add data to repo and make this path relative. 
 
 
 cycleplt = plot(leg=:topleft)
 plot!(alfavec, Cld, lab="Oye")
 plot!(alfavec, Clst, lab="Static", markershape=:cross)
-scatter!(exppolar[:,1], exppolar[:,2], lab="Experimental")
+# scatter!(exppolar[:,1], exppolar[:,2], lab="Experimental")
 display(cycleplt)
 
 timeplt = plot(leg=:bottomleft)

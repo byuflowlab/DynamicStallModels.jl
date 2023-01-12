@@ -48,16 +48,18 @@ function (model::BeddoesLeishman)(x, p, t, dt)
 
         elseif model.version==3
             # @warn("AeroDyn Beddoe-Leishman with Gonzalez's modifications not prepared for use yet.")
+            nst = numberofstates_total(model)
             ns = numberofstates(model)
-            newstates = Array{eltype(p), 1}(undef, ns)
+            np = numberofparams(model)
+            newstates = Array{eltype(p), 1}(undef, nst)
             for i = 1:model.n
-                ps = view(p, 22*(i-1)+1:22*i)
+                ps = view(p, np*(i-1)+1:np*i)
     
                 c, a, dcndalpha, alpha0, _, _, A1, A2, A5, b1, b2, b5, Tf0, Tv0, Tp, Tvl, Tsh, Cn1, _, zeta, U, aoa = ps #Inputs  
                 
-                xs = view(x, 32*(i-1)+1:32*i)
+                xs = view(x, ns*(i-1)+1:ns*i)
 
-                idx = 32*(i-1)+1:32*i
+                idx = ns*(i-1)+1:ns*i
                 newstates[idx] = update_states_ADG(model, xs, c, a, U, dt, aoa, dcndalpha, alpha0, A1, A2, A5, b1, b2, b5, Tf0, Tv0, Tp, Tvl, Tsh, Cn1, zeta, i)
             end
             return newstates
@@ -90,13 +92,13 @@ function numberofstates(dsmodel::BeddoesLeishman) #TODO: This probably need to b
         @warn("The orginal Beddoes-Leishman model is not yet prepared.")
         return 0
     elseif dsmodel.version==2
-        return 22*dsmodel.n
+        return 22
     elseif dsmodel.version==3
         # @warn("The Gozalez Beddoes-Leishman model is not yet prepared.")
-        return 32*dsmodel.n
+        return 32
     elseif dsmodel.version==4
         @warn("The Minema Beddoes-Leishman model is not yet prepared.")
-        return 22*dsmodel.n
+        return 22
     end
 end
 
@@ -112,6 +114,21 @@ function numberofloads(dsmodel::BeddoesLeishman) #TODO: This probably need to be
     elseif dsmodel.version==4
         @warn("The Minema Beddoes-Leishman model is not yet prepared.")
         return 5
+    end
+end
+
+function numberofparams(dsmodel::BeddoesLeishman) #TODO: This probably need to be augmented to check if the model is a functional, an iterative, or an indicial.
+    if dsmodel.version==1
+        @warn("The orginal Beddoes-Leishman model is not yet prepared.")
+        return 0
+    elseif dsmodel.version==2
+        return 22
+    elseif dsmodel.version==3
+        # @warn("The Gonzalez Beddoes-Leishman model is not yet prepared.")
+        return 22
+    elseif dsmodel.version==4
+        @warn("The Minema Beddoes-Leishman model is not yet prepared.")
+        return 22
     end
 end
 

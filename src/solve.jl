@@ -11,18 +11,28 @@ function solve_indicial(dsmodel::DSModel, cvec, tvec, Uvec, aoavec; a = 343.0, v
     nt = length(tvec)
 
     ### Initialize the states
-    ns = numberofstates(dsmodel)
+    ns = numberofstates_total(dsmodel)
     states = Array{eltype(cvec), 2}(undef, nt, ns)
-    nl = numberofloads(dsmodel)
+    nl = numberofloads_total(dsmodel)
     loads = Array{eltype(cvec), 2}(undef, nt, nl)
+
+    # @show size(states), size(loads)
     
     for j = 1:dsmodel.n
         c = cvec[j]
         airfoil = dsmodel.airfoils[j]
 
         idxs = ns*(j-1)+1:j*ns 
+        # @show idxs
 
-        states[1,idxs], loads[1,:], p = initialize(dsmodel, Uvec, aoavec, tvec, airfoil, c, a)
+        avec, bvec, p = initialize(dsmodel, Uvec, aoavec, tvec, airfoil, c, a)
+
+        # @show avec, bvec, p
+
+        states[1,idxs] = avec
+        loads[1,:] = bvec
+
+        # @show size(states), size(loads)
 
         for i = 1:nt-1 
             ### Update environmental inputs

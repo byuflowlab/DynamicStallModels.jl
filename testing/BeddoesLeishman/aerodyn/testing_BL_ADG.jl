@@ -40,7 +40,7 @@ c = 3.542
 idx = 1
 
 # du21_a17 = of.read_airfoilinput("../../../data/DU21_A17.dat")
-du21_a17 = of.read_airfoilinput("../../../data/DU40_A17.dat")
+du21_a17 = of.read_airfoilinput("../../../data/airfoils/DU40_A17.dat")
 
 dcndalpha = du21_a17.c_nalpha
 alpha0 = du21_a17.alpha0*(pi/180)
@@ -114,10 +114,11 @@ Cn = loads[:,1]
 
 cnplt = plot(xaxis="time (s)", yaxis="Cn", right_margin=20mm, leg=:bottomright)
 plot!(tvec, Cn, lab="BL_AD")
-plot!(outs["Time"], outs["AB1N"*num*"Cn"], linestyle=:dash, lab="OpenFAST")
-# plot!(mat[:,1], mat[:,40], lab="OpenFAST intermediate", linestyle=:dash)
+# plot!(outs["Time"], outs["AB1N"*num*"Cn"], linestyle=:dash, lab="OpenFAST")
+plot!(mat[:,2, idx], mat[:,40, idx], lab="OpenFAST intermediate", linestyle=:dash)
 # plot!(twinx(), tvec, aoavec.*(180/pi), lab="AOA", leg=:bottomright, linecolor=:purple, linestyle=:dot, yaxis="AOA")
-display(cnplt)
+# display(cnplt)
+# # savefig(cnplt, "OpenFASTcomparison_cn_modifiedNREL5MW.png")
 
 # cnerror = errfun.(Cn[3:end], mat[:,40]).*100
 #-> Now there is less than half a percent error. Which.... I'm quite happy with. Like.... it could/should be better... but... it seems good enough. Their output seems heavily rounded. Like there is no oscillation. Which means that my solver should account for more fatique? or just more noise... one of the two. -> When comparing to the intermediate step (the easily accessed output is rounded down), the max percent relative error is 0.183%. Which... is pretty good methinks. I don't know what is causing the difference? 
@@ -128,10 +129,12 @@ Cd0 = af.cd(af.alpha0)
 
 ccplt = plot(xaxis="Time (s)", yaxis=L"C_c", right_margin=20mm, leg=:bottomright)
 plot!(tvec, Cc, lab="DSM") 
-plot!(outs["Time"], outs["AB1N001Ct"], linestyle=:dash, lab="OpenFAST")
-# plot!(mat[:,1], mat[:,41], lab="OpenFAST intermediate", linestyle=:dash)
+# plot!(outs["Time"], outs["AB1N001Ct"], linestyle=:dash, lab="OpenFAST")
+plot!(mat[:,2, idx], mat[:,41, idx], lab="OpenFAST intermediate", linestyle=:dash)
 # plot!(twinx(), tvec, aoavec.*(180/pi), lab="AOA", leg=:bottomright, linecolor=:purple, linestyle=:dot, yaxis="AOA")
-display(ccplt)
+# display(ccplt)
+# # savefig(ccplt, "OpenFASTcomparison_cc_modifiedNREL5MW.png")
+
 
 # Cterr = errfun.(Cc, outs["AB1N001Ct"]).*100
 # ccerror = errfun.(Cc[3:end], mat[:,41]).*100
@@ -148,7 +151,9 @@ Cm = loads[:,5]
 cmplt = plot(xaxis="Time (s)", yaxis=L"C_m", right_margin=20mm, leg=:bottomright)
 plot!(tvec[3:end], Cm[3:end], lab="DSM") 
 plot!(mat[:,2,idx], mat[:,42,idx], lab="OpenFAST")
-display(cmplt)
+# display(cmplt)
+# # savefig(cmplt, "OpenFASTcomparison_cm_modifiedNREL5MW.png")
+
 
 
 
@@ -347,4 +352,21 @@ The angles of attack that are getting passed to my solver and the ones getting p
 
 # dcnerr = errfun.(dcndalpha_circ[3:end], mat[:,41]).*100
 # ### The mean error here is -5.93e-15%. Which is incredibly small. So I can safely assume that this is not wrong... at all. 
+
+
+
+Cn = loads[:,1]
+Cc = loads[:,2]
+Cd0 = af.cd(af.alpha0)
+Cm = loads[:,5]
+
+loadsplt = plot(xaxis="time (s)", yaxis="Cn", right_margin=20mm, leg=:outerright)
+plot!(tvec, Cn, lab=L"DSM $C_n$")
+plot!(tvec, Cc, lab=L"C_t") 
+plot!(tvec[3:end], Cm[3:end], lab=L"C_m") 
+plot!(mat[:,2,idx], mat[:,40,idx], lab=L"OpenFAST $C_n$", linestyle=:dash)
+plot!(mat[:,2,idx], mat[:,41,idx], lab=L"C_t", linestyle=:dash)
+plot!(mat[:,2,idx], mat[:,42,idx], lab=L"C_m", linestyle=:dash)
+display(loadsplt)
+
 nothing
