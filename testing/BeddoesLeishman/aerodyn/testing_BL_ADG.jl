@@ -40,6 +40,7 @@ c = 3.542
 idx = 1
 
 # du21_a17 = of.read_airfoilinput("../../../data/DU21_A17.dat")
+
 du21_a17 = of.read_airfoilinput("../../../data/airfoils/DU40_A17.dat")
 
 dcndalpha = du21_a17.c_nalpha

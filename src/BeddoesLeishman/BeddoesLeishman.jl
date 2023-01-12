@@ -48,6 +48,7 @@ function (model::BeddoesLeishman)(x, p, t, dt)
 
         elseif model.version==3
             # @warn("AeroDyn Beddoe-Leishman with Gonzalez's modifications not prepared for use yet.")
+
             nst = numberofstates_total(model)
             ns = numberofstates(model)
             np = numberofparams(model)
@@ -60,6 +61,7 @@ function (model::BeddoesLeishman)(x, p, t, dt)
                 xs = view(x, ns*(i-1)+1:ns*i)
 
                 idx = ns*(i-1)+1:ns*i
+
                 newstates[idx] = update_states_ADG(model, xs, c, a, U, dt, aoa, dcndalpha, alpha0, A1, A2, A5, b1, b2, b5, Tf0, Tv0, Tp, Tvl, Tsh, Cn1, zeta, i)
             end
             return newstates
@@ -118,6 +120,7 @@ function numberofloads(dsmodel::BeddoesLeishman) #TODO: This probably need to be
 end
 
 function numberofparams(dsmodel::BeddoesLeishman) #TODO: This probably need to be augmented to check if the model is a functional, an iterative, or an indicial.
+
     if dsmodel.version==1
         @warn("The orginal Beddoes-Leishman model is not yet prepared.")
         return 0

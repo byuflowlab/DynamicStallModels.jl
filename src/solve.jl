@@ -11,6 +11,7 @@ function solve_indicial(dsmodel::DSModel, cvec, tvec, Uvec, aoavec; a = 343.0, v
     nt = length(tvec)
 
     ### Initialize the states
+
     ns = numberofstates_total(dsmodel)
     states = Array{eltype(cvec), 2}(undef, nt, ns)
     nl = numberofloads_total(dsmodel)

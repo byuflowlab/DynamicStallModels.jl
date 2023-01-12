@@ -63,6 +63,7 @@ function dirac(x; w=0.1)
 end
 
 
+
 export Linear #Todo: Add to FLOWMath. 
 
 struct Linear
@@ -104,5 +105,4 @@ function (interp::Linear)(x)
 
     return top/bot
 end
-
 
