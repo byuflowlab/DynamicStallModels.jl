@@ -1,4 +1,14 @@
+function numberofstates_total(dsmodel::DSModel)
+    return dsmodel.n*numberofstates(dsmodel)
+end
 
+function numberofparams_total(dsmodel::DSModel)
+    return dsmodel.n*numberofparams(dsmodel)
+end
+
+function numberofloads_total(dsmodel::DSModel)
+    return dsmodel.n*numberofloads(dsmodel)
+end
 
 function nearestto(xvec, x) 
     mins = abs.(xvec.-x)
@@ -51,3 +61,48 @@ function dirac(x; w=0.1)
     L = w/2
     return L/(pi*(x^2 + L^2))
 end
+
+
+
+export Linear #Todo: Add to FLOWMath. 
+
+struct Linear
+    x
+    y
+
+    function Linear(x,y)
+        for i in eachindex(x)[2:end-1]
+            if !(x[i-1]<x[i]<x[i+1])
+                error("Linear(): x vector must be in non-repeating ascending order.")
+            end
+        end
+        
+        new(x,y)
+    end
+end
+
+
+
+function (interp::Linear)(x)
+    if x<interp.x[1]
+        @warn("Linear(): Outside of linear interpolation domain.")
+        return interp.y[1]
+    elseif x>interp.x[end]
+        @warn("Linear(): Outside of linear interpolation domain.")
+        return interp.y[end]
+    end
+
+    idx = findfirst(i -> x<i, interp.x)
+
+
+    x0 = interp.x[idx-1]
+    x1 = interp.x[idx]
+    y0 = interp.y[idx-1]
+    y1 = interp.y[idx]
+
+    top = y0*(x1-x) + y1*(x-x0)
+    bot = x1-x0
+
+    return top/bot
+end
+

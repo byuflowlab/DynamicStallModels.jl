@@ -92,7 +92,7 @@ tvec = tspan[1]:dt:4.9
         @test isapprox(mat[1,1,i], i)
 
         ### Prepare inputs that rely on the package. 
-        af = make_dsairfoil(afs[i])
+        af = make_dsairfoil(afs[i]; interp=Linear)
         airfoils = Array{Airfoil, 1}(undef, 1) #TODO: I should probably change the type requirement. 
         airfoils[1] = af
 
@@ -178,18 +178,20 @@ tvec = tspan[1]:dt:4.9
         @test Nnc_q_rms <= 1e-5
         @test Nnc_aq_rms <= 1e-5
 
-        @test fp_rms <= 1e-2
-        @test fpp_rms <= 1e-2
+        @test fp_rms <= 0.01
+        @test fpp_rms <= 0.01
         @test fpc_rms <= 0.05
         @test fppc_rms <= 0.05
 
-        @test CNFS_rms <= 1e-2
+        # @show fp_rms, fpp_rms
+
+        @test CNFS_rms <= 0.01
         @test Cvn_rms <= 1e-3
 
         # @test tau_rms <= 1e-16 #Todo: Really good for everything but the root. (Same as comment above)
 
         ### Relative percent error
-        @test mean(abs.(Cnerr)) <= 0.01
+        @test mean(abs.(Cnerr)) <= 5e-3
         @test mean(abs.(Ccerr)) <= 0.05
         @test mean(abs.(Cmerr)) <= 0.05
 
