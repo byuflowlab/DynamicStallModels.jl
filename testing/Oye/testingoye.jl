@@ -1,60 +1,76 @@
-using Plots
-using DelimitedFiles
+using DynamicStallModels, DelimitedFiles, Plots, FLOWMath, OpenFASTsr, LaTeXStrings
 
-function clinv(alpha; dcl=2*pi*1.27, alpha0=-0.048) #NOTE: I'm fudging the slope at zero lift value to match the experimental rather than calculating it
-    return dcl*(alpha-alpha0)
+dsm = DynamicStallModels
+of = OpenFASTsr
+
+path = dirname(@__FILE__)
+cd(path)
+
+c = 0.1
+
+M = 0.379
+a = 343.0
+Vrel = M*a #60
+
+# polar = readdlm("/Users/adamcardoza/Library/CloudStorage/Box-Box/research/FLOW/learning/exploring/exampledata/NACA4412.dat", '\t'; skipstart=3) 
+# af = airfoil(polar) #Todo: This constructor is broken.
+
+du21_a17 = of.read_airfoilinput("../../data/airfoils/DU40_A17.dat") 
+af = of.make_dsairfoil(du21_a17) #Todo: I think this polar might be my problem. I should try a different polar.... which means that I need to fix the constructor. :| 
+
+# af = update_airfoil(af, A=[4.0], dcndalpha=6.320368333107256, alpha0=-0.0033903071711640564)
+
+airfoils = Array{Airfoil, 1}(undef, 1)
+airfoils[1] = af
+
+
+dsmodel = Oye(Indicial(), 1, airfoils)
+
+
+tvec = range(0, 0.05, 100) #0:0.001:0.05
+Uvec = Vrel.*ones(length(tvec))
+
+function alpha(t)
+    c = 0.1
+    M = 0.379
+    a = 343.0
+    shift = 10.3
+    amp = 8.1
+    k = 0.075
+
+    v = M*a
+    omega = k*2*v/c
+
+    alf = shift + amp*sin(omega*t)
+    return alf*(pi/180)
 end
 
-function cl(alpha)
-    polar = readdlm("/Users/adamcardoza/Box/research/FLOW/learning/exampledata/NACA4412.dat", '\t'; skipstart=3)
-    clfit = Akima(polar[:,1], polar[:,2])
-    #alphan, idxn = nearestto(polar[:,1], alpha)
-    return clfit(alpha) #polar[idxn,2]
-end
+alphavec = alpha.(tvec)
 
-include("Oye.jl")
+states, loads = solve_indicial(dsmodel, [c], tvec, Uvec, alphavec)
 
-fs = 0.5 #fst #Assuming that we are starting at the static separation f, but we'll play
-c = 1
-Vrel = 15
 
-aoavec = collect(-15:0.1:15) 
-alphavec = aoavec.*(pi/180) #polar[:,1]
-clvec = cl.(alphavec)
-clinvvec = clinv.(alphavec)
-clfsvec = clfs.(alphavec)
-Clvec = Cl.(Ref(fs), alphavec, Ref(c), Ref(Vrel))
+stateplt = plot(tvec, states[:,1], leg=false, xaxis="time (s)", yaxis="f")
+# display(stateplt)
 
-# clplt = plot(aoavec, clvec, lab="Static", leg=:topleft)
-# plot!(aoavec, clinvvec, lab="Inviscid")
-# plot!(aoavec, clfsvec, lab="Fully separated")
-# plot!(aoavec, Clvec, lab="Dynamic")
-# display(clplt)
-# savefig("/Users/adamcardoza/Box/research/FLOW/bladeopt/figures/dynamicstall/oye/steadyliftcurve.png")
 
-# function alpha(t)
-#     what = 0.001 #0.062
-#     v = 60
-#     c = 1.5
-#     return 4.85*pi*cos(what*2*v*t/c)/180 + 9.0*pi/180
-# end
+cn = loads[:,1]
+cn_static = af.cn.(alphavec)
 
-function alpha(t) #Constant alpha
-    return 8*sin(t)*pi/180
-end
+cnplt = plot( xaxis="time (s)", yaxis=L"C_n", leg=:topright)
+plot!(tvec, cn, lab="DSM")
+plot!(tvec, cn_static, lab="Static")
+# display(cnplt) 
 
-function U(t)
-    return 60
-end
 
-tspan = (0.0, 300.0)
-c = 1.5
+cyclecnplt = plot(xaxis="Angle of Attack (deg)", yaxis=L"C_n", leg=:topright)
+plot!(alphavec.*(180/pi), cn, lab="DSM")
+plot!(alphavec.*(180/pi), cn_static, lab="Static")
+display(cyclecnplt) 
 
-Cld, tvec = Oye(tspan, alpha, U, c)
-tvec2 = collect(0:15:300)
-clst = cl.(alpha.(tvec2))
+#=
+I think that I have the models matching, the difference is that I'm using Cn in this model and Cl in the other. 
+=#
 
-cldplt = plot(tvec, Cld, lab="dynamic") #, ylims=[0.8, 1.6]
-scatter!(tvec2, clst, lab="static", markershape=:circle)
-display(cldplt)
-# savefig("/Users/adamcardoza/Box/research/FLOW/bladeopt/figures/dynamicstall/oye/Cld_steadyaoa.png")
+
+nothing
