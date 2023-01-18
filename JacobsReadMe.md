@@ -11,3 +11,6 @@ JacobsReadMe.md
 **Plan:**
 I will run verification tests and learn while in [2.](C:\Users\child\Documents\Projects\FlowLab_DynamicStall\DynamicStallModels.jl), and then once I am ready to make actual changes I will change to [1.](C:\Users\child\.julia\dev\DynamicStallModels) and change the actual package, pushing and pulling from there. 
 *Note: The changes that matter most (in the actual package) are under the [src]("C:\Users\child\.julia\dev\DynamicStallModels\src") folder, but as mentioned above, that should not happen until I am ready.*
+
+
+*git test1*
