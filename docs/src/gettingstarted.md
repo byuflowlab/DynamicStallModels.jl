@@ -6,7 +6,7 @@ Functional implementations create a struct that returns the state rates. This al
 
 Iterative implementations create a struct that returns the state rates as well, however they are not as easily solved by DifferentialEquations.jl. The input parameters are now all constant values, including the freestream velocity and angle of attack. This implementation is designed to be solved iteratively, meaning that for a given set of parameters, the states are updated for a single time step. The purpose of this type of implementation is for interfacing with other packages, specifically Rotors.jl. In the future, a function will be introduced that converts functions that describe environmental inputs into parameters, and then iterates through the solution of the model. 
 
-The final implementation is an indicial formulation. Rather than providing a state space model to be solve, the model takes the environmental inputs and time step and calculates the states at the next time step. Several of the dynamic stall models included in this pakage were first developed in indicial form. 
+The final implementation is an indicial formulation. Rather than providing a state space model to be solved, the model takes the environmental inputs and time step and calculates the states at the next time step. Several of the dynamic stall models included in this package were first developed in indicial form. 
 
 
 
