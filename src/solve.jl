@@ -19,18 +19,18 @@ function solve_indicial(dsmodel::DSModel, cvec, tvec, Uvec, aoavec; a = 343.0, v
 
     # @show size(states), size(loads)
     
-    for j = 1:dsmodel.n
+    for j = 1:dsmodel.n #Loop over each airfoil, n is the number of airfoils
         c = cvec[j]
         airfoil = dsmodel.airfoils[j]
 
         idxs = ns*(j-1)+1:j*ns 
         # @show idxs
 
-        avec, bvec, p = initialize(dsmodel, Uvec, aoavec, tvec, airfoil, c, a)
+        avec, bvec, p = initialize(dsmodel, Uvec, aoavec, tvec, airfoil, c, a) #! as of Jan 20, 2023 this needs to be updated
 
         # @show avec, bvec, p
 
-        states[1,idxs] = avec
+        states[1,idxs] = avec #! as of Jan 20, 2023 this needs to be updated
         loads[1,:] = bvec
 
         # @show size(states), size(loads)
@@ -43,17 +43,17 @@ function solve_indicial(dsmodel::DSModel, cvec, tvec, Uvec, aoavec; a = 343.0, v
             # p[24] = aoa = aoavec[i+1]
             update_environment!(dsmodel, p, Uvec[i+1], aoavec[i+1])
 
-            if verbose
+            if verbose #telling it to be verbose will show what time step it is on
                 @show t
             end
             
             if isa(dsmodel, BeddoesLeishman)
                 if dsmodel.version==3
                     newstates = view(states, i+1, idxs)
-                    dsmodel(states[i,idxs], newstates, p, t, dt)
+                    dsmodel(states[i,idxs], newstates, p, t, dt) #in place function, this doesn't have to allocate memory every time step
                 end
             else
-                states[i+1, idxs] = dsmodel(states[i,idxs], p, t, dt)
+                states[i+1, idxs] = dsmodel(states[i,idxs], p, t, dt) #solves for the new states, allocates memory every time step
             end
 
             loads[i+1,:] = getloads(dsmodel, states[i,idxs], p, airfoil)

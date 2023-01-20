@@ -1,15 +1,15 @@
 using DynamicStallModels, DelimitedFiles, Plots, FLOWMath, OpenFASTsr, LaTeXStrings
 
-dsm = DynamicStallModels
+dsm = DynamicStallModels #renames the package to make using it easier
 of = OpenFASTsr
 
-path = dirname(@__FILE__)
-cd(path)
+path = dirname(@__FILE__) #gets the path of the current file
+cd(path) #changes the working directory to the path of the current file
 
-c = 0.1
+c = 0.1 #chord 
 
-M = 0.379
-a = 343.0
+M = 0.379   #Mach number
+a = 343.0   #speed of sound
 Vrel = M*a #60
 
 # polar = readdlm("/Users/adamcardoza/Library/CloudStorage/Box-Box/research/FLOW/learning/exploring/exampledata/NACA4412.dat", '\t'; skipstart=3) 
@@ -24,11 +24,11 @@ airfoils = Array{Airfoil, 1}(undef, 1)
 airfoils[1] = af
 
 
-dsmodel = Oye(Indicial(), 1, airfoils)
+dsmodel = Oye(Indicial(), 1, airfoils) #This makes the dsmodel Oye struct, it is a method on a struct and hasn't run the function yet
 
 
-tvec = range(0, 0.05, 100) #0:0.001:0.05
-Uvec = Vrel.*ones(length(tvec))
+tvec = range(0, 0.05, 100) #0:0.001:0.05 #time vector, these will be specific to the experimental data I am verifying against
+Uvec = Vrel.*ones(length(tvec)) #velocity vector across time
 
 function alpha(t)
     c = 0.1
@@ -45,9 +45,9 @@ function alpha(t)
     return alf*(pi/180)
 end
 
-alphavec = alpha.(tvec)
+alphavec = alpha.(tvec) #angle of attack vector across time, ie angle of attack at every time step
 
-states, loads = solve_indicial(dsmodel, [c], tvec, Uvec, alphavec)
+states, loads = solve_indicial(dsmodel, [c], tvec, Uvec, alphavec) #solves the indicial model-> found under src/solve.jl
 
 
 stateplt = plot(tvec, states[:,1], leg=false, xaxis="time (s)", yaxis="f")
