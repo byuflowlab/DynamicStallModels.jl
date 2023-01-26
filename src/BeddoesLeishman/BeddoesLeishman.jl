@@ -21,7 +21,7 @@ The Beddoes-Leishman model struct. It stores airfoil data for every section to b
 struct BeddoesLeishman{TI} <: DSModel
     detype::DEType 
     n::TI #Number of airfoils simulated
-    airfoils::Array{Airfoil,1}
+    airfoils::Array{Airfoil,1} #Todo: This is inconvinient typing.
     version::TI #Which version of the indicial implementation.  
 end
 

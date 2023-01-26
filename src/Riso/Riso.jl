@@ -46,7 +46,7 @@ A convenience. constructor for the Risø model.
 - airfoils - A vector of Airfoil structs, one corresponding to each section to be simulated. 
 - detype - The DEType of the model. Defaults to Iterative(). 
 """
-function riso(airfoils; detype::DEType=Iterative()) #::Array{Airfoil,1} #TODO: I'm not sure how to type this. 
+function Riso(airfoils; detype::DEType=Iterative()) #::Array{Airfoil,1} #TODO: I'm not sure how to type this. 
     n = length(airfoils)
     return Riso(detype, n, airfoils)
 end
