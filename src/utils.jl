@@ -90,6 +90,12 @@ function (interp::Linear)(x)
     elseif x>interp.x[end]
         @warn("Linear(): Outside of linear interpolation domain.")
         return interp.y[end]
+
+    elseif x==interp.x[1]
+        return interp.y[1]
+    elseif x==interp.x[end]
+        return interp.y[end]
+
     end
 
     idx = findfirst(i -> x<i, interp.x)
