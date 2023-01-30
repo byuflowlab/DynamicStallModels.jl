@@ -14,3 +14,10 @@ I will run verification tests and learn while in [2.](C:\Users\child\Documents\P
 
 *Also note: the FlowLab_DynamicStall folder **is not** a github repo or branch etc, it is **only saved locally**. Only the DynamicStallModels.jl folder is, that means I must cd to that folder for the purposes of git, and make sure that I don't save anything locally that I don't need to.
 
+**Github Notes:**
+I have permission, but *must not* push to master and merge a pull request with master, unless explicitly cleared with Adam. If my branch is behind Master and I want to update mine I take the following steps:
+1. `git checkout master` (this switches me to the master branch)
+2. `git pull` (this updates my local master branch, this is necessary as I am operating locally and must update master before updating mine)
+3. `git checkout jacobchild` (this switches me back to my branch)
+4. `git merge master` (this merges master into my branch)
+5. `git push` (pushes my merge from local to online) 
