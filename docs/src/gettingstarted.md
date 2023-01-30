@@ -51,7 +51,8 @@ Now at this point, we'll store that information in an airfoil struct.
 ```julia
 using DynamicStallModels
 
-airfoils = [airfoil(polar; A, b, T)]
+airfoils = Array{Airfoil, 1}(undef, 1)
+airfoils[1] = airfoil(polar; A, b, T)
 ```
 
 If we had more airfoils, we would simply add them to the airfoils array. 
