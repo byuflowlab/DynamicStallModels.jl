@@ -50,7 +50,8 @@ function getloads_BLAG(dsmodel::BeddoesLeishman, states, p, airfoil)
 end
 
 function update_states_ADG(dsmodel::BeddoesLeishman, oldstates, c, a, U, deltat, aoa, dcndalpha, alpha0, A1, A2, A5, b1, b2, b5, Tf0, Tv0, Tp, Tvl, Tsh, Cn1, zeta, afidx)
-    states = zeros(32) #TODO: Consider putting a function to return this value. 
+    ns = numberofstates(dsmodel)
+    states = zeros(ns) #TODO: Consider putting a function to return this value. 
 
     update_states_ADG!(dsmodel, states, oldstates, c, a, U, deltat, aoa, dcndalpha, alpha0, A1, A2, A5, b1, b2, b5, Tf0, Tv0, Tp, Tvl, Tsh, Cn1, zeta, afidx)
 

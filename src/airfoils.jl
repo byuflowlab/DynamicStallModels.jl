@@ -30,10 +30,10 @@ struct Airfoil{TF, Tfit, Fun}
     dcldalpha::TF
     dcndalpha::TF
     alpha0::TF
-    alphasep::Array{TF,1}
-    A::Array{TF,1}
-    b::Array{TF,1}
-    T::Array{TF,1}
+    alphasep #::TFV #Todo: Figure out how to put this as a vector or an array. 
+    A #::TFV
+    b #::TFV
+    T #::TFV
     sfun::Fun
     xcp::TF
     eta::TF
@@ -153,12 +153,12 @@ A slightly more complex version of simpleairfoil. Takes a polar and numerically 
 ### Outputs
 - Airfoil
 """
-function airfoil(polar; A = [0.3, 0.7, 1.0], b = [0.14, 0.53, 5.0], T = [1.7, 3.0, 0.19], xcp=0.2, eta=1.0, zeta=0.5, sfun::Union{SeparationPoint, Function}=ADFSP(1, 1), S=zeros(4))
+function airfoil(polar; A = [0.3, 0.7, 1.0], b = [0.14, 0.53, 5.0], T = [1.7, 3.0, 0.19], xcp=0.2, eta=1.0, zeta=0.5, sfun::Union{SeparationPoint, Function}=ADFSP(1, 1), S=zeros(4)) #Todo: I think this constructor is broke. 
     #Todo: Need some sort of behavior when the provided polar is too small. 
 
-    alphavec = @view(polar[:,1])
-    clvec = @view(polar[:,2])
-    cdvec = @view(polar[:,3])
+    alphavec = polar[:,1]
+    clvec = polar[:,2]
+    cdvec = polar[:,3]
 
     cl = Akima(polar[:,1], polar[:,2])
     cd = Akima(polar[:,1], polar[:,3])
