@@ -21,3 +21,7 @@ I have permission, but *must not* push to master and merge a pull request with m
 3. `git checkout jacobchild` (this switches me back to my branch)
 4. `git merge master` (this merges master into my branch)
 5. `git push` (pushes my merge from local to online) 
+
+*further notes:*
+1. To render markdown in VSCode, do ctrl+k followed quickly by v
+2. 

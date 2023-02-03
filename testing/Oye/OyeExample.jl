@@ -37,10 +37,12 @@ Uvec = Vrel.*ones(length(tvec)) #velocity vector across time
 
 # Define the angle of attack function
 function alpha(t)
-    c = 1.5
-    shift = 15.0 #degrees, this is the estimated mean angle of attack from pg 971, fig 9, plt d
+    c = 1.5 #m
+    v = 60.0 #m/s
+    shift = 14.92 #degrees, this is the estimated mean angle of attack from pg 971, fig 9, plt d
     amp = 4.85 #degrees, amplitude of oscillation
-    omega = 0.062 #rad/s, frequency of oscillation
+    k = 0.062 #reduced frequency
+    omega = k*2*v/c #rad/s, frequency of oscillation
 
     alf = shift + amp*sin(omega*t)
     return alf*(pi/180)

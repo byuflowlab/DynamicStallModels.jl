@@ -36,7 +36,7 @@ function alpha(t)
     a = 343.0
     shift = 10.3
     amp = 8.1
-    k = 0.075
+    k = 0.075 #reduced frequency 
 
     v = M*a
     omega = k*2*v/c
