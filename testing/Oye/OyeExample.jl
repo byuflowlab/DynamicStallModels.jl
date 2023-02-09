@@ -20,12 +20,12 @@ c = 1.5 # m, chord length
 V = 60.0 #m/s, velocity 
 
 # Extract Polar data from the file
-VertolPolar = readdlm("C:/Users/child/Documents/Projects/FlowLab_DynamicStall/DynamicStallModels.jl/polars/extendedVertol_23010-1.58.dat", ',', Float64)
+VertolPolar = readdlm("C:/Users/child/Documents/Projects/FlowLab_DynamicStall/DynamicStallModels.jl/polars/extendedVertol_23010-1.58.dat", ',')
 # Read in the airfoil data 
 #Vertol = of.read_airfoilinput("../../data/airfoils/Vertol.dat") #read in the airfoil data using OpenFASTsr
 #af = of.make_dsairfoil(Vertol) #make the airfoil into a DynamicStallModels airfoil
-af = dsm.simpleairfoil(VertolPolar) #? testing this versus the dsm.airfoil
-#af = dsm.airfoil(VertolPolar)
+#af = dsm.simpleairfoil(VertolPolar) #? testing this versus the dsm.airfoil
+af = dsm.airfoil(VertolPolar; A = 7.140)
 airfoils = Array{Airfoil, 1}(undef, 1) #make an array of the type Airfoil struct
 airfoils[1] = af #put the airfoil into the array
 
@@ -33,8 +33,8 @@ airfoils[1] = af #put the airfoil into the array
 dsmodel = Oye(Indicial(), 1, airfoils) #makes the struct, says it will solve it indicially and tha there is 1 airfoil
 
 # Create time, velocity, and angle of attack vectors
-tvec = range(0, 0.05, 100) #time vector, these will be specific to the experimental data I am verifying against
-Uvec = Vrel.*ones(length(tvec)) #velocity vector across time
+tvec = range(0, 2.0, 1000) #time vector, these will be specific to the experimental data I am verifying against
+Uvec = V.*ones(length(tvec)) #velocity vector across time
 
 # Define the angle of attack function
 function alpha(t)

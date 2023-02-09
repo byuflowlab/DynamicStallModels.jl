@@ -101,9 +101,9 @@ A function that takes a simple airfoil polar to make a dynamic airfoil. The func
 
 """
 function simpleairfoil(polar)
-    alphavec = @view(polar[:,1])
-    clvec = @view(polar[:,2])
-    cdvec = @view(polar[:,3])
+    alphavec = polar[:,1] #!changed this to help types
+    clvec = polar[:,2]
+    cdvec = polar[:,3]
 
     cl = Akima(alphavec, clvec)
     cd = Akima(alphavec, cdvec)
@@ -132,6 +132,11 @@ function simpleairfoil(polar)
     xcp = 0.2
     eta = 1.0
     zeta = 0.5
+    @show typeof(cl)
+    @show typeof(cd)
+    @show typeof(cm)
+    @show typeof(cn)
+    @show typeof(cc)
     return Airfoil(polar, cl, cd, cm, cn, cc, dcldalpha, dcldalpha, alpha0, alphasep, A, b, T, sfun, xcp, eta, zeta)
 end
 
@@ -156,8 +161,7 @@ A slightly more complex version of simpleairfoil. Takes a polar and numerically 
 function airfoil(polar; A = [0.3, 0.7, 1.0], b = [0.14, 0.53, 5.0], T = [1.7, 3.0, 0.19], xcp=0.2, eta=1.0, zeta=0.5, sfun::Union{SeparationPoint, Function}=ADFSP(1, 1), S=zeros(4)) #Todo: I think this constructor is broke. 
     #Todo: Need some sort of behavior when the provided polar is too small. 
 
-    println("I got to here, line 159")
-    alphavec = polar[:,1]
+    alphavec = polar[:,1] #!changed this to help types
     clvec = polar[:,2]
     cdvec = polar[:,3]
 
@@ -178,16 +182,17 @@ function airfoil(polar; A = [0.3, 0.7, 1.0], b = [0.14, 0.53, 5.0], T = [1.7, 3.
 
     alphasep = [polar[minclidx, 1], polar[maxclidx,1]]
 
-    # @show minclidx, maxclidx
     #! The following lines were added by Jacob Child and are unverified
     #An if statement to create middlepolar from min to maxcl or max to min depending on which comes first 
     if minclidx < maxclidx
         middlepolar = polar[minclidx:maxclidx,:]
     else
-        middlepolar = polar[maxclidx:minclidx,:]
+        @warn(" minclidx > maxclidx and middlepolar is backwards!!!")
+        middlepolar = polar[maxclidx:minclidx,:] #! This is backwards
     end
     #! End of added lines by Jacob Child
 
+    # @show minclidx, maxclidx
     #! commented out and replaced with above middlepolar = polar[minclidx:maxclidx,:]
     # @show middlepolar
     _, cl0idx = nearestto(middlepolar[:,2], 0.0)
@@ -200,7 +205,7 @@ function airfoil(polar; A = [0.3, 0.7, 1.0], b = [0.14, 0.53, 5.0], T = [1.7, 3.
 
     _, dcldalpha = linear_fit(middlepolar[cl0idx:alf50idx,1], middlepolar[cl0idx:alf50idx,2]) #TODO: Create my own linear fit function so I don't have to pull in a package. #Todo: This is returning a NaN
     if isnan(dcldalpha)
-        dcldalpha=2*pi
+        dcldalpha=2*pi #flat plat slope
         @warn("dcldalpha returned NaN")
     end
 
