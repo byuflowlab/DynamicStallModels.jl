@@ -24,7 +24,8 @@ VertolPolar = readdlm("C:/Users/child/Documents/Projects/FlowLab_DynamicStall/Dy
 # Read in the airfoil data 
 #Vertol = of.read_airfoilinput("../../data/airfoils/Vertol.dat") #read in the airfoil data using OpenFASTsr
 #af = of.make_dsairfoil(Vertol) #make the airfoil into a DynamicStallModels airfoil
-af = dsm.simpleairfoil(VertolPolar)
+af = dsm.simpleairfoil(VertolPolar) #? testing this versus the dsm.airfoil
+#af = dsm.airfoil(VertolPolar)
 airfoils = Array{Airfoil, 1}(undef, 1) #make an array of the type Airfoil struct
 airfoils[1] = af #put the airfoil into the array
 

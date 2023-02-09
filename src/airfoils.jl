@@ -156,6 +156,7 @@ A slightly more complex version of simpleairfoil. Takes a polar and numerically 
 function airfoil(polar; A = [0.3, 0.7, 1.0], b = [0.14, 0.53, 5.0], T = [1.7, 3.0, 0.19], xcp=0.2, eta=1.0, zeta=0.5, sfun::Union{SeparationPoint, Function}=ADFSP(1, 1), S=zeros(4)) #Todo: I think this constructor is broke. 
     #Todo: Need some sort of behavior when the provided polar is too small. 
 
+    println("I got to here, line 159")
     alphavec = polar[:,1]
     clvec = polar[:,2]
     cdvec = polar[:,3]
@@ -178,7 +179,16 @@ function airfoil(polar; A = [0.3, 0.7, 1.0], b = [0.14, 0.53, 5.0], T = [1.7, 3.
     alphasep = [polar[minclidx, 1], polar[maxclidx,1]]
 
     # @show minclidx, maxclidx
-    middlepolar = polar[minclidx:maxclidx,:]
+    #! The following lines were added by Jacob Child and are unverified
+    #An if statement to create middlepolar from min to maxcl or max to min depending on which comes first 
+    if minclidx < maxclidx
+        middlepolar = polar[minclidx:maxclidx,:]
+    else
+        middlepolar = polar[maxclidx:minclidx,:]
+    end
+    #! End of added lines by Jacob Child
+
+    #! commented out and replaced with above middlepolar = polar[minclidx:maxclidx,:]
     # @show middlepolar
     _, cl0idx = nearestto(middlepolar[:,2], 0.0)
     alpha50 = middlepolar[end,1]*0.25
