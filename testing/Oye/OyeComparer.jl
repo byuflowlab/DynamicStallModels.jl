@@ -87,7 +87,7 @@ LarsenStatic = readdlm("C:\\Users\\child\\Documents\\Projects\\FlowLab_DynamicSt
 LarsenOyeDynUp = zeros(length(LarsenOyeDyn[:,1]), 2)
 LarsenOyeDynDown = zeros(length(LarsenOyeDyn[:,1]), 2)
 # for loop to split and extract the data 
-LarsenOyeDynUp[1,1] = LarsenOyeDyn[1,1]
+LarsenOyeDynUp[1,1] = LarsenOyeDyn[1,1] #!something doesn't work in this loop!
 for i in 2:length(LarsenOyeDyn[:,1])
     println(i)
     if LarsenOyeDyn[i,1] > LarsenOyeDyn[i-1,1] #? what is the blue warning? each index or axes?
