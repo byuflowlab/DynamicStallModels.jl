@@ -18,16 +18,18 @@ Vrel = M*a #60
 du21_a17 = of.read_airfoilinput("../../data/airfoils/DU40_A17.dat") 
 af = of.make_dsairfoil(du21_a17) #Todo: I think this polar might be my problem. I should try a different polar.... which means that I need to fix the constructor. :| 
 
-# af = update_airfoil(af, A=[4.0], dcndalpha=6.320368333107256, alpha0=-0.0033903071711640564)
+# af = update_airfoil(af, A=[4.0], dcndalpha=6.320368333107256, alpha0=-0.0033903071711640564, sfun=dsm.LSP(), alphasep=af.alphasep.*5)
+af = update_airfoil(af, A=[4.0], sfun=dsm.LSP(), alphasep=af.alphasep.*4.5)
 
 airfoils = Array{Airfoil, 1}(undef, 1)
 airfoils[1] = af
 
 
-dsmodel = Oye(Indicial(), 1, airfoils)
+dsmodel = Oye(Indicial(), 1, airfoils, 1, 2)
+#Note: alphasep is much higher for Faber's implemenation of the dsmodel. -> It might need more tuning... but it's something. 
 
 
-tvec = range(0, 0.05, 100) #0:0.001:0.05
+tvec = range(0, 0.05, 1000) #0:0.001:0.05
 Uvec = Vrel.*ones(length(tvec))
 
 function alpha(t)
@@ -55,7 +57,11 @@ stateplt = plot(tvec, states[:,1], leg=false, xaxis="time (s)", yaxis="f")
 
 
 cn = loads[:,1]
-cn_static = af.cn.(alphavec)
+if dsmodel.cflag == 2
+    cn_static = af.cn.(alphavec)
+else
+    cn_static = af.cl.(alphavec)
+end
 
 cnplt = plot( xaxis="time (s)", yaxis=L"C_n", leg=:topright)
 plot!(tvec, cn, lab="DSM")
@@ -63,9 +69,10 @@ plot!(tvec, cn_static, lab="Static")
 # display(cnplt) 
 
 
-cyclecnplt = plot(xaxis="Angle of Attack (deg)", yaxis=L"C_n", leg=:topright)
+cyclecnplt = plot(xaxis="Angle of Attack (deg)", yaxis=L"C_n", leg=:bottomright)
 plot!(alphavec.*(180/pi), cn, lab="DSM")
 plot!(alphavec.*(180/pi), cn_static, lab="Static")
+# vline!([af.alphasep[2]*(180/pi)], lab=L"\alpha_s")
 display(cyclecnplt) 
 
 #=

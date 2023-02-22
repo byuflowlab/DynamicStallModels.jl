@@ -107,6 +107,12 @@ Hansen's separation point function.
 struct HSP <: SeparationPoint
 end
 
+"""
+    LSP()
+Larsen's separation point function from his 2007 paper (and repeated in Oye from Faber 2018).
+"""
+struct LSP <: SeparationPoint
+end
 
 
 
@@ -601,6 +607,30 @@ end
 separationpoint(sfun::Function, airfoil::Airfoil, alpha) = sfun(alpha)
 
 #=
+Larsen's separation point function from his 2007 paper. 
+=#
+function separationpoint(sfun::LSP, airfoil::Airfoil, alpha)
+    if alpha>airfoil.alphasep[2]
+        return 0.0
+    else
+        alpha0 = airfoil.alpha0
+        cn = airfoil.cl(alpha) #Todo: I need to make this be able to switch between cl and cn. 
+        cn_sep = airfoil.cl(airfoil.alphasep[2])
+        cn_inv = airfoil.dcldalpha*(alpha-alpha0)
+
+        cn_fs = cl_fullysep_faber(cn, cn_sep, airfoil.dcldalpha, alpha, alpha0, airfoil.alphasep[2])
+        fst = (cn - cn_fs)/(cn_inv - cn_fs)
+        if fst>1
+            return 1.0
+        elseif fst<0
+            return 0.0
+        else
+            return fst
+        end
+    end
+end
+
+#=
 Gonzalez modification of the separation point function, as found in OpenFAST v3.3.0
 =#
 function separationpoint(sfun::ADGSP, airfoil::Airfoil, alpha, dcndalpha_circ)
@@ -629,6 +659,9 @@ function separationpoint(sfun::ADGSP, airfoil::Airfoil, alpha, dcndalpha_circ)
 
     return fst
 end
+
+
+
 
 
 

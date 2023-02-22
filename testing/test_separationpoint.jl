@@ -23,7 +23,7 @@ c = 1.0
 du21_a17 = of.read_airfoilinput("../data/DU21_A17.dat")
 
 
-af, constants = of.make_dsairfoil(du21_a17)
+af = of.make_dsairfoil(du21_a17)
 
 
 # af = update_airfoil(af; dcldalpha=af.dcldalpha*1.2) 
@@ -60,15 +60,16 @@ sp = dsm.SP(alpha, cnvec, ccvec, af.alpha0, af.alphasep, af.dcldalpha, af.eta)
 f_present = dsm.separationpoint.(Ref(sp), Ref(af), alpha)
 fc_present = dsm.chordwiseseparationpoint.(Ref(sp), Ref(af), alpha)
 
+# S = [du21_a17.s1, du21_a17.s2, du21_a17.s3, du21_a17.s4]
+# ado = dsm.BLSP(S) 
+# f_ADO = dsm.separationpoint.(Ref(ado), Ref(af), alpha)  
+
+
+# ffitvec_ADO = dsm.separationpoint.(Ref(af.sfun), Ref(af), alpha)
+# fcfitvec_ADO = dsm.chordwiseseparationpoint.(Ref(af.sfun), Ref(af), alpha)
+
 S = [du21_a17.s1, du21_a17.s2, du21_a17.s3, du21_a17.s4]
-ado = dsm.ADSP(S) 
-f_ADO = dsm.separationpoint.(Ref(ado), Ref(af), alpha)  
-
-
-ffitvec_ADO = dsm.separationpoint.(Ref(af.sfun), Ref(af), alpha)
-fcfitvec_ADO = dsm.chordwiseseparationpoint.(Ref(af.sfun), Ref(af), alpha)
-
-BLsep = dsm.BLSP([0.01, 0.03])#S coefficients from NACA 0012
+BLsep = dsm.BLSP(S)#S coefficients from NACA 0012
 f_BL = dsm.separationpoint.(Ref(BLsep), Ref(af), alpha) 
 
 risosep = dsm.RSP()
@@ -79,27 +80,30 @@ alphasep_riso = sort([dsm.find_seperation_alpha(af.cl, af.dcldalpha, af.alpha0).
 af_riso = update_airfoil(af; alphasep=alphasep_riso)
 f_riso_risosep = dsm.separationpoint.(Ref(risosep), Ref(af_riso), alpha) 
 
-
-
+larsensep = dsm.LSP()
+f_larsen = dsm.separationpoint.(Ref(larsensep), Ref(af), alpha)
 
 
 f1plt = plot( xaxis="Angle of Attack (deg)", yaxis="Separation Point f", leg=:topleft, xlims=(-180,10))
-plot!(aoavec, ffitvec_ADO, lab="fit ADO")
+# plot!(aoavec, ffitvec_ADO, lab="fit ADO")
 plot!(aoavec, f_present, lab="fit present")
-plot!(aoavec, f_ADO, lab="f ADO")
-plot!(aoavec, f_BL, lab="f BL")
-plot!(aoavec, f_riso, lab="f_riso, ADO alphasep", markershape=:cross)
-plot!(aoavec, f_riso_risosep, lab="f_riso, Riso alphasep", markershape=:x)
+# plot!(aoavec, f_ADO, lab="f ADO")
+plot!(aoavec, f_BL, lab="BL")
+plot!(aoavec, f_riso, lab="Risø, ADO alphasep", markershape=:cross)
+plot!(aoavec, f_riso_risosep, lab="Risø, Riso alphasep", markershape=:x)
+plot!(aoavec, f_larsen, lab="Larsen")
 vline!([af.alphasep].*(180/pi), lab="Alpha sep")
 
 f2plt = plot( xaxis="Angle of Attack (deg)", yaxis="Separation Point f", leg=false, xlims=(-20,180))
-plot!(aoavec, ffitvec_ADO, lab="fit ADO")
-plot!(aoavec, f_present, lab="fit present")
-plot!(aoavec, f_ADO, lab="f ADO")
-plot!(aoavec, f_BL, lab="f BL")
+# plot!(aoavec, ffitvec_ADO, lab="fit ADO")
+# plot!(aoavec, f_present, lab="fit present")
+# plot!(aoavec, f_ADO, lab="f ADO")
+# plot!(aoavec, f_BL, lab="f BL")
 # plot!(aoavec, f_riso, lab="f_riso, ADO alphasep",markershape=:cross)
 # plot!(aoavec, f_riso_risosep, lab="f_riso, Riso alphasep", markershape=:x)
+plot!(aoavec, f_larsen, lab="Larsen")
 vline!([af.alphasep].*(180/pi), lab="Alpha sep")
+vline!([af.alpha0*180/pi], lab="alpha0")
 
 fplt = plot(f1plt, f2plt, layout=(2,1))
 display(fplt)
@@ -120,7 +124,7 @@ I think that I realized why fit ADO and fit present are different. The differenc
 =#
 
 f3plt = plot( xaxis="Angle of Attack (deg)", yaxis=L"f'_c", leg=:topleft, xlims=(-180,10))
-plot!(aoavec, fcfitvec_ADO, lab="fit ADO")
+# plot!(aoavec, fcfitvec_ADO, lab="fit ADO")
 plot!(aoavec, fc_present, lab="fit present")
 # plot!(aoavec, f_ADO, lab="f ADO")
 # plot!(aoavec, f_BL, lab="f BL")
@@ -129,7 +133,7 @@ plot!(aoavec, fc_present, lab="fit present")
 vline!([af.alphasep].*(180/pi), lab="Alpha sep")
 
 f4plt = plot( xaxis="Angle of Attack (deg)", yaxis=L"f'_c", leg=false, xlims=(-20,180))
-plot!(aoavec, fcfitvec_ADO, lab="fit ADO")
+# plot!(aoavec, fcfitvec_ADO, lab="fit ADO")
 plot!(aoavec, fc_present, lab="fit present")
 # plot!(aoavec, f_ADO, lab="f ADO")
 # plot!(aoavec, f_BL, lab="f BL")
@@ -138,7 +142,7 @@ plot!(aoavec, fc_present, lab="fit present")
 vline!([af.alphasep].*(180/pi), lab="Alpha sep")
 
 fcplt = plot(f3plt, f4plt, layout=(2,1))
-display(fcplt)
+# display(fcplt)
 
 #=
  I was redefining dcndalpha before after I initiated the fit function for the ADO, so my fit was different. If I don't do that, then the chordwise separation point functions match (for now). 
