@@ -6,40 +6,39 @@ of = OpenFASTsr
 path = dirname(@__FILE__)
 cd(path)
 
-c = 0.1
+c = 0.55
 
-M = 0.379
+M = 0.0791
 a = 343.0
 Vrel = M*a #60
 
 # polar = readdlm("/Users/adamcardoza/Library/CloudStorage/Box-Box/research/FLOW/learning/exploring/exampledata/NACA4412.dat", '\t'; skipstart=3) 
 # af = airfoil(polar) #Todo: This constructor is broken.
 
-du21_a17 = of.read_airfoilinput("../../data/airfoils/DU40_A17.dat") 
-af = of.make_dsairfoil(du21_a17) #Todo: I think this polar might be my problem. I should try a different polar.... which means that I need to fix the constructor. :| 
-
+#du21_a17 = of.read_airfoilinput("../../data/airfoils/DU40_A17.dat") 
+#af = of.make_dsairfoil(du21_a17) #Todo: I think this polar might be my problem. I should try a different polar.... which means that I need to fix the constructor. :| 
 
 # af = update_airfoil(af, A=[4.0], dcndalpha=6.320368333107256, alpha0=-0.0033903071711640564)
+
+af = airfoil(polar_0015; A=[12.3324])
 
 airfoils = Array{Airfoil, 1}(undef, 1)
 airfoils[1] = af
 
 
-
-
 dsmodel = Oye(Indicial(), 1, airfoils)
 
 
-tvec = range(0, 0.05, 100) #0:0.001:0.05
+tvec = range(0, 1.5, 1000) #0:0.001:0.05
 Uvec = Vrel.*ones(length(tvec))
 
 function alpha(t)
-    c = 0.1
-    M = 0.379
+    c = 0.55
+    M = 0.0791
     a = 343.0
-    shift = 10.3
-    amp = 8.1
-    k = 0.075
+    shift = 10.0
+    amp = 10.0
+    k = 0.051
 
     v = M*a
     omega = k*2*v/c
