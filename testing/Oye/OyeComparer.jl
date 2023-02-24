@@ -27,7 +27,7 @@ VertolPolar = readdlm("C:/Users/child/Documents/Projects/FlowLab_DynamicStall/Dy
 #Vertol = of.read_airfoilinput("../../data/airfoils/Vertol.dat") #read in the airfoil data using OpenFASTsr
 #af = of.make_dsairfoil(Vertol) #make the airfoil into a DynamicStallModels airfoil
 #af = dsm.simpleairfoil(VertolPolar) #? testing this versus the dsm.airfoil
-af = dsm.airfoil(VertolPolar; A = 7.140)
+af = dsm.airfoil(VertolPolar; A = 8.0) #A= 7.14
 airfoils = Array{Airfoil, 1}(undef, 1) #make an array of the type Airfoil struct
 airfoils[1] = af #put the airfoil into the array
 
@@ -44,7 +44,7 @@ function alpha(t)
     v = 60.0 #m/s
     shift = 14.92 #degrees, this is the estimated mean angle of attack from pg 971, fig 9, plt d
     amp = 4.85 #degrees, amplitude of oscillation
-    k = 0.062 #reduced frequency
+    k = .062 #0.062 #reduced frequency
     omega = k*2*v/c #rad/s, frequency of oscillation
 
     alf = shift + amp*sin(omega*t)
@@ -77,24 +77,46 @@ cyclecnplt = plot(xaxis="Angle of Attack (deg)", yaxis=L"C_n", leg=:topright)
 #display(cyclecnplt)
 
 # Now we will compare the results to the Larsen Oye model
+#I am going to use a bunch of vectors rather than matrices as Julia has good vector functions
 # Import the data #! this is hardcoded with my info for now!
 LarsenOyeDyn = readdlm("C:\\Users\\child\\Documents\\Projects\\FlowLab_DynamicStall\\DynamicStallModels.jl\\data\\Larsen2007\\Oye\\WPDLarsenFig9dDataTrimmed.csv", ',') #dynamic oye data
 LarsenStatic = readdlm("C:\\Users\\child\\Documents\\Projects\\FlowLab_DynamicStall\\DynamicStallModels.jl\\data\\Larsen2007\\Oye\\WPDLarsenFig9DataStatic.csv", ',') #static data
+LarsenOyeDynDeg = vec(LarsenOyeDyn[:,1]) #angle of attack in degrees
+LarsenOyeDynCn = LarsenOyeDyn[:,2] #normal force coefficient
+LarsenStaticDeg = LarsenStatic[:,1] #angle of attack in degrees
+LarsenStaticCn = LarsenStatic[:,2] #normal force coefficient
 #TODO: extract (web plot digitizer) larsen experimental data LarsenOyeExp = readdlm("C:\\Users\\child\\Documents\\Projects\\FlowLab_DynamicStall\\DynamicStallModels.jl\\data\\Larsen2007\\Oye\\WPDLarsenFig9DataExp.csv", ',')
 
 #Split the dynamic data into the upstroke (while the angle is increasing) and downstroke (while the angle is decreasing)
 #println("length of LarsenOyeDyn: ", length(LarsenOyeDyn))
-LarsenOyeDynUp = zeros(length(LarsenOyeDyn[:,1]), 2)
-LarsenOyeDynDown = zeros(length(LarsenOyeDyn[:,1]), 2)
+LarsenOyeDynUpDeg = vec(zeros(length(LarsenOyeDyn[:,1]), 1))
+LarsenOyeDynUpCn = vec(zeros(length(LarsenOyeDyn[:,1]), 1))
+LarsenOyeDynDownDeg = vec(zeros(length(LarsenOyeDyn[:,1]), 1))
+LarsenOyeDynDownCn = vec(zeros(length(LarsenOyeDyn[:,1]), 1))
 # for loop to split and extract the data 
-LarsenOyeDynUp[1,1] = LarsenOyeDyn[1,1] #!something doesn't work in this loop!
-for i in 2:length(LarsenOyeDyn[:,1])
-    println(i)
-    if LarsenOyeDyn[i,1] > LarsenOyeDyn[i-1,1] #? what is the blue warning? each index or axes?
-        LarsenOyeDynUp[i,1] = LarsenOyeDyn[i,1]
-        LarsenOyeDynUp[i,2] = LarsenOyeDyn[i,2]
-    else
-        LarsenOyeDynDown[i,1] = LarsenOyeDyn[i,1]
-        LarsenOyeDynDown[i,2] = LarsenOyeDyn[i,2]
+LarsenOyeDynUpDeg[1] = LarsenOyeDynDeg[1] #!something doesn't work in this loop!
+LarsenOyeDynUpCn[1] = LarsenOyeDynCn[1]
+for i in 2:length(LarsenOyeDynDeg)
+    #println(i)
+    if LarsenOyeDynDeg[i] > LarsenOyeDynDeg[i-1] #? what is the blue warning? each index or axes?
+        LarsenOyeDynUpDeg[i] = LarsenOyeDyn[i]
+        LarsenOyeDynUpCn[i] = LarsenOyeDynCn[i]
+        #println("if statement ", LarsenOyeDynUp)
+    elseif LarsenOyeDyn[i] < LarsenOyeDyn[i-1]
+        LarsenOyeDynDownDeg[i] = LarsenOyeDynDeg[i]
+        LarsenOyeDynDownCn[i] = LarsenOyeDynCn[i]
+        #println("elseif ", LarsenOyeDynDown)
+    else 
+        #println("I am here")
     end
 end
+#Clean the zeros from the vectors
+deleteat!(LarsenOyeDynUpDeg, findall(x->x==0, LarsenOyeDynUpDeg))
+deleteat!(LarsenOyeDynUpCn, findall(x->x==0, LarsenOyeDynUpCn))
+deleteat!(LarsenOyeDynDownDeg, findall(x->x==0, LarsenOyeDynDownDeg))
+deleteat!(LarsenOyeDynDownCn, findall(x->x==0, LarsenOyeDynDownCn))
+
+#plot to check
+scatter(alphavec*180/pi, cn, label = "DSM")
+scatter!(LarsenOyeDynUpDeg, LarsenOyeDynUpCn, label = "Larsen Downstroke")
+scatter!(LarsenOyeDynDownDeg, LarsenOyeDynDownCn, label = "Larsen Upstroke", legend=:topleft)
