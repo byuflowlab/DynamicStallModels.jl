@@ -256,7 +256,7 @@ function cl_fullysep_faber(cl, cl_sep, dcldalpha, alpha, alpha0, alpha_sep)
         # end
 
         if t0>10
-            @show alpha, alpha0, alpha_sep
+            #@show alpha, alpha0, alpha_sep
         end
 
         return clfs

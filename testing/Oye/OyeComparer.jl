@@ -32,7 +32,7 @@ airfoils = Array{Airfoil, 1}(undef, 1) #make an array of the type Airfoil struct
 airfoils[1] = af #put the airfoil into the array
 
 # Make the Oye model struct
-dsmodel = Oye(Indicial(), 1, airfoils) #makes the struct, says it will solve it indicially and tha there is 1 airfoil
+dsmodel = Oye(Indicial(), 1, airfoils,2,2) #makes the struct, says it will solve it indicially and tha there is 1 airfoil
 
 # Create time, velocity, and angle of attack vectors
 tvec = range(0, 2.0, 1000) #time vector, these will be specific to the experimental data I am verifying against
