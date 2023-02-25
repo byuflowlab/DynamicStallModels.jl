@@ -5,7 +5,7 @@ All values are taken from the Larsen paper
 =#
 
 # Specify what packages we will need to use
-using DynamicStallModels, DelimitedFiles, Plots, FLOWMath, OpenFASTsr, LaTeXStrings
+using Revise, DynamicStallModels, DelimitedFiles, Plots, FLOWMath, OpenFASTsr, LaTeXStrings
 
 #rename packages for convenience
 dsm = DynamicStallModels
