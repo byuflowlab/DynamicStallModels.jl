@@ -3,6 +3,7 @@
 This is is a walk through example of how to use the Oye model, using the Vertol 23010-1.58 airfoil as an example.
 All values are taken from the Larsen paper
 =#
+#! this is outdated as of Feb 25, 2023, I'm currently working on OyeComparer.jl
 
 # Specify what packages we will need to use
 using Revise, DynamicStallModels, DelimitedFiles, Plots, FLOWMath, OpenFASTsr, LaTeXStrings
