@@ -17,4 +17,45 @@ Searches for a minimum (or maximum) cl value from the polar and returns the inde
 ```Julia
 alphasep = [polar[minclidx, 1], polar[maxclidx,1]]
 ```  
-Puts the alpha values between the min and max cl in a vector together
+Puts the minimum alpha value and the maximum alpha value in a vector. The alpha values appear to still be in radians  
+
+```Julia
+middlepolar = polar[minclidx:maxclidx,:]
+```  
+This creates a smaller polar just between our min and max cl values, and contains both the alpha and cl values. *Note: Issues were happening here as for the vertol polar the minclidx is after the maxclidx which causes problems, so maybe it is the findmin and findmax functions/lines that we need to fix.*  
+
+```Julia
+_, cl0idx = nearestto(middlepolar[:,2], 0.0)
+```  
+This calls the nearestto function and tries to find the Cl value in the smaller middle polar (between min and max Cl) closest to 0.0. The nearestto function subtracts the value we are looking for from the polar, takes the absolute value and then finds the minimum (both value and index) in the new vector. It takes the index value and uses that to find the minimum Cl in the original middle polar, the function returns that value and index (for the middlepolar).  
+
+```Julia
+alpha50 = middlepolar[end,1]*0.25
+```  
+This finds the alpha value at the end of the middle polar (so Clmax) and multiplies it by .25  
+
+```Julia
+_, alf50idx = nearestto(middlepolar[:,1], alpha50)
+```  
+This uses the nearestto function discussed above to find the index of the alpha value that is closest to alpha50, or the alpha value that is 1/4 of the Cl max alpha  
+
+```Julia
+    _, dcldalpha = linear_fit(middlepolar[cl0idx:alf50idx,1], middlepolar[cl0idx:alf50idx,2])
+```  
+This pulls the alpha and Cl values in from the minimum Cl alpha (in middle polar) up to alpha50 (1/4 of the Cl max alpha). The linear fit function then fits a line through the set of points, and returns the slope and y-intercept, but just the slope is saved as dclalpha  
+
+```Julia
+if isnan(dcldalpha)
+    dcldalpha=2*pi #flat plate slope
+    @warn("dcldalpha returned NaN")
+end
+```  
+This sets the dcldalpha (or slope) to 2*pi, the standard flat plate slope if something goes wrong with the linear_fit, *which is happening*  
+
+```Julia
+sfun = ADSP(alphavec, cnvec, ccvec, alpha0, alphasep, dcldalpha, eta)
+```  
+The if statement checks if sfun is of the ADSP type, and then runs the line given above. This...  
+
+- [ ] Write a test file like beddoesleishmanADG_tests.jl for the seperationpoint functions
+  - [ ] take a look at test_seperationpoint.jl

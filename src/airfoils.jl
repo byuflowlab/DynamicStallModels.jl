@@ -277,7 +277,7 @@ function airfoil(polar; A = [0.3, 0.7, 1.0], b = [0.14, 0.53, 5.0], T = [1.7, 3.
 
     _, dcldalpha = linear_fit(middlepolar[cl0idx:alf50idx,1], middlepolar[cl0idx:alf50idx,2]) #TODO: Create my own linear fit function so I don't have to pull in a package. #Todo: This is returning a NaN
     if isnan(dcldalpha)
-        dcldalpha=2*pi #flat plat slope
+        dcldalpha=2*pi #flat plate slope
         @warn("dcldalpha returned NaN")
     end
 
