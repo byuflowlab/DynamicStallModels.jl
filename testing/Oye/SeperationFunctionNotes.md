@@ -57,5 +57,6 @@ sfun = ADSP(alphavec, cnvec, ccvec, alpha0, alphasep, dcldalpha, eta)
 ```  
 The if statement checks if sfun is of the ADSP type, and then runs the line given above. This...  
 
+- [ ] linear_fit doesn't actually return anything, line 278
 - [ ] Write a test file like beddoesleishmanADG_tests.jl for the seperationpoint functions
   - [ ] take a look at test_seperationpoint.jl

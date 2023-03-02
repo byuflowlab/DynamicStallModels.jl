@@ -251,7 +251,7 @@ function airfoil(polar; A = [0.3, 0.7, 1.0], b = [0.14, 0.53, 5.0], T = [1.7, 3.
     alpha0, _ = brent(cl, -0.25, 0.25)
     _, minclidx = findmin(polar[:,2])
     _, maxclidx = findmax(polar[:,2])
-
+    #TODO the below is also probably going to mess something up if minclidx > maxclidx
     alphasep = [polar[minclidx, 1], polar[maxclidx,1]]
 
     #! The following lines were added by Jacob Child and are unverified
@@ -274,7 +274,7 @@ function airfoil(polar; A = [0.3, 0.7, 1.0], b = [0.14, 0.53, 5.0], T = [1.7, 3.
     _, alf50idx = nearestto(middlepolar[:,1], alpha50)
 
     # @show cl0idx, alf50idx
-
+    #! cl0idx is 36 and alf50idx is 20, 
     _, dcldalpha = linear_fit(middlepolar[cl0idx:alf50idx,1], middlepolar[cl0idx:alf50idx,2]) #TODO: Create my own linear fit function so I don't have to pull in a package. #Todo: This is returning a NaN
     if isnan(dcldalpha)
         dcldalpha=2*pi #flat plate slope
