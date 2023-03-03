@@ -22,14 +22,16 @@ Vrel = M*a #60
 
 af = airfoil(polar_0015; A=[12.3324])
 
+af_new = update_airfoil(af, alphasep=[af.alphasep[1], 32*pi/180])
+
 airfoils = Array{Airfoil, 1}(undef, 1)
-airfoils[1] = af
+airfoils[1] = af_new
 
 
-dsmodel = Oye(Indicial(), 1, airfoils)
+dsmodel = Oye(Indicial(), 1, airfoils, 1, 2)
 
 
-tvec = range(0, 1.5, 1000) #0:0.001:0.05
+tvec = range(0, 1.0, 1000) #0:0.001:0.05
 Uvec = Vrel.*ones(length(tvec))
 
 function alpha(t)
@@ -59,14 +61,14 @@ stateplt = plot(tvec, states[:,1], leg=false, xaxis="time (s)", yaxis="f")
 cn = loads[:,1]
 cn_static = af.cn.(alphavec)
 
-cnplt = plot( xaxis="time (s)", yaxis=L"C_n", leg=:topright)
+cnplt = plot( xaxis="time (s)", yaxis=L"C_l", leg=:topright)
 plot!(tvec, cn, lab="DSM")
 plot!(tvec, cn_static, lab="Static")
 # display(cnplt) 
 
 
-cyclecnplt = plot(xaxis="Angle of Attack (deg)", yaxis=L"C_n", leg=:topright)
-plot!(alphavec.*(180/pi), cn, lab="DSM")
+cyclecnplt = plot(xaxis="Angle of Attack (deg)", yaxis=L"C_l", leg=:topright)
+plot!((alphavec.*(180/pi)), cn, lab="DSM")
 plot!(alphavec.*(180/pi), cn_static, lab="Static")
 display(cyclecnplt) 
 

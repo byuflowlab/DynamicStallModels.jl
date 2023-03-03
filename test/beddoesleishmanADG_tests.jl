@@ -32,7 +32,7 @@ datavec = readdlm(file, ',')
 items = ["i", "t", "U", "alpha", "a_s", "M", "Gonzalez_factor", "c", "C_nalpha", "A1", "b1", "A2", "b2", "eta_e", "tau_v", "Cn_FS", "Cn_v", "Cn_alpha_q_nc", "Cn_q_circ", "Cn_alpha_q_circ", "fprimeprime", "Cn_alpha_nc", "Cn_q_nc", "T_alpha", "Kalpha_f", "Kprime_alpha", "q_f_cur", "alpha_filt_cur", "k_alpha", "alpha_e", "Kq_f", "Kprime_q", "Df", "fprime", "alpha_f", "Cc_pot", "fprime_c", "fprimeprime_c", "C_nalpha_circ", "Cn", "Cc", "Cm"]
 
 
-### Read in AeroDyn files
+### Read in AeroDyn files #Todo: Switch to a test that doesn't depend on updates from OpenFASTsr.
 addriver = of.read_addriver("NREL5MW_ADdriver.dvr", "../testing/OpenFAST_NREL5MW_modified")
 adfile = of.read_adfile("NREL5MW_ADfile.dat","../testing/OpenFAST_NREL5MW_modified")
 adblade = of.read_adblade("NREL5MW_adblade.dat", "../testing/OpenFAST_NREL5MW_modified")
@@ -79,8 +79,8 @@ af_idx = Int.(adblade["BlAFID"][indices])
 # create airfoil array
 afs = aftypes[af_idx]
 
-tspan = (0.0, addriver["Tmax"][1]) 
-dt = addriver["dT"][1] 
+tspan = (0.0, addriver["TMax"][1]) 
+dt = addriver["DT"][1] 
 tvec = tspan[1]:dt:4.9
 
 @testset "Beddoes-Leishman - AeroDyn - Gonzalez modifications" begin 
