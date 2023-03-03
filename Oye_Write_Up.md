@@ -80,6 +80,6 @@ $$\dot{f_{dyn}} = -T_f (f_{dyn} - f(\alpha))$$
 Now that values for $T_f$ and $f(\alpha)$ can be solved for, this equation can be evaluated using a prefered ODE solver. 
 
 
-$$C_L(t) = f_{dyn}(t)C_l^{inv} + (1-f_{dyn}(t))C_l^{fs}
+$$C_L(t) = f_{dyn}(t)C_l^{inv} + (1-f_{dyn}(t))C_l^{fs}$$
 
 
