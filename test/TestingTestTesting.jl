@@ -83,10 +83,32 @@ end #this all passes and a summary is given
         @test sqrt(-1) skip=true #Broken
     end  
 end #everything runs and a summary is given, if anything in the summary fails or errors it does not run past this set
+
 #testset can run for loops 
-@testset "Is blah even? -> see it in two ways!" begin
-    for i in 1:5
-        #@test iseven(i)
-        @test (mod(1,2) == 0) #!there is an error in here and I can't find out why
-    end #this all runs and a summary is given
-end
+#? Why does any false test in a testset throw a macro expansion stack trace?
+#? Ans: it is not actualyy an error but is instead showing you the trace to the failed test, it is just "noisy"
+@testset "For Loop Style test" begin    #this testset makes everything within it included in one summary 
+    #if it all passes it will show as 1 test with 30 runs, if there are fails it will show the other tests
+    @testset "In line for loop" for i in 1:10 #this will show up in the summary as 10 seperate tests run once
+        @test true
+       # @test iseven(i) #fails every other number
+    end
+    @testset "In line for loop with changing title $i" for i in 1:10 #this will show up in the summary as 10 tests each with a different title
+        @test true
+        #@test i%2 == 0 #fails every other number
+    end
+    @testset "for loop within begin statement" begin #this will show up in the summary as 1 test run 10 times (ie 5x pass and 5x fail)
+        for i in 1:10
+            @test true
+            #@test iseven(i) #fails every other number
+        end
+    end
+end;
+
+#testset can call functions if that function has a test in it
+#= #?this isn't working? It requires Julia 1.8
+footest(x) = @test isone(x)
+@testset footest(1);
+=#
+f(x) = isone(x)
+@test f(1); #this passes 
