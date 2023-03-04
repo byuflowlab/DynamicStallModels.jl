@@ -59,4 +59,7 @@ The if statement checks if sfun is of the ADSP type, and then runs the line give
 
 - [ ] linear_fit doesn't actually return anything, line 278
 - [ ] Write a test file like beddoesleishmanADG_tests.jl for the seperationpoint functions
-  - [ ] take a look at test_seperationpoint.jl
+  - [ ] take a look at test_seperationpoint.jl 
+  - [ ] Maybe make a variable that contains all the flags needed to clarify which method throughout the whole process so I only need to change 1 thing
+  - [ ] Look at Weston's Documentation to better understand
+  - [ ] 
