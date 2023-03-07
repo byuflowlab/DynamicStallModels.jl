@@ -243,7 +243,7 @@ function cl_fullysep_faber(cl, cl_sep, dcldalpha, alpha, alpha0, alpha_sep)
     if alpha0 < alpha < alpha_sep
         #Hermite Interpolation as in Faber 2018
         #TODO: Needs to be extended to work for angles less than alpha0, it should have a reflection to what is done here. 
-        t0 = (alpha - alpha0)/(alpha_sep - alpha) #Faber 2018 EQ A.1a
+        t0 = (alpha - alpha0)/(alpha_sep - alpha0) # fix implemented by Weston Pace the denominator is as written, not (alpha_sep - alpha)#Faber 2018 EQ A.1a
         #As alpha -> alpha_sep this will diverge. So... what keeps it from diverging? 
         t1 = (alpha - alpha_sep)/(alpha_sep - alpha0) #Faber 2018 EQ A.1b
         term1 = (alpha_sep - alpha0)*dcldalpha*(1 + t0*(7*t1/6 - 1))/2
