@@ -637,6 +637,7 @@ separationpoint(sfun::Function, airfoil::Airfoil, alpha) = sfun(alpha)
 Larsen's separation point function from his 2007 paper. 
 =#
 function separationpoint(sfun::LSP, airfoil::Airfoil, alpha)
+    println("using the LSP separation point function. ")
     if alpha>airfoil.alphasep[2]
         return 0.0
     else

@@ -1,8 +1,8 @@
 # Seperation Function Notes 
 **Important Info:**
-The seperation function section starts on line 251 of [airfoils.jl](../../src/airfoils.jl) with the line `alpha0, _ = brent(cl, -0.25, 0.25)` (*Note: I don't know what this does*)
+The seperation function setup section starts on line 251 of [airfoils.jl](../../src/airfoils.jl) with the line `alpha0, _ = brent(cl, -0.25, 0.25)` (*Note: I don't know what this does*)
 
-**Line by line analysis:**  
+**Setup Line by line analysis:**  
 ```Julia
 alpha0, _ = brent(cl, -0.25, 0.25)
 ```  
@@ -57,9 +57,27 @@ sfun = ADSP(alphavec, cnvec, ccvec, alpha0, alphasep, dcldalpha, eta)
 ```  
 The if statement checks if sfun is of the ADSP type, and then runs the line given above. This...  
 
-- [ ] linear_fit doesn't actually return anything, line 278
+- [x] linear_fit doesn't actually return anything, line 278
 - [ ] Write a test file like beddoesleishmanADG_tests.jl for the seperationpoint functions
   - [ ] take a look at test_seperationpoint.jl 
   - [ ] Maybe make a variable that contains all the flags needed to clarify which method throughout the whole process so I only need to change 1 thing
   - [ ] Look at Weston's Documentation to better understand
-  - [ ] 
+
+
+## Notes for the different seperation point functions  
+*These start around line 392, but before getting there it goes through the ADSP function*  
+**ADSP:** If ADSP is called it directly calls the `reverse_separationpointcalculation_ADO()` function  
+**Larsen:** starts around line 639
+
+
+## Notes for Oye.jl  
+*Questions:*  
+- What is detype::DEType ?  
+  - Ans: the type of model it is, Functional(), Iterative(), or Indicial(). We are just using Indicial()
+- cflag::TI - what does this, and similar lines do? around line 25, does it say the data type for the struct?
+  - Ans: Yesish, it names that field and gives it a datatype. But in this case, rather than a specific datatype, it just has to be the same datatype as the other fields. 
+- How does it know which seperation point function to use? or is that decided earlier?
+
+*Notes:*  
+- the `cflag` field says what says whether to apply the seperation delay to lift (1) or normal force (2)  
+- the `version` field is for Hansen(1), Faber (2) of the Oye model
