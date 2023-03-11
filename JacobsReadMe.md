@@ -24,4 +24,4 @@ I have permission, but *must not* push to master and merge a pull request with m
 
 *further notes:*
 1. To render markdown in VSCode, do ctrl+k followed quickly by v
-2. 
+2. @JacobChild does this give me some sort of notification?
