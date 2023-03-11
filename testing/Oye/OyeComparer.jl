@@ -27,12 +27,12 @@ VertolPolar = readdlm("C:/Users/child/Documents/Projects/FlowLab_DynamicStall/Dy
 #Vertol = of.read_airfoilinput("../../data/airfoils/Vertol.dat") #read in the airfoil data using OpenFASTsr
 #af = of.make_dsairfoil(Vertol) #make the airfoil into a DynamicStallModels airfoil
 #af = dsm.simpleairfoil(VertolPolar) #? testing this versus the dsm.airfoil
-af = dsm.airfoil(VertolPolar; A = 8.0, sfun=()->LSP(1)) #A= 7.14
+af = dsm.airfoil(VertolPolar; A = 8.0, sfun=dsm.LSP()) #A= 7.14
 airfoils = Array{Airfoil, 1}(undef, 1) #make an array of the type Airfoil struct
 airfoils[1] = af #put the airfoil into the array
 
 # Make the Oye model struct
-dsmodel = Oye(Indicial(), 1, airfoils,2,2) #makes the struct, says it will solve it indicially and tha there is 1 airfoil
+dsmodel = Oye(Indicial(), 1, airfoils,2,3) #makes the struct, says it will solve it indicially and tha there is 1 airfoil
 
 # Create time, velocity, and angle of attack vectors
 tvec = range(0, 2.0, 1000) #time vector, these will be specific to the experimental data I am verifying against

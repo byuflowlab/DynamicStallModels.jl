@@ -86,7 +86,7 @@ end #everything runs and a summary is given, if anything in the summary fails or
 
 #testset can run for loops 
 #? Why does any false test in a testset throw a macro expansion stack trace?
-#? Ans: it is not actualyy an error but is instead showing you the trace to the failed test, it is just "noisy"
+#? Ans: it is not actually an error but is instead showing you the trace to the failed test, it is just "noisy"
 @testset "For Loop Style test" begin    #this testset makes everything within it included in one summary 
     #if it all passes it will show as 1 test with 30 runs, if there are fails it will show the other tests
     @testset "In line for loop" for i in 1:10 #this will show up in the summary as 10 seperate tests run once
