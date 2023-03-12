@@ -27,13 +27,15 @@ VertolPolar = readdlm("C:/Users/child/Documents/Projects/FlowLab_DynamicStall/Dy
 #Vertol = of.read_airfoilinput("../../data/airfoils/Vertol.dat") #read in the airfoil data using OpenFASTsr
 #af = of.make_dsairfoil(Vertol) #make the airfoil into a DynamicStallModels airfoil
 #af = dsm.simpleairfoil(VertolPolar) #? testing this versus the dsm.airfoil
-af = dsm.airfoil(VertolPolar; A = 8.0, sfun=dsm.LSP()) #A= 7.14
+af = dsm.airfoil(VertolPolar; A = 0.07, sfun=dsm.LSP()) #A= 7.14
 airfoils = Array{Airfoil, 1}(undef, 1) #make an array of the type Airfoil struct
 airfoils[1] = af #put the airfoil into the array
 
 # Make the Oye model struct
-dsmodel = Oye(Indicial(), 1, airfoils,2,3) #makes the struct, says it will solve it indicially and tha there is 1 airfoil
-
+#cflag::Int - A flag to apply the separation delay to the coefficient of 1) lift, 2) normal force. 
+#version::Int - A flag to say whether to use 1) Hansen 2008, or 2) Faber 2018's implementation of the model, or 3) BeddoesLeishman, or 4) Larsen's 2007
+dsmodel = Oye(Indicial(), 1, airfoils,1,4) #makes the struct, says it will solve it indicially and that there is 1 airfoil
+#! if I call the above with a 3 (technically beddoesLeishman) it errors in Oye 51 or solve 56, or solve 11?
 # Create time, velocity, and angle of attack vectors
 tvec = range(0, 2.0, 1000) #time vector, these will be specific to the experimental data I am verifying against
 Uvec = V.*ones(length(tvec)) #velocity vector across time
@@ -42,13 +44,13 @@ Uvec = V.*ones(length(tvec)) #velocity vector across time
 function alpha(t)
     c = 1.5 #m
     v = 60.0 #m/s
-    shift = 14.92 #degrees, this is the estimated mean angle of attack from pg 971, fig 9, plt d
-    amp = 4.85 #degrees, amplitude of oscillation
+    shift = 15.0*pi/180 #14.92 #degrees, this is the estimated mean angle of attack from pg 971, fig 9, plt d
+    amp = 4.85*pi/180 #degrees, amplitude of oscillation
     k = .062 #0.062 #reduced frequency
     omega = k*2*v/c #rad/s, frequency of oscillation
 
     alf = shift + amp*sin(omega*t)
-    return alf*(pi/180)
+    return alf
 end
 
 # Create the angle of attack vector

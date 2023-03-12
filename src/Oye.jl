@@ -16,7 +16,7 @@ The Øye model struct. It stores airfoil data for every section to be simulated.
 - n - The number of sections to be simulated. 
 - airfoils - A vector of Airfoil structs, one corresponding to each section to be simulated.
 - cflag::Int - A flag to apply the separation delay to the coefficient of 1) lift, 2) normal force. 
-- version::Int - A flag to say whether to use 1) Hansen 2008, or 2) Faber 2018's implementation of the model, or 3) Larsen's 2007
+- version::Int - A flag to say whether to use 1) Hansen 2008, or 2) Faber 2018's implementation of the model, or 3) BeddoesLeishman, or 4) Larsen's 2007
 """
 struct Oye{TI} <: DSModel
     detype::DEType 
@@ -75,7 +75,7 @@ function getloads(dsmodel::Oye, states, p, airfoil)
         if dsmodel.version == 1
             # println("Got here")
             return getcoefficient_indicial_hansen(dsmodel, states, p, airfoil)
-        elseif dsmodel.version == 2 || dsmodel.version == 3 #todo is it okay to add another flag? faber and larsen have the same coefficient model
+        elseif dsmodel.version == 2 || dsmodel.version == 4 #todo is it okay to add another flag? faber and larsen have the same coefficient model
             return getcoefficient_indicial_faber(dsmodel, states, p, airfoil)
         else
             ver = dsmodel.version
@@ -168,7 +168,7 @@ end
 function update_states(dsmodel::Oye, oldstates, U, alpha, deltat, c, dcndalpha, alpha0, alphasep, A, i)
     if dsmodel.version == 1
         return update_states_oye_hansen(dsmodel, oldstates, U, alpha, deltat, c, dcndalpha, alpha0, A, i)
-    elseif dsmodel.version == 2 || dsmodel.version == 3 #! if I am saying 3 = larsen, not beddoesLeishman
+    elseif dsmodel.version == 2 || dsmodel.version == 4 #! if I am saying 4 = larsen, is that okay?
         return update_states_oye_faber(dsmodel, oldstates, U, alpha, deltat, c, dcndalpha, alpha0, alphasep, A, i)
     else
         ver = dsmodel.version
@@ -197,6 +197,7 @@ function update_states_oye_hansen(dsmodel::Oye, oldstates, U, alpha, deltat, c, 
     tau = A*c/U #checked, this is good for Hansen
     # @show tau
 
+    println(tau, "this is tau in update states hansen")
     f = fst + (fold - fst)*exp(-deltat/tau) #Delay on separation point #? I think this is the correct way to implement the delay. 
 
     if f>1
@@ -227,7 +228,7 @@ function update_states_oye_faber(dsmodel::Oye, oldstates, U, alpha, deltat, c, d
     cn_fs = cl_fullysep_faber(cn, cn_sep, dcndalpha, alpha, alpha0, alphasep)
     #fst = (cn - cn_fs)/(cn_inv - cn_fs) #Larsen/Faber method #todo this is hardcoded, should I use separationpoint(...)
     #? if I do the line below it makes the dsmodel.cflag if statements not needed as it would be handled by the separationpoint function.
-    fst = separationpoint(airfoil.sfun, airfoil, alpha) #? does this work, it should call whatever method sfun was defined to be 
+    fst = separationpoint(airfoil, alpha) #? does this work, it should call whatever method sfun was defined to be 
     if alpha>alphasep
         fst = 0.0
     end
@@ -236,16 +237,21 @@ function update_states_oye_faber(dsmodel::Oye, oldstates, U, alpha, deltat, c, d
     # the original line is tau = A*c/U, this is Hansen's equation I am going to act like there is a Hansen (1), Faber (2), and Larsen (3) flag and convert them all to Hansen 
     if dsmodel.version == 1 #Hansen
         tau = A*c/U 
+        println("Hansen tau: ", tau)
     elseif dsmodel.version == 2 #Faber
-        tau = A*c/(2*U) #derived from faber and hansen by jacob child, #todo double check 
-    elseif dsmodel.version == 3 #Larsen
+        tau = A*c/(2*U) #derived from faber and hansen by jacob child, #todo double check
+        println("Faber tau: ", tau) 
+    elseif dsmodel.version == 4 #Larsen
         tau = 1.0 / A #derived from larsen (according to his paper omega3 would be our A input) and hansen by jacob child, #todo double check
+        #! I think Larsen's paper might have a typo, I think that if the omega3 he is inputting is 0.07, then tau = A, not 1.0/a
+        tau = A
+        println("Larsen tau: ", tau)
     else
         ver = dsmodel.version
         @warn("$ver not an option, defaulting to Hansen 2008 (option 1)")
         tau = A*c/U 
     end
-
+    
     f = fst + (fold - fst)*exp(-deltat/tau) #Delay on separation point 
 
     if f>1

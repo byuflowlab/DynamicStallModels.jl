@@ -135,6 +135,7 @@ A struct to hold all of the airfoil polars, fits, and dynamic coefficients.
 - S - A vector of floats holding the S constants are best fit constants for the separation point curve. 
 - s - A fit of the the separation point curve. 
 - xcp - The distance from the quarter chord to the center of pressure? 
+#! this needs to be updated
 """
 struct Airfoil{TF, Tfit, Fun}  
     polar::Array{TF, 2}
@@ -194,8 +195,10 @@ function simpleairfoil(polar)
     b = [0.14, 0.53, 5.0]
     T = [1.7, 3.0, 0.19]
 
-    _, minclidx = findmin(clvec) #TODO: I have the find_seperation_alpha function. 
+    #same fix as in airfoil 
     _, maxclidx = findmax(clvec)
+    _, minclidx = findmin(clvec[1:maxclidx]) #TODO: I have the find_seperation_alpha function. 
+    
 
     alphasep = [alphavec[minclidx], alphavec[maxclidx]]
 
@@ -226,6 +229,7 @@ A slightly more complex version of simpleairfoil. Takes a polar and numerically 
 - b - A vector of floats holding the b dynamic constants for the airfoil. 
 - T - A vector of floats holding the time constants for the airfoil. 
 - separationpointfit - An integer telling which fit function to use. 1 -> AeroDyn Cn separation point function, 
+#! this is outdated and needs to be updated for the new fields?
 
 ### Outputs
 - Airfoil
@@ -249,30 +253,15 @@ function airfoil(polar; A = [0.3, 0.7, 1.0], b = [0.14, 0.53, 5.0], T = [1.7, 3.
 
 
     alpha0, _ = brent(cl, -0.25, 0.25)
-    # Implementing my possible alphasep fix -- Jacob Child
+    # Implementing my alphasep fix -- Jacob Child
     _, maxclidx = findmax(polar[:,2])
     _, minclidx = findmin(polar[1:maxclidx,2])
-    
-    #TODO the below is also probably going to mess something up if minclidx > maxclidx
-    alphasep = [polar[minclidx, 1], polar[maxclidx,1]]
+
+    #alphasep = [polar[minclidx, 1], polar[maxclidx,1]]
+    #! for debugging and to match Larsen's paper for the Vertol airfoil
+    alphasep = [polar[minclidx, 1], 32.0*pi/180]
     println("alphasep: ", alphasep*180/pi)
-    #=
-    println("Prefix minclidx: ", minclidx)
-    println("Prefix maxclidx: ", maxclidx)
-    println("Prefix alphasep: ", alphasep)
-    =#
     
-    
-
-    #=
-    println("Postfix minclidx: ", minclidx)
-    println("Postfix maxclidx: ", maxclidx)
-    alphasep = [polar[minclidx, 1], polar[maxclidx,1]]
-    println("Postfix alphasep: ", alphasep)
-    =#
-    #? End of my possible alphasep fix
-    #TODO pass this off with Adam, it looks like it works all okay
-
     # @show minclidx, maxclidx
      middlepolar = polar[minclidx:maxclidx,:]
     # @show middlepolar
@@ -418,7 +407,7 @@ function reverse_separationpointcalculation(alpha, Cn, Cc, dcndalpha, alpha0, al
             f=0
         end
 
-        if alphasep[1]<alpha[i]<alphasep[2]
+        if alphasep[1]<alpha[i]<alphasep[2] #essentially in the "linear" region
             f=1
         end
 
@@ -474,7 +463,7 @@ function reverse_separationpointcalculation(alpha, Cn, Cc, dcndalpha, alpha0, al
 end
 
 
-function separationpoint(sfun::BLSP, airfoil::Airfoil, alpha)
+function separationpoint(sfun::BLSP, airfoil::Airfoil, alpha) #BeddoesLeishman Separation Point Function
     if isapprox(alpha, -pi, atol=1e-4)
         println("AeroDyn Original sep function called. ")
     end
@@ -534,7 +523,6 @@ function reverse_separationpointcalculation_ADO(alpha, Cn, Cc, dcndalpha, alpha0
         end
 
         if alphasep[1]<alpha[i]<alphasep[2]
-            #println("Impossible if statement with vertol?")
             f=1
         end
 
@@ -638,11 +626,12 @@ Larsen's separation point function from his 2007 paper.
 =#
 function separationpoint(sfun::LSP, airfoil::Airfoil, alpha)
     #println("using the LSP separation point function. Currently at line 639 in airfoils.jl ")
-    if alpha>airfoil.alphasep[2]
+    if alpha>airfoil.alphasep[2] #? right after stall is fully separated? not partially?
         return 0.0
     else
         alpha0 = airfoil.alpha0
         cn = airfoil.cl(alpha) #Todo: I need to make this be able to switch between cl and cn. 
+        #? could I add a variable in the LSP struct that tells me which one to use?
         #=
         if dsmodel.cflag == 2 #TODO does this solve the switching from up above? 
             #! doesn't work, dsmodel isn't defined
@@ -658,7 +647,7 @@ function separationpoint(sfun::LSP, airfoil::Airfoil, alpha)
 
         cn_fs = cl_fullysep_faber(cn, cn_sep, airfoil.dcldalpha, alpha, alpha0, airfoil.alphasep[2]) #checked
         fst = (cn - cn_fs)/(cn_inv - cn_fs) #checked
-        println(fst)
+        #println(fst)
         if fst>1
             return 1.0  
         elseif fst<0

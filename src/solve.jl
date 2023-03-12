@@ -48,7 +48,7 @@ function solve_indicial(dsmodel::DSModel, cvec, tvec, Uvec, aoavec; a = 343.0, v
             end
             
             if isa(dsmodel, BeddoesLeishman)
-                if dsmodel.version==3 #! is this redundant because of the isa() test? Adam assigned dsmodel.version == 3 to beddoesLeishman, I thought Larsen, I will need to make Larsen 4
+                if dsmodel.version==3 #? is this redundant because of the isa() test? This also shows Adam assigned dsmodel.version == 3 to beddoesLeishman
                     newstates = view(states, i+1, idxs)
                     dsmodel(states[i,idxs], newstates, p, t, dt) #in place function, this doesn't have to allocate memory every time step
                 end
