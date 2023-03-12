@@ -69,8 +69,6 @@ sfun = ADSP(alphavec, cnvec, ccvec, alpha0, alphasep, dcldalpha, eta)
 
 The if statement checks if sfun is of the ADSP type, and then runs the line given above. This is only necessary if ADSP is getting called as it is the only separation point function that needs some prework (I believe)
 
-
-
 ### To Do's
 
 - [x] linear_fit doesn't actually return anything, line 278
@@ -103,8 +101,6 @@ The if statement checks if sfun is of the ADSP type, and then runs the line give
 - the `cflag` field says what says whether to apply the separation delay to lift (1) or normal force (2)  
 - the `version` field is for Hansen(1), Faber (2) of the Oye model
 
-
-
 ## Notes for the whole path from OyeComparer.jl
 
 1. Setup: the packages are imported and named, the polar is read in, and the airfoil is created.
@@ -136,8 +132,6 @@ The if statement checks if sfun is of the ADSP type, and then runs the line give
       
       8. It then returns the states and loads and goes all the way back to my OyeComparer.jl file
 
-
-
 # Will Do's
 
 - [ ] Make the Larsen separation point functions and  related Oye solver fully functional and multiple dispatch
@@ -151,8 +145,9 @@ The if statement checks if sfun is of the ADSP type, and then runs the line give
     - [ ] make sure I am using the larsen separation point and not hansen's when it expects it
       
       - [ ] find the difference between the two, one overshoots, and one under?
+      - [ ] Ans: Larsen and Faber both want the fully separated alphasep, so in deep stall, in the Larsen vertol case, that is 32 deg
     
-    - [ ] I implemented `dsmodel.version == 3` as being Larsen and Adam already has it as BeddoesLeishman, fix all of them
+    - [x] I implemented `dsmodel.version == 3` as being Larsen and Adam already has it as BeddoesLeishman, fix all of them to `dsmodel.version == 4`
     
     - [x] Make sure all the equations in the Larsen function are correct
     
