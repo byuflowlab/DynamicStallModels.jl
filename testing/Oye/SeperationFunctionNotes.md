@@ -107,16 +107,16 @@ The if statement checks if sfun is of the ADSP type, and then runs the line give
    
    1. `dsm.airfoil(Polar; A = 8.0, sfun=dsm.LSP())` this is the line that generates the airfoil. `sfun=dsm.LSP()` tells it which separation point function to use
    
-   2. | SP type | Input                                                                                                               | Explanation                                                                                                                                                                                                                                                                                                                                                                                                  |
-      | ------- | ------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-      | SP      | `dsm.SP=(1,1)` -> the inputs will become an akima spline ffit                                                       | Separation point function created by Adam Cardoza. It calls the `reverse_separationpointcalculation` function and then puts an Akima spline on it                                                                                                                                                                                                                                                            |
-      | BLSP    | `dsm.BLSP(1)`  -> becomes a vector of floats holding S constants that are a best fit for the separation point curve | Beddoes-Leishman original separation point function. It uses a series of if statements to check what region we are in, and then assigns a value  - [  ] figure out if it is looking for and finding the region it thinks it is supposed ot                                                                                                                                                                   |
-      | ADSP    |                                                                                                                     |                                                                                                                                                                                                                                                                                                                                                                                                              |
-      | ADGSP   |                                                                                                                     |                                                                                                                                                                                                                                                                                                                                                                                                              |
-      | RSP     |                                                                                                                     |                                                                                                                                                                                                                                                                                                                                                                                                              |
-      | OSP     |                                                                                                                     |                                                                                                                                                                                                                                                                                                                                                                                                              |
-      | HSP     |                                                                                                                     |                                                                                                                                                                                                                                                                                                                                                                                                              |
-      | LSP     | `dsm.LSP()` -> no inputs                                                                                            | Larsen separation point function from 2007 paper, and repeated in Oye from Faber 2018. Line 639 in airfoils.jl It calls `cl_fullysep_faber` to calculate the cl (or cn) values and then uses the same calculation as Oye, Larsen, and Faber $fst = (C_l^{st} - C_l^{fs}) / (C_l^{inv} - C_l^{fs})$ . st = static, fs = fully separated, inv = inviscid. It then clips values larger than 1 or smaller than 0 |
+   2. | SP type | Input                                                                                                               | Explanation                                                                                                                                                                                                                                                                                                                                                                                                                           |
+      | ------- | ------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+      | SP      | `dsm.SP=(1,1)` -> the inputs will become an akima spline ffit                                                       | Separation point function created by Adam Cardoza. It calls the `reverse_separationpointcalculation` function and then puts an Akima spline on it                                                                                                                                                                                                                                                                                     |
+      | BLSP    | `dsm.BLSP(1)`  -> becomes a vector of floats holding S constants that are a best fit for the separation point curve | Beddoes-Leishman original separation point function. It uses a series of if statements to check what region we are in, and then assigns a value  - [  ] figure out if it is looking for and finding the region it thinks it is supposed ot                                                                                                                                                                                            |
+      | ADSP    |                                                                                                                     |                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+      | ADGSP   |                                                                                                                     |                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+      | RSP     |                                                                                                                     | Same as HSP                                                                                                                                                                                                                                                                                                                                                                                                                           |
+      | OSP     |                                                                                                                     | Parabolic fit                                                                                                                                                                                                                                                                                                                                                                                                                         |
+      | HSP     |                                                                                                                     | Same as RSP                                                                                                                                                                                                                                                                                                                                                                                                                           |
+      | LSP     | `dsm.LSP()` -> no inputs                                                                                            | Larsen separation point function from 2007 paper, and repeated in Oye from Faber 2018. Line 639 in airfoils.jl It calls `cl_fullysep_faber` to calculate the cl (or cn) values and then uses the same calculation as Oye, Larsen, and Faber $fst = (C_l^{st} - C_l^{fs}) / (C_l^{inv} - C_l^{fs})$ . st = static, fs = fully separated, inv = inviscid. It then clips values larger than 1 or smaller than 0... Hermite Interpolation |
       
       2. It than makes the Oye model struct `dsmodel = Oye(Indicial(), 1, airfoils,2,2)` this calls the solver type, how many airfoils, the airfoils, a flag for if the delay is applied to $C_l$ (1) or $C_n$ (2), and then a flag for solving with the Hansen (1) or Faber (2) model
       
@@ -141,11 +141,17 @@ The if statement checks if sfun is of the ADSP type, and then runs the line give
     - [ ] Make sure I can call the Larsen function and get into it where I need to
       
       - [ ] this is linked with multiple dispatch down below, I can implement it I believe
+      - [ ] Delete HSP
+      - [ ] Add a flag to all separation point functions for Cl or Cn, default for ADSP and ADGSP and Riso/Hansen (RSP/HSP) -> needs to be Cn. Larsen's paper uses Cl
     
     - [ ] make sure I am using the larsen separation point and not hansen's when it expects it
       
       - [ ] find the difference between the two, one overshoots, and one under?
       - [ ] Ans: Larsen and Faber both want the fully separated alphasep, so in deep stall, in the Larsen vertol case, that is 32 deg
+      - [ ] Use update airfoil function to make sure alpha0 is the same as in Larsen's paper
+      - [ ] try 1/tau and just straight tau for the omega3 = 0.07
+      - [ ] Add and check my static Cl plot and webplot digitize his polar/static plot (they are the same)
+      - [ ] We want to be able to mismatch functions, un-hardcode Hansen's function so it is a function call
     
     - [x] I implemented `dsmodel.version == 3` as being Larsen and Adam already has it as BeddoesLeishman, fix all of them to `dsmodel.version == 4`
     
@@ -153,13 +159,15 @@ The if statement checks if sfun is of the ADSP type, and then runs the line give
     
     - [x] Check the update states (step 6) equations and Tau
   
-  - [ ] Create a separation point test file
+  - [ ] Create a separation point test file (do this first and match figure 4-c)
     
     - [ ] Write out the questions I want to answer, what the answers should be, and where/when to find them
     
     - [ ] create the file and testset
     
     - [ ] make it automated
+    
+    - [ ] test against figure 4-c (Larsen Paper) separation point curve
   
   - [ ] Fix Oye solver functions (check with Weston on this)
     
@@ -170,3 +178,13 @@ The if statement checks if sfun is of the ADSP type, and then runs the line give
     - [ ] Add the `separationpoint` function call in the 1 or 2 places necessary, comment out the if statements
     
     - [ ] check how the Oye solvers are called and fix/update them (check with Weston during this also)
+
+### Grad School Project Ideas
+
+- Dr. Ning's Lab
+  
+  - Modeling propeller and turbine wakes with the vortex particle method (Eduardo may have already done this?)
+  
+  - Talk with Ryan and Taylor, Tyler?
+  
+  - Judd -> might have some ideas, but different than what I have done before -> panel method = panel to velocity to pressures to lift

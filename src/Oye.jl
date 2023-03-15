@@ -123,7 +123,7 @@ function initialize(dsmodel::Oye, Uvec, aoavec, tvec, airfoil::Airfoil, c, a)
         =#
 
         #? replacing all of the above with a proper separation point function call jacob child
-        fst = separationpoint(airfoil.sfun, airfoil, alpha) #! is this the proper way to call the separationpoint function?
+        fst = separationpoint(airfoil, alpha) 
 
         if fst>1
             fst = 1.0
@@ -191,7 +191,7 @@ function update_states_oye_hansen(dsmodel::Oye, oldstates, U, alpha, deltat, c, 
         cn = airfoil.cl(alpha)
     end
     cn_inv = dcndalpha*(alpha-alpha0) #Inviscid normal force
-    fst = separationpoint(airfoil.sfun, airfoil, alpha)
+    fst = separationpoint(airfoil, alpha)
     #below is Hansen's separation point function
     #fst = (2*sqrt(abs(cn/cn_inv)) - 1)^2 #New separation point. #TODO: I wonder if I could hot swap this out for any separation point function of my choice. 
     tau = A*c/U #checked, this is good for Hansen

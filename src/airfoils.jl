@@ -619,7 +619,7 @@ function separationpoint(sfun::RSP, airfoil::Airfoil, alpha)
     return f
 end
 
-separationpoint(sfun::Function, airfoil::Airfoil, alpha) = sfun(alpha) #? why is this here?
+separationpoint(sfun::Function, airfoil::Airfoil, alpha) = sfun(alpha) #? why is this here? Ans: this is if they input a function
 
 #=
 Larsen's separation point function from his 2007 paper. 
