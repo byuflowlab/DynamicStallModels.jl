@@ -305,7 +305,7 @@ function getcoefficient_indicial_hansen(dsmodel::Oye, states, p, airfoil)
     end
 
     cn_inv = dcndalpha*(alpha-alpha0) #Hansen 2004 EQ 19.
-    fst = (2*sqrt(abs(cn/cn_inv)) - 1)^2 #Hansen 2004 EQ 15.
+    fst = separationpoint(airfoil, alpha) #(2*sqrt(abs(cn/cn_inv)) - 1)^2 #Hansen 2004 EQ 15.
     cn_fs = (cn-(cn_inv*fst))/(1-fst) #Hansen 2004 EQ 18.  
 
     Cn = f*cn_inv + (1-f)*cn_fs #Hansen 2004 EQ 17.
