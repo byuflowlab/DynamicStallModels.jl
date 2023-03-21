@@ -43,7 +43,7 @@ $$C_l^{inv} = 2\pi(\alpha - \alpha_0)$$
 
 As was the case with finding the seperation point, there are multiple ways to find the fully separated coefficient of lift.
 
-In Øye's original paper, he simply matches a parabola that has the derivative constraint at $\alpha_0$ and passes through the point $(\alpha_0, 0)$ and $(\alpha_{sep}, C_l^{st}(\alpha_{sep}))$. However, both Larsen and Faber utilizes not only the derivative at $\alpha_0$ but also at $\alpha_{sep}$. They then use Hermite Interpolation to create a polynomial that matches the fully separated lift. Including the extra derivative at $\alpha_{sep}$ in the curve fitting process adds extra robustness to this polar.
+In Øye's original paper, he simply matches a parabola that has the derivative constraint at $\alpha_0$ and passes through the point $(\alpha_0, 0)$ and $(\alpha_{sep}, C_l^{st}(\alpha_{sep}))$. However, both Larsen and Faber utilizes not only the derivative at $\alpha_0$ but also at $\alpha_{sep}$. Faber notes in his paper that an angle of attack of $32 \degree$ is a good assumption of where full seperation occurs. They then use Hermite Interpolation to create a polynomial that gives the fully separated lift. Including the extra derivative at $\alpha_{sep}$ in the curve fitting process adds extra robustness to this polar.
 
 The accepted values of these derivatives from Øye, Larsen, and Faber are given below:
 

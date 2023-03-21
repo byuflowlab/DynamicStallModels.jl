@@ -8,7 +8,7 @@ cd(path)
 
 c = 0.55
 
-M = 0.0791
+M = 0.07
 a = 343.0
 Vrel = M*a #60
 
@@ -20,23 +20,23 @@ Vrel = M*a #60
 
 # af = update_airfoil(af, A=[4.0], dcndalpha=6.320368333107256, alpha0=-0.0033903071711640564)
 
-af = airfoil(polar_0015; A=[12.3324])
+af = airfoil(polar_0015; A=[12.8625], sfun=dsm.LSP())
 
-af_new = update_airfoil(af, alphasep=[af.alphasep[1], 32*pi/180])
+
 
 airfoils = Array{Airfoil, 1}(undef, 1)
-airfoils[1] = af_new
+airfoils[1] = af
 
 
 dsmodel = Oye(Indicial(), 1, airfoils, 1, 2)
 
 
-tvec = range(0, 1.0, 1000) #0:0.001:0.05
+tvec = range(0, 6.0, 1000) #0:0.001:0.05
 Uvec = Vrel.*ones(length(tvec))
 
 function alpha(t)
     c = 0.55
-    M = 0.0791
+    M = 0.07
     a = 343.0
     shift = 10.0
     amp = 10.0
@@ -67,14 +67,30 @@ plot!(tvec, cn_static, lab="Static")
 # display(cnplt) 
 
 
-cyclecnplt = plot(xaxis="Angle of Attack (deg)", yaxis=L"C_l", leg=:topright)
-plot!((alphavec.*(180/pi)), cn, lab="DSM")
-plot!(alphavec.*(180/pi), cn_static, lab="Static")
-display(cyclecnplt) 
+cyclecnplt = plot(xaxis="Angle of Attack (deg)", yaxis=L"C_l", leg=:topleft)
+plot!((alphavec.*(180/pi)), cn, lab="DSM", linewidth=2)
+plot!(alphavec.*(180/pi), cn_static, lab="Static", linewidth=2)
+#display(cyclecnplt) 
 
 #=
 I think that I have the models matching, the difference is that I'm using Cn in this model and Cl in the other. 
 =#
+
+Faber = readdlm("Faber_Oye_0015.csv" , ',')
+
+x = Faber[:,1]
+y = Faber[:,2]
+
+Experimental = readdlm("Experimental_0015_Upstroke.csv" , ',')
+
+x1 = Experimental[:,1]
+y1 = Experimental[:,2]
+
+scatter!(x1,y1, label = "Experimental")
+
+full_plot = scatter!(x,y, label = "Faber's Oye")
+
+display(full_plot)
 
 
 nothing

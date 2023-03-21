@@ -244,11 +244,16 @@ function airfoil(polar; A = [0.3, 0.7, 1.0], b = [0.14, 0.53, 5.0], T = [1.7, 3.
 
 
     alpha0, _ = brent(cl, -0.25, 0.25)
-    _, minclidx = findmin(polar[:,2])
     _, maxclidx = findmax(polar[:,2])
+    _, minclidx = findmin(polar[1:maxclidx,2])
 
-    alphasep = [polar[minclidx, 1], polar[maxclidx,1]]
+    if isa(sfun, LSP)
+        alphasep = [-32*pi/180, 32*pi/180]
+    else
+        alphasep = [polar[minclidx, 1], polar[maxclidx,1]]
+    end
 
+    
     # @show minclidx, maxclidx
     middlepolar = polar[minclidx:maxclidx,:]
     # @show middlepolar
@@ -610,22 +615,35 @@ separationpoint(sfun::Function, airfoil::Airfoil, alpha) = sfun(alpha)
 Larsen's separation point function from his 2007 paper. 
 =#
 function separationpoint(sfun::LSP, airfoil::Airfoil, alpha)
-    if alpha>airfoil.alphasep[2]
+    #println("using the LSP separation point function. Currently at line 639 in airfoils.jl ")
+    if alpha>airfoil.alphasep[2] #? right after stall is fully separated? not partially?
         return 0.0
     else
         alpha0 = airfoil.alpha0
         cn = airfoil.cl(alpha) #Todo: I need to make this be able to switch between cl and cn. 
+        #? could I add a variable in the LSP struct that tells me which one to use?
+        #=
+        if dsmodel.cflag == 2 #TODO does this solve the switching from up above? 
+            #! doesn't work, dsmodel isn't defined
+            cn = airfoil.cn(alpha) #Static normal force
+            cn_sep = airfoil.cn(alphasep)
+        else
+            cn = airfoil.cl(alpha)
+            cn_sep = airfoil.cl(alphasep)
+        end
+        =#
         cn_sep = airfoil.cl(airfoil.alphasep[2])
-        cn_inv = airfoil.dcldalpha*(alpha-alpha0)
+        cn_inv = airfoil.dcldalpha*(alpha-alpha0) #checked #? technically at f < 0 points Cl0 = 4Cl 
 
-        cn_fs = cl_fullysep_faber(cn, cn_sep, airfoil.dcldalpha, alpha, alpha0, airfoil.alphasep[2])
-        fst = (cn - cn_fs)/(cn_inv - cn_fs)
+        cn_fs = cl_fullysep_faber(cn, cn_sep, airfoil.dcldalpha, alpha, alpha0, airfoil.alphasep[2]) #checked
+        fst = (cn - cn_fs)/(cn_inv - cn_fs) #checked
+        #println(fst)
         if fst>1
-            return 1.0
+            return 1.0  
         elseif fst<0
             return 0.0
         else
-            return fst
+            return fst #! is something up with these values? running a for loop with alphavec on oyecomparer.jl doesn't go above .02ish
         end
     end
 end

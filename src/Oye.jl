@@ -16,7 +16,7 @@ The Øye model struct. It stores airfoil data for every section to be simulated.
 - n - The number of sections to be simulated. 
 - airfoils - A vector of Airfoil structs, one corresponding to each section to be simulated.
 - cflag::Int - A flag to apply the separation delay to the coefficient of 1) lift, 2) normal force. 
-- version::Int - A flag to say whether to use 1) Hansen 2008, or 2) Faber 2018's implementation of the model.
+- version::Int - A flag to say whether to use 1) Hansen 2008, or 2) Faber 2018's implementation of the model, or 3) BeddoesLeishman, or 4) Larsen's 2007
 """
 struct Oye{TI} <: DSModel
     detype::DEType 
@@ -75,7 +75,7 @@ function getloads(dsmodel::Oye, states, p, airfoil)
         if dsmodel.version == 1
             # println("Got here")
             return getcoefficient_indicial_hansen(dsmodel, states, p, airfoil)
-        elseif dsmodel.version == 2
+        elseif dsmodel.version == 2 || dsmodel.version == 4 #todo is it okay to add another flag? faber and larsen have the same coefficient model
             return getcoefficient_indicial_faber(dsmodel, states, p, airfoil)
         else
             ver = dsmodel.version
@@ -109,6 +109,8 @@ function initialize(dsmodel::Oye, Uvec, aoavec, tvec, airfoil::Airfoil, c, a)
 
         cn_inv = dcndalpha*(alpha-airfoil.alpha0) #Inviscid normal force 
         
+        #TODO somewhere below I call my separation point function?
+        #=
         if dsmodel.version == 1
             fst = (2*sqrt(abs(cn/cn_inv)) - 1)^2
         elseif dsmodel.version == 2 #Todo: This will get eliminated here with implementation of multiple dispatch of separation point function. 
@@ -118,6 +120,10 @@ function initialize(dsmodel::Oye, Uvec, aoavec, tvec, airfoil::Airfoil, c, a)
             @warn("$ver is not an available version, defaulting to Hansen 2008 (Option 1).")
             fst = (2*sqrt(abs(cn/cn_inv)) - 1)^2
         end
+        =#
+
+        #? replacing all of the above with a proper separation point function call jacob child
+        fst = separationpoint(airfoil, alpha) 
 
         if fst>1
             fst = 1.0
@@ -162,7 +168,7 @@ end
 function update_states(dsmodel::Oye, oldstates, U, alpha, deltat, c, dcndalpha, alpha0, alphasep, A, i)
     if dsmodel.version == 1
         return update_states_oye_hansen(dsmodel, oldstates, U, alpha, deltat, c, dcndalpha, alpha0, A, i)
-    elseif dsmodel.version == 2 
+    elseif dsmodel.version == 2 || dsmodel.version == 4 #! if I am saying 4 = larsen, is that okay?
         return update_states_oye_faber(dsmodel, oldstates, U, alpha, deltat, c, dcndalpha, alpha0, alphasep, A, i)
     else
         ver = dsmodel.version
@@ -185,12 +191,14 @@ function update_states_oye_hansen(dsmodel::Oye, oldstates, U, alpha, deltat, c, 
         cn = airfoil.cl(alpha)
     end
     cn_inv = dcndalpha*(alpha-alpha0) #Inviscid normal force
-
-    fst = (2*sqrt(abs(cn/cn_inv)) - 1)^2 #New separation point. #TODO: I wonder if I could hot swap this out for any separation point function of my choice. 
-    tau = A*c/U #checked. 
+    fst = separationpoint(airfoil, alpha)
+    #below is Hansen's separation point function
+    #fst = (2*sqrt(abs(cn/cn_inv)) - 1)^2 #New separation point. #TODO: I wonder if I could hot swap this out for any separation point function of my choice. 
+    tau = A*c/U #checked, this is good for Hansen
     # @show tau
 
-    f = fst + (fold - fst)*exp(-deltat/tau) #Delay on separation point #Todo: This isn't quite right. -> Is it wrong? It seems okay. 
+    println(tau, "this is tau in update states hansen")
+    f = fst + (fold - fst)*exp(-deltat/tau) #Delay on separation point #? I think this is the correct way to implement the delay. 
 
     if f>1
         return [1.0]
@@ -202,7 +210,7 @@ end
 #=
 Use Faber's implementation of the Øye model (from his 2018 thesis), which is incidently also the Larsen 2007 implementation. 
 =#
-function update_states_oye_faber(dsmodel::Oye, oldstates, U, alpha, deltat, c, dcndalpha, alpha0, alphasep, A, i) #Todo: 
+function update_states_oye_faber(dsmodel::Oye, oldstates, U, alpha, deltat, c, dcndalpha, alpha0, alphasep, A, i)
     ### Unpack
     fold = oldstates[1]
     airfoil = dsmodel.airfoils[i]
@@ -218,14 +226,33 @@ function update_states_oye_faber(dsmodel::Oye, oldstates, U, alpha, deltat, c, d
     cn_inv = dcndalpha*(alpha-alpha0) #Inviscid normal force
 
     cn_fs = cl_fullysep_faber(cn, cn_sep, dcndalpha, alpha, alpha0, alphasep)
-    fst = (cn - cn_fs)/(cn_inv - cn_fs)
+    #fst = (cn - cn_fs)/(cn_inv - cn_fs) #Larsen/Faber method #todo this is hardcoded, should I use separationpoint(...)
+    #? if I do the line below it makes the dsmodel.cflag if statements not needed as it would be handled by the separationpoint function.
+    fst = separationpoint(airfoil, alpha) #? does this work, it should call whatever method sfun was defined to be 
     if alpha>alphasep
         fst = 0.0
     end
 
-    tau = A*c/U 
-
-    f = fst + (fold - fst)*exp(-deltat/tau) #Delay on separation point
+    #? implementing a conversion between the different model's inputs and how they are defined
+    # the original line is tau = A*c/U, this is Hansen's equation I am going to act like there is a Hansen (1), Faber (2), and Larsen (3) flag and convert them all to Hansen 
+    if dsmodel.version == 1 #Hansen
+        tau = A*c/U 
+        println("Hansen tau: ", tau)
+    elseif dsmodel.version == 2 #Faber
+        tau = A*c/(2*U) #derived from faber and hansen by jacob child, #todo double check
+        #println("Faber tau: ", tau) 
+    elseif dsmodel.version == 4 #Larsen
+        tau = 1.0 / A #derived from larsen (according to his paper omega3 would be our A input) and hansen by jacob child, #todo double check
+        #! I think Larsen's paper might have a typo, I think that if the omega3 he is inputting is 0.07, then tau = A, not 1.0/a
+        tau = A
+        println("Larsen tau: ", tau)
+    else
+        ver = dsmodel.version
+        @warn("$ver not an option, defaulting to Hansen 2008 (option 1)")
+        tau = A*c/U 
+    end
+    #println(fst)
+    f = fst + (fold - fst)*exp(-deltat/tau) #Delay on separation point 
 
     if f>1
         return [1.0]
@@ -240,28 +267,28 @@ end
 Faber's fully separated lift coefficient from his 2018 thesis. 
 =#
 function cl_fullysep_faber(cl, cl_sep, dcldalpha, alpha, alpha0, alpha_sep)
-    if alpha0 < alpha < alpha_sep
-        #Hermite Interpolation as in Faber 2018
+    if alpha0 <= alpha <= alpha_sep
+        #Hermite Interpolation as in Faber 2018, used in the Oye model 
         #TODO: Needs to be extended to work for angles less than alpha0, it should have a reflection to what is done here. 
-        t0 = (alpha - alpha0)/(alpha_sep - alpha) #Faber 2018 EQ A.1a
-        #As alpha -> alpha_sep this will diverge. So... what keeps it from diverging? 
+        t0 = (alpha - alpha0)/(alpha_sep - alpha0) # fix implemented by Weston Pace the denominator is as written, not (alpha_sep - alpha)#Faber 2018 EQ A.1a
         t1 = (alpha - alpha_sep)/(alpha_sep - alpha0) #Faber 2018 EQ A.1b
         term1 = (alpha_sep - alpha0)*dcldalpha*(1 + t0*(7*t1/6 - 1))/2
         term2 = cl_sep*t0*(1-( 2*t1))
         # return t0*(term1+term2) #Faber 2018 EQ A.4
-        clfs = t0*(term1+term2) #Faber 2018 EQ A.4
+        clfs = t0*(term1+term2) #Faber 2018 EQ A.4 #all of the above is checked
 
         # if clfs >10
         #     @show t0, t1, term1, term2
         # end
 
         if t0>10
-            @show alpha, alpha0, alpha_sep
+            #@show alpha, alpha0, alpha_sep
         end
 
         return clfs
     else
-        return cl
+        #println(cl,"this is cl in oye")
+        return cl  #(alpha)
     end
 end
 
@@ -308,7 +335,7 @@ function getcoefficient_indicial_faber(dsmodel::Oye, states, p, airfoil)
 
     cn_fs = cl_fullysep_faber(cn, cn_sep, dcndalpha, alpha, alpha0, alphasep) #Faber 2018 EQ A.4
 
-    Cn = f*cn_inv + (1-f)*cn_fs #Hansen 2004 EQ 17.
+    Cn = f*cn_inv + (1-f)*cn_fs #Hansen 2004 EQ 17. this equation is essentially the same in each method, not just Hansen
     #Todo: Calculate the Cc, Cl, Cd, and potentially the Cm if possible. 
     # if Cn>10
     #     # @show cn_inv, cn_fs, f
@@ -322,7 +349,6 @@ function updateenvironment_oye_indicial!(p, U, aoa)
     p[6] = U
     p[7] = aoa
 end
-
 
 
 
