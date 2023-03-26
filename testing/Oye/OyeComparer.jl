@@ -27,7 +27,8 @@ VertolPolar = readdlm("C:/Users/child/Documents/Projects/FlowLab_DynamicStall/Dy
 #Vertol = of.read_airfoilinput("../../data/airfoils/Vertol.dat") #read in the airfoil data using OpenFASTsr
 #af = of.make_dsairfoil(Vertol) #make the airfoil into a DynamicStallModels airfoil
 #af = dsm.simpleairfoil(VertolPolar) #? testing this versus the dsm.airfoil
-af = dsm.airfoil(VertolPolar; A = 0.07, sfun=dsm.LSP()) #A= 7.14
+af = dsm.airfoil(VertolPolar; A = .07, sfun=dsm.LSP()) #A= 7.14
+af = dsm.update_airfoil(af; alphasep=[af.alphasep[1], 32.0*pi/180] ) #update the airfoil with Larsen's separation point
 airfoils = Array{Airfoil, 1}(undef, 1) #make an array of the type Airfoil struct
 airfoils[1] = af #put the airfoil into the array
 

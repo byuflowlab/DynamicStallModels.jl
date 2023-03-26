@@ -143,15 +143,16 @@ The if statement checks if sfun is of the ADSP type, and then runs the line give
       - [ ] this is linked with multiple dispatch down below, I can implement it I believe
       - [ ] Delete HSP
       - [ ] Add a flag to all separation point functions for Cl or Cn, default for ADSP and ADGSP and Riso/Hansen (RSP/HSP) -> needs to be Cn. Larsen's paper uses Cl
+      - [ ] Create the change A function
     
-    - [ ] make sure I am using the larsen separation point and not hansen's when it expects it
+    - [x] make sure I am using the larsen separation point and not hansen's when it expects it
       
-      - [ ] find the difference between the two, one overshoots, and one under?
-      - [ ] Ans: Larsen and Faber both want the fully separated alphasep, so in deep stall, in the Larsen vertol case, that is 32 deg
-      - [ ] Use update airfoil function to make sure alpha0 is the same as in Larsen's paper
-      - [ ] try 1/tau and just straight tau for the omega3 = 0.07
+      - [x] find the difference between the two, one overshoots, and one under?
+      - [x] Ans: Larsen and Faber both want the fully separated alphasep, so in deep stall, in the Larsen vertol case, that is 32 deg
+      - [x] Use update airfoil function to make sure alpha0 is the same as in Larsen's paper
+      - [x] try 1/tau and just straight tau for the omega3 = 0.07-> Solved?: my conversion was wrong
       - [ ] Add and check my static Cl plot and webplot digitize his polar/static plot (they are the same)
-      - [ ] We want to be able to mismatch functions, un-hardcode Hansen's function so it is a function call
+      - [x] We want to be able to mismatch functions, un-hardcode Hansen's function so it is a function call
     
     - [x] I implemented `dsmodel.version == 3` as being Larsen and Adam already has it as BeddoesLeishman, fix all of them to `dsmodel.version == 4`
     
@@ -169,15 +170,15 @@ The if statement checks if sfun is of the ADSP type, and then runs the line give
     
     - [ ] test against figure 4-c (Larsen Paper) separation point curve
   
-  - [ ] Fix Oye solver functions (check with Weston on this)
+  - [x] Fix Oye solver functions (check with Weston on this)
     
-    - [ ] check the equations in step 7 above
+    - [x] check the equations in step 7 above
   
-  - [ ] Make multiple dispatch
+  - [x] Make multiple dispatch
     
-    - [ ] Add the `separationpoint` function call in the 1 or 2 places necessary, comment out the if statements
+    - [x] Add the `separationpoint` function call in the 1 or 2 places necessary, comment out the if statements
     
-    - [ ] check how the Oye solvers are called and fix/update them (check with Weston during this also)
+    - [x] check how the Oye solvers are called and fix/update them (check with Weston during this also)
 
 ### Grad School Project Ideas
 
@@ -186,5 +187,7 @@ The if statement checks if sfun is of the ADSP type, and then runs the line give
   - Modeling propeller and turbine wakes with the vortex particle method (Eduardo may have already done this?)
   
   - Talk with Ryan and Taylor, Tyler?
+    
+    - Ryan mentioned the BEM rotor interaction problem
   
   - Judd -> might have some ideas, but different than what I have done before -> panel method = panel to velocity to pressures to lift

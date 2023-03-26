@@ -226,26 +226,23 @@ function update_states_oye_faber(dsmodel::Oye, oldstates, U, alpha, deltat, c, d
     cn_inv = dcndalpha*(alpha-alpha0) #Inviscid normal force
 
     cn_fs = cl_fullysep_faber(cn, cn_sep, dcndalpha, alpha, alpha0, alphasep)
-    #fst = (cn - cn_fs)/(cn_inv - cn_fs) #Larsen/Faber method #todo this is hardcoded, should I use separationpoint(...)
-    #? if I do the line below it makes the dsmodel.cflag if statements not needed as it would be handled by the separationpoint function.
-    fst = separationpoint(airfoil, alpha) #? does this work, it should call whatever method sfun was defined to be 
+    fst = separationpoint(airfoil, alpha)  
     if alpha>alphasep
         fst = 0.0
     end
 
     #? implementing a conversion between the different model's inputs and how they are defined
-    # the original line is tau = A*c/U, this is Hansen's equation I am going to act like there is a Hansen (1), Faber (2), and Larsen (3) flag and convert them all to Hansen 
+    # the original line is tau = A*c/U, this is Hansen's equation I am going to act like there is a Hansen (1), Faber (2), and Larsen (4) flag and convert them all to Hansen 
     if dsmodel.version == 1 #Hansen
         tau = A*c/U 
         println("Hansen tau: ", tau)
     elseif dsmodel.version == 2 #Faber
-        tau = A*c/(2*U) #derived from faber and hansen by jacob child, #todo double check
+        tau = A*c/(2*U) #derived from faber and hansen by jacob child
         println("Faber tau: ", tau) 
     elseif dsmodel.version == 4 #Larsen
-        tau = 1.0 / A #derived from larsen (according to his paper omega3 would be our A input) and hansen by jacob child, #todo double check
-        #! I think Larsen's paper might have a typo, I think that if the omega3 he is inputting is 0.07, then tau = A, not 1.0/a
-        tau = A
-        println("Larsen tau: ", tau)
+        tau = c/(A*2.0*U) #derived from larsen (according to his paper omega3 would be our A input) and hansen by jacob child
+        
+        #println("Larsen tau: ", tau)
     else
         ver = dsmodel.version
         @warn("$ver not an option, defaulting to Hansen 2008 (option 1)")
@@ -267,7 +264,7 @@ end
 Faber's fully separated lift coefficient from his 2018 thesis. 
 =#
 function cl_fullysep_faber(cl, cl_sep, dcldalpha, alpha, alpha0, alpha_sep)
-    if alpha0 < alpha < alpha_sep
+    if alpha0 <= alpha <= alpha_sep
         #Hermite Interpolation as in Faber 2018, used in the Oye model 
         #TODO: Needs to be extended to work for angles less than alpha0, it should have a reflection to what is done here. 
         t0 = (alpha - alpha0)/(alpha_sep - alpha0) # fix implemented by Weston Pace the denominator is as written, not (alpha_sep - alpha)#Faber 2018 EQ A.1a

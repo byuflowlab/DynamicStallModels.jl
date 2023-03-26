@@ -257,9 +257,9 @@ function airfoil(polar; A = [0.3, 0.7, 1.0], b = [0.14, 0.53, 5.0], T = [1.7, 3.
     _, maxclidx = findmax(polar[:,2])
     _, minclidx = findmin(polar[1:maxclidx,2])
 
-    #alphasep = [polar[minclidx, 1], polar[maxclidx,1]]
-    #! for debugging and to match Larsen's paper for the Vertol airfoil
-    alphasep = [polar[minclidx, 1], 32.0*pi/180]
+    alphasep = [polar[minclidx, 1], polar[maxclidx,1]]
+    
+    #alphasep = [polar[minclidx, 1], 32.0*pi/180] #I replaced this with an update_airfoil function call in OyeComparer
     println("alphasep: ", alphasep*180/pi)
     
     # @show minclidx, maxclidx
@@ -300,7 +300,12 @@ function update_airfoil(airfoil::Airfoil; polar=nothing, dcldalpha=nothing, dcnd
     end
     newcl = Akima(newpolar[:,1], newpolar[:,2])
     newcd = Akima(newpolar[:,1], newpolar[:,3])
-    newcm = Akima(newpolar[:,1], newpolar[:,4])
+    if size(newpolar)[2] > 3
+        newcm = Akima(newpolar[:,1], newpolar[:,4])
+    else
+        newcm = Akima(newpolar[:,1], zeros(length(newpolar[:,1])))
+    end
+    #newcm = Akima(newpolar[:,1], newpolar[:,4])
 
     cnvec = @. newpolar[:,2]*cos(newpolar[:,1]) + newpolar[:,3]*sin(newpolar[:,1])
     ccvec = @. newpolar[:,2]*sin(newpolar[:,1]) - newpolar[:,3]*cos(newpolar[:,1])
