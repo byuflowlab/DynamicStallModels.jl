@@ -7,6 +7,7 @@
     # but for now things might still need to be changed
 
     # Specify what packages we will need to use
+println("OyeComparer is running!")
 using DynamicStallModels, DelimitedFiles, Plots, FLOWMath, OpenFASTsr, LaTeXStrings
 
 #rename packages for convenience

@@ -27,7 +27,7 @@ using Test
 @test isapprox(2, 2.02, rtol=.01) #true because it is within 1% of 2
 #@test isapprox(2, 2.03, rtol=.01) #false because it is not within 1% of 2
 @test isapprox(2, 2.01, atol=.01) #false because 2.02 is not within .02 of 2
-#? Ans: relative tolerance is a percent absolute tolerance can be considered less than or equal to the difference or a bounds
+#? Ans: relative tolerance is a percent, absolute tolerance can be considered less than or equal to the difference or a bounds
 
 #?what are the default okay bounds?
 @test 1 ≈ .99999999 #8 decimal places and up of similiarity passes
@@ -72,7 +72,7 @@ end #this all passes and a summary is given
 @testset "Testing" begin
     @testset "ints" begin
         #@test 1 == 2 #fail
-        @test 3 == 3 #pass
+        @test 3 == 2 #pass
         @test 1 == 7 broken=true #Broken
     end
     @testset "floats" begin
