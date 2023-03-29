@@ -33,6 +33,15 @@ Cl[1] = Cl[2] - (Cl[3] - Cl[2]) #! fix this later? a cop out fix as the first va
 polar = [aoa Cl Cd zeros(size(aoa))]
 #Extract Fdyn data
 FdynTest = readdlm("../testing/Oye/Outputs/LarsenFig4cFdynAttachment.csv", ',') #read in the Fdyn data from Larsen
+#Quick for loop to make all Fdyn values close to 1 = 1 and values close to 0 = 0
+for i in 1:length(FdynTest[:,2])
+    if FdynTest[i,2] < .01
+        FdynTest[i,2] = 0.0
+    elseif FdynTest[i,2] > .99
+        FdynTest[i,2] = 1.0
+    end
+    println(FdynTest[i,2])
+end
 FdynTestAk = Akima(FdynTest[:,1], FdynTest[:,2]) #make the akima interpolant
 #Make airfoil struct
 afTest = dsm.airfoil(polar; A = .07, sfun=dsm.LSP()) #make the airfoil struct
@@ -51,26 +60,26 @@ fieldnames(typeof(dsmodelTest))
 (:detype, :n, :airfoils, :cflag, :version)
 =#
 #Test setup variables
-alphaTestdeg = Vector(0:1:40)
+alphaTestdeg = Vector(0:1.0:40.0)
 TestTolerance = .01 #tolerance for the tests
 
 @testset "Oye/Larsen Tests" begin 
 
     #Test set to test the attachment degree f
     @testset "f deg" begin
-        @test dsm.separationpoint.(Ref(afTest), alphaTestdeg[2] .* pi/180) == FdynTestAk(alphaTestdeg[2] .* pi/180) #checking at about 2 deg, so should be fully attached
-        @test dsm.separationpoint.(Ref(afTest), alphaTestdeg[10] .* pi/180) == FdynTestAk(alphaTestdeg[10] .* pi/180) #checking at about 10 deg, so linear region
-        @test dsm.separationpoint.(Ref(afTest), alphaTestdeg[32] .* pi/180) == FdynTestAk(alphaTestdeg[32] .* pi/180) #checking at about 32 deg, so where deep stall begins
-        @test dsm.separationpoint.(Ref(afTest), alphaTestdeg[41] .* pi/180) == FdynTestAk(alphaTestdeg[41] .* pi/180) #checking at about 41 deg, so in deep stall
+        @test dsm.separationpoint.(Ref(afTest), alphaTestdeg[3] .* pi/180) == FdynTestAk(alphaTestdeg[3]) #checking at about 2 deg, so should be fully attached
+        @test dsm.separationpoint.(Ref(afTest), alphaTestdeg[11] .* pi/180) == FdynTestAk(alphaTestdeg[11]) #checking at about 10 deg, so linear region
+        @test dsm.separationpoint.(Ref(afTest), alphaTestdeg[33] .* pi/180) == FdynTestAk(alphaTestdeg[33]) #checking at about 32 deg, so where deep stall begins
+        @test dsm.separationpoint.(Ref(afTest), alphaTestdeg[41] .* pi/180) == FdynTestAk(alphaTestdeg[41]) #checking at about 40 deg, so in deep stall
         #print for debugging
         print("f af at 2 deg: ", dsm.separationpoint.(Ref(afTest), alphaTestdeg[2] .* pi/180), " fdynLarsen at 2 deg: ", FdynTestAk(alphaTestdeg[2] .* pi/180))
     end
     #Test set to test the critical alphas (alphasep, alpha0?)
     @testset "critical alphas" begin
         @test isapprox(afTest.alphasep, [-0.793985783199363, 0.5585053606381855 ], rtol = TestTolerance) #? should I do something about the low separation point at -45deg?
-        @test isapprox(afTest.alpha0, -0.01982011981227349, rtol = TestTolerance)
-        @test isapprox(afTest.dcldalpha, 6.634842198285429, rtol = TestTolerance)
-        @test isapprox(afTest.dcndalpha, 6.634842198285429, rtol = TestTolerance)
+        @test isapprox(afTest.alpha0, -0.01982011981227349, rtol = TestTolerance) #! failing
+        @test isapprox(afTest.dcldalpha, 6.634842198285429, rtol = TestTolerance) #! failing
+        @test isapprox(afTest.dcndalpha, 6.634842198285429, rtol = TestTolerance) #! failing
 
     end
     #General Setup Tests to make sure the separation point function is Larsen's 

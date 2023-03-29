@@ -29,3 +29,16 @@ We actually have a time lag and similar shape! I will start comparing f values a
 Function call tracker, so I could make sure everything was going where I thought it was and that I replaced every hardcoded separation point equation with a function call
 
 Created To-Do List/Plan and made progress! 
+
+### March 29, 2023
+
+![](C:\Users\child\AppData\Roaming\marktext\images\2023-03-29-12-45-19-image.png)
+
+Blue is Larsen's data, orange is our data we are overshooting for some reason
+
+![](C:\Users\child\AppData\Roaming\marktext\images\2023-03-29-12-46-57-image.png)
+
+I wrote a test file, there are still some bugs I need to work out, it caught the issue in the above plot, but not as well as I would have liked, so I may need to add some more test cases. I'm not quite sure why the critical alphas are failing and will need to look into that, It is likely I just set it up wrong or am comparing it to an incorrect value
+
+- Accomplished a big chunk of my To Do list
+- Learned to document everything! (I didn't document where my critical alpha test values came from, and I had to spend a lot of time relearning how to plot f values and figuring out why it didn't match my old plots, I was comparing different methods)
