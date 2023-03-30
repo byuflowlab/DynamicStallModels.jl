@@ -225,7 +225,7 @@ A slightly more complex version of simpleairfoil. Takes a polar and numerically 
 ### Outputs
 - Airfoil
 """
-function airfoil(polar; A = [0.3, 0.7, 1.0], b = [0.14, 0.53, 5.0], T = [1.7, 3.0, 0.19], xcp=0.2, eta=1.0, zeta=0.5, sfun::Union{SeparationPoint, Function}=ADFSP(1, 1), S=zeros(4)) #Todo: I think this constructor is broke. 
+function airfoil(polar; A = [0.3, 0.7, 1.0], b = [0.14, 0.53, 5.0], T = [1.7, 3.0, 0.19], xcp=0.2, eta=1.0, zeta=0.5, sfun::Union{SeparationPoint, Function}=ADSP(1, 1), S=zeros(4)) #Todo: I think this constructor is broke. 
     #Todo: Need some sort of behavior when the provided polar is too small. 
 
     alphavec = polar[:,1]
@@ -266,8 +266,8 @@ function airfoil(polar; A = [0.3, 0.7, 1.0], b = [0.14, 0.53, 5.0], T = [1.7, 3.
         @warn("dcldalpha returned NaN")
     end
 
-    if isa(sfun, ADFSP)
-        sfun = ADFSP(alphavec, cnvec, ccvec, alpha0, alphasep, dcldalpha, eta)
+    if isa(sfun, ADSP)
+        sfun = ADSP(alphavec, cnvec, ccvec, alpha0, alphasep, dcldalpha, eta)
     elseif !isa(sfun, Union{Function, SeparationPoint}) #TODO: If it isn't a function or a SeparationPoint.... Does this do anything? I enforced function and SeparationPoint in the function arguments. 
         @warn("The separation point function must be a function, or one of the provided options. Returning to default ADSP().")
         sfun = ADSP(alphavec, cnvec, ccvec, alpha0, alphasep, dcldalpha, eta)

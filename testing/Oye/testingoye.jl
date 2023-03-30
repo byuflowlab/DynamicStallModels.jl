@@ -74,6 +74,7 @@ plot!(alphavec.*(180/pi), cn, lab="DSM")
 plot!(alphavec.*(180/pi), cn_static, lab="Static")
 # vline!([af.alphasep[2]*(180/pi)], lab=L"\alpha_s")
 display(cyclecnplt) 
+# savefig("/Users/adamcardoza/Desktop/fabermethod.png")
 
 #=
 I think that I have the models matching, the difference is that I'm using Cn in this model and Cl in the other. 

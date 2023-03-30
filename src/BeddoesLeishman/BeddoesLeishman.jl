@@ -189,17 +189,20 @@ function (model::BeddoesLeishman)(x, xnew, p, t, dt)
             return newstates
 
         elseif model.version==3
-            
+
+            nst = numberofstates_total(model)
+            ns = numberofstates(model)
+            np = numberofparams(model)
+            newstates = Array{eltype(p), 1}(undef, nst)
             for i = 1:model.n
-                ps = view(p, 22*(i-1)+1:22*i)
+                ps = view(p, np*(i-1)+1:np*i)
     
                 c, a, dcndalpha, alpha0, _, _, A1, A2, A5, b1, b2, b5, Tf0, Tv0, Tp, Tvl, Tsh, Cn1, _, zeta, U, aoa = ps #Inputs  
                 
-                xs = view(x, 32*(i-1)+1:32*i) #states for the given section 
-                xsnew = view(xnew, 32*(i-1)+1:32*i)
+                xs_old = view(x, ns*(i-1)+1:ns*i)
+                xs_new = view(xnew, ns*(i-1)+1:ns*i)
 
-                # idx = 32*(i-1)+1:32*i
-                update_states_ADG!(model, xsnew, xs, c, a, U, dt, aoa, dcndalpha, alpha0, A1, A2, A5, b1, b2, b5, Tf0, Tv0, Tp, Tvl, Tsh, Cn1, zeta, i)
+                update_states_ADG!(model, xs_new, xs_old, c, a, U, dt, aoa, dcndalpha, alpha0, A1, A2, A5, b1, b2, b5, Tf0, Tv0, Tp, Tvl, Tsh, Cn1, zeta, i)
             end
 
         elseif model.version==4
