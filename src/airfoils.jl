@@ -136,24 +136,21 @@ A struct to hold all of the airfoil polars, fits, and dynamic coefficients.
 - s - A fit of the the separation point curve. 
 - xcp - The distance from the quarter chord to the center of pressure? 
 """
-struct Airfoil{TF, Tfit, Fun}  
-    polar::Array{TF, 2}
-    cl::Tfit
-    cd::Tfit
-    cm::Tfit
-    cn::Tfit
-    cc::Tfit
-    dcldalpha::TF
-    dcndalpha::TF
-    alpha0::TF
-    alphasep #::TFV #Todo: Figure out how to put this as a vector or an array. 
-    A #::TFV
-    b #::TFV
-    T #::TFV
-    sfun::Fun
-    xcp::TF
-    eta::TF
-    zeta::TF
+struct Airfoil{TF, Tfit, Fun}
+    model::DSModel
+    polar::Array{TF, 2} #Airfoil polar - alpha (radians), cl, cd, cm
+    cl::Tfit #Fit of the coefficient of lift
+    cd::Tfit #Fit of the drag coefficient
+    cm::Tfit #Fit of the moment coefficient
+    cn::Tfit #Fit of the normal force coefficient
+    cc::Tfit #Fit of the chordwise force coefficient
+    dcldalpha::TF #Lift curve slope at alpha0
+    dcndalpha::TF #Normal curve slope at alpha0
+    alpha0::TF #The zero lift angle of attack
+    alphasep #::TFV #The separation angles of attack #Todo: Figure out how to put this as a vector or an array. 
+    sfun::Fun #The separation point function
+    c::TF #Chord length
+    xcp::TF #The center of pressure
 end
 
 #################################################################
@@ -172,7 +169,7 @@ A function that takes a simple airfoil polar to make a dynamic airfoil. The func
 - Airfoil
 
 """
-function simpleairfoil(polar)
+function make_simpleairfoil(polar, dsmodel::DSModel, chord)
     alphavec = @view(polar[:,1])
     clvec = @view(polar[:,2])
     cdvec = @view(polar[:,3])
@@ -202,16 +199,14 @@ function simpleairfoil(polar)
     sfun(x) = 0.0
 
     xcp = 0.2
-    eta = 1.0
-    zeta = 0.5
-    return Airfoil(polar, cl, cd, cm, cn, cc, dcldalpha, dcldalpha, alpha0, alphasep, A, b, T, sfun, xcp, eta, zeta)
+    return Airfoil(dsmodel, polar, cl, cd, cm, cn, cc, dcldalpha, dcldalpha, alpha0, alphasep, sfun, chord, xcp)
 end
 
 
 
 
 """
-    airfoil(polar::Array{TF, 2}; A::Array{TF, 1} = [0.3, 0.7], b::Array{TF, 1} = [0.14, 0.53], T::Array{TF, 1} = [1.7, 3.0])
+    make_airfoil(polar::Array{TF, 2}; A::Array{TF, 1} = [0.3, 0.7], b::Array{TF, 1} = [0.14, 0.53], T::Array{TF, 1} = [1.7, 3.0])
 
 A slightly more complex version of simpleairfoil. Takes a polar and numerically finds some characteristics. 
 
@@ -225,8 +220,8 @@ A slightly more complex version of simpleairfoil. Takes a polar and numerically 
 ### Outputs
 - Airfoil
 """
-function airfoil(polar; A = [0.3, 0.7, 1.0], b = [0.14, 0.53, 5.0], T = [1.7, 3.0, 0.19], xcp=0.2, eta=1.0, zeta=0.5, sfun::Union{SeparationPoint, Function}=ADSP(1, 1), S=zeros(4)) #Todo: I think this constructor is broke. 
-    #Todo: Need some sort of behavior when the provided polar is too small. 
+function make_airfoil(polar, dsmodel::DSModel, chord; xcp=0.2, sfun::Union{SeparationPoint, Function}=ADSP(1, 1)) 
+    #TODO: Need some sort of behavior when the provided polar is too small. 
 
     alphavec = polar[:,1]
     clvec = polar[:,2]
@@ -240,7 +235,7 @@ function airfoil(polar; A = [0.3, 0.7, 1.0], b = [0.14, 0.53, 5.0], T = [1.7, 3.
     ccvec = @. clvec*sin(alphavec) - cdvec*cos(alphavec)
 
     cn = Akima(alphavec, cnvec)
-    cc = Akima(alphavec, ccvec) #Todo: Find dcn dalpha
+    cc = Akima(alphavec, ccvec) #TODO: Find dcn dalpha
 
 
     alpha0, _ = brent(cl, -0.25, 0.25)
@@ -273,12 +268,18 @@ function airfoil(polar; A = [0.3, 0.7, 1.0], b = [0.14, 0.53, 5.0], T = [1.7, 3.
         sfun = ADSP(alphavec, cnvec, ccvec, alpha0, alphasep, dcldalpha, eta)
     end
 
-    return Airfoil(polar, cl, cd, cm, cn, cc, dcldalpha, dcldalpha, alpha0, alphasep, A, b, T, sfun, xcp, eta, zeta)
+    return Airfoil(dsmodel, polar, cl, cd, cm, cn, cc, dcldalpha, dcldalpha, alpha0, alphasep, sfun, chord, xcp)
 end
 
 
 
-function update_airfoil(airfoil::Airfoil; polar=nothing, dcldalpha=nothing, dcndalpha=nothing, alpha0=nothing, alphasep=nothing, A=nothing, b=nothing, T=nothing, sfun=nothing, xcp=nothing, eta=nothing, zeta=nothing)
+function update_airfoil(airfoil::Airfoil; dsmodel=nothing, polar=nothing, dcldalpha=nothing, dcndalpha=nothing, alpha0=nothing, alphasep=nothing, sfun=nothing, chord=nothing, xcp=nothing)
+
+    if !(dsmodel == nothing)
+        newdsmodel = dsmodel
+    else
+        newdsmodel = airfoil.model
+    end
 
     if !(polar == nothing)
         newpolar = polar
@@ -319,28 +320,16 @@ function update_airfoil(airfoil::Airfoil; polar=nothing, dcldalpha=nothing, dcnd
         newalphasep = airfoil.alphasep
     end
 
-    if !(A==nothing)
-        newA = A
-    else
-        newA = airfoil.A
-    end
-
-    if !(b==nothing)
-        newb = b
-    else
-        newb = airfoil.b
-    end
-
-    if !(T==nothing)
-        newT = T
-    else
-        newT = airfoil.T
-    end
-
     if !(sfun==nothing)
         newsfun = sfun
     else
         newsfun = airfoil.sfun
+    end
+
+    if !(chord==nothing)
+        newchord = chord
+    else
+        newchord = airfoil.c
     end
 
     if !(xcp==nothing)
@@ -349,24 +338,21 @@ function update_airfoil(airfoil::Airfoil; polar=nothing, dcldalpha=nothing, dcnd
         newxcp = airfoil.xcp
     end
 
-    if !(eta==nothing)
-        neweta = eta
-    else
-        neweta = airfoil.eta
-    end
 
-    if !(zeta==nothing)
-        newzeta = zeta
-    else
-        newzeta = airfoil.zeta
-    end
-
-
-    return Airfoil(newpolar, newcl, newcd, newcm, newcn, newcc, newslope, newdcndalpha, newalpha0, newalphasep, newA, newb, newT, newsfun, newxcp, neweta, newzeta)
+    return Airfoil(newdsmodel, newpolar, newcl, newcd, newcm, newcn, newcc, newslope, newdcndalpha, newalpha0, newalphasep, newsfun, newchord, newxcp)
 end
+
+
+
+
+
+###########################################################################################
+##################### Separation Point functions #########################################
+##########################################################################################
 
 separationpoint(airfoil::Airfoil, alpha) = separationpoint(airfoil.sfun, airfoil, alpha)
 
+#TODO: Can dcndalpha_circ be calculated inside the separation point function now, or does it still need to be passed in? 
 separationpoint(airfoil::Airfoil, alpha, dcndalpha_circ) = separationpoint(airfoil.sfun, airfoil, alpha, dcndalpha_circ)
 
 separationpoint(sfun::SP, airfoil::Airfoil, alpha) = sfun.ffit(alpha)
@@ -615,10 +601,10 @@ function separationpoint(sfun::LSP, airfoil::Airfoil, alpha)
     else
         alpha0 = airfoil.alpha0
         cn = airfoil.cl(alpha) #Todo: I need to make this be able to switch between cl and cn. 
-        cn_sep = airfoil.cl(airfoil.alphasep[2])
-        cn_inv = airfoil.dcldalpha*(alpha-alpha0)
 
-        cn_fs = cl_fullysep_faber(cn, cn_sep, airfoil.dcldalpha, alpha, alpha0, airfoil.alphasep[2])
+        cn_inv = airfoil.dcldalpha*(alpha-alpha0)
+        cn_fs = cl_fullysep_faber(airfoil, alpha)
+
         fst = (cn - cn_fs)/(cn_inv - cn_fs)
         if fst>1
             return 1.0

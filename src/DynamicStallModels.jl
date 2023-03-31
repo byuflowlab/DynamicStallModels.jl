@@ -1,8 +1,7 @@
 module DynamicStallModels
 
-using FLOWMath, StaticArrays, Roots, DifferentialEquations, CurveFit
+using FLOWMath, StaticArrays, Roots, CurveFit
 
-DE = DifferentialEquations
 
 export Functional, Iterative, Indicial
 
@@ -20,6 +19,8 @@ end
 
 abstract type DSModel end
 # export DSModel
+
+abstract type State end
 
 include("./utils.jl")
 include("./airfoils.jl")

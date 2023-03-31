@@ -1,14 +1,7 @@
-function numberofstates_total(dsmodel::DSModel)
-    return dsmodel.n*numberofstates(dsmodel)
-end
+#=
+Auxilliary functions for the package. 
 
-function numberofparams_total(dsmodel::DSModel)
-    return dsmodel.n*numberofparams(dsmodel)
-end
-
-function numberofloads_total(dsmodel::DSModel)
-    return dsmodel.n*numberofloads(dsmodel)
-end
+=#
 
 function nearestto(xvec, x) 
     mins = abs.(xvec.-x)

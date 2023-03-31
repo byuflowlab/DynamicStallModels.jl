@@ -18,11 +18,15 @@ The Beddoes-Leishman model struct. It stores airfoil data for every section to b
 - airfoils - A vector of Airfoil structs, one corresponding to each section to be simulated. 
 - version - Which version of the indicial implementation. 1) original. 2) AeroDyn original. 3) AeroDyn Gonzalez. 4) AeroDyn Minema
 """
-struct BeddoesLeishman{TI} <: DSModel
+struct BeddoesLeishman{TI, TF} <: DSModel
     detype::DEType 
-    n::TI #Number of airfoils simulated
-    airfoils::Array{Airfoil,1} #Todo: This is inconvinient typing.
     version::TI #Which version of the indicial implementation.  
+    A #::TFV #The dynamic pressure response coefficients
+    b #::TFV #The secondary dynamic pressure coefficients
+    T #::TFV #The time constants
+    eta::TF #The recovery efficiency
+    zeta::TF #I forget which efficiency this is. 
+    a::TF # Speed of sound
 end
 
 function (model::BeddoesLeishman)(x, p, t, dt) 
