@@ -37,8 +37,6 @@ struct Oye{TI, TF} <: DSModel
     end
 
     Oye(detype::DEType, cflag::TI, version::TI, A::TF) where {TI, TF} = Oye{TI, TF}(detype, cflag, version, A)
-
-    # BinIntOptSF2(c::V, A::M, b::V) where {V <: AbstractVector{<: Real}, M <: AbstractMatrix{<: Real}} = BinIntOptSF2{V,M}(c,A,b) 
 end
 
 # function Oye(detype::DEType; cflag=1, version=1, A=4.0)
@@ -95,30 +93,31 @@ end
 # end
 
 
-function getloads(dsmodel::Oye, airfoil::Airfoil, states, p) #Todo: update to use getloads!
-    if isa(dsmodel.detype, Functional)
-        error("Oye functional implementation not yet prepared.")
-    elseif isa(dsmodel.detype, Iterative)
-        error("Oye iterative implementation not prepared for use yet.")
-    else #Indicial
-        if dsmodel.version == 1
-            return getcoefficient_indicial_hansen(dsmodel, states, p, airfoil)
-        elseif dsmodel.version == 2
-            return getcoefficient_indicial_faber(dsmodel, states, p, airfoil)
-        else
-            ver = dsmodel.version
-            return getcoefficient_indicial_hansen(dsmodel, states, p, airfoil)
-        end
-    end
-end
+# function getloads(dsmodel::Oye, airfoil::Airfoil, states, p) #Todo: update to use getloads!
+#     if isa(dsmodel.detype, Functional)
+#         error("Oye functional implementation not yet prepared.")
+#     elseif isa(dsmodel.detype, Iterative)
+#         error("Oye iterative implementation not prepared for use yet.")
+#     else #Indicial
+#         if dsmodel.version == 1
+#             return getcoefficient_indicial_hansen(dsmodel, states, p, airfoil)
+#         elseif dsmodel.version == 2
+#             return getcoefficient_indicial_faber(dsmodel, states, p, airfoil)
+#         else
+#             ver = dsmodel.version
+#             return getcoefficient_indicial_hansen(dsmodel, states, p, airfoil)
+#         end
+#     end
+# end
 
-function initialize(dsmodel::Oye, airfoil::Airfoil, tvec, U, alpha)
+function initialize(dsmodel::Oye, airfoil::Airfoil, tvec, y)
     if isa(dsmodel.detype, Functional)
         @warn("Oye Functional implementation isn't prepared yet. - initialize()")
     elseif isa(dsmodel.detype, Iterative)
         @warn("Oye Iterative implementation isn't prepared yet. - initialize()")
     else #Model is indicial
-        y = [U, alpha]
+
+        _, _, alpha, _ = y
 
         fst = separationpoint(airfoil, alpha)
 
@@ -129,23 +128,13 @@ function initialize(dsmodel::Oye, airfoil::Airfoil, tvec, U, alpha)
         states = [fst]
 
         loads = zeros(3)
-
         getloads!(dsmodel::Oye, airfoil, states, loads, y)
         
         return states, loads, y
     end
 end
 
-function update_environment!(dsmodel::Oye, p, U, aoa)
-    if isa(dsmodel.detype, Functional)
-        @warn("Oye functional implementation isn't prepared yet. - initialize()")
-    elseif isa(dsmodel.detype, Iterative)
-        @warn("Oye iterative implementation isn't prepared yet. - initialize()")
-    else #Model is indicial
-        p[1] = U
-        p[2] = aoa
-    end
-end
+
 
 
 
@@ -158,7 +147,7 @@ end
 
 function update_states!(dsmodel::Oye, airfoil::Airfoil, oldstate, newstate, y, dt)
     ### Unpack 
-    U, alpha = y
+    U, _, alpha, _ = y
     fold = oldstate[1]
 
 
@@ -179,7 +168,7 @@ function getloads!(dsmodel::Oye, airfoil::Airfoil, states, loads, y)
     ### Unpack
     f = states[1]
 
-    _, alpha = y # U, alpha = y
+    _, _, alpha, _ = y # U, alpha = y
 
 
     dcndalpha = get_dcndalpha(airfoil)

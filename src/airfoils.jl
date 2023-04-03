@@ -672,7 +672,8 @@ Gonzalez modification of the separation point function, as found in OpenFAST v3.
 =#
 function chordwiseseparationpoint(sfun::ADGSP, airfoil::Airfoil, alpha, dcndalpha_circ)
     Cc = airfoil.cl(alpha)*sin(alpha) - (airfoil.cd(alpha) - airfoil.cd(airfoil.alpha0))*cos(alpha)
-    D = airfoil.eta*dcndalpha_circ*(alpha-airfoil.alpha0)*alpha
+
+    D = airfoil.model.eta*dcndalpha_circ*(alpha-airfoil.alpha0)*alpha
 
     fc = (Cc/D + 0.2)^2
 

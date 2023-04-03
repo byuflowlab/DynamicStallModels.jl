@@ -91,8 +91,12 @@ function (interp::Linear)(x)
 
     end
 
+    # @show x, interp.x[1], interp.x[end]
+    #Todo: I should probably figure out a behavior if the function gets passed a NaN 
+
     idx = findfirst(i -> x<i, interp.x)
 
+    # @show idx
 
     x0 = interp.x[idx-1]
     x1 = interp.x[idx]
@@ -105,3 +109,11 @@ function (interp::Linear)(x)
     return top/bot
 end
 
+
+function rotate_load(Cl, Cd, aoa)
+    calpha = cos(aoa)
+    salpha = sin(aoa)
+    Cn = Cl*calpha + Cd*salpha #Cd has friction added back in. 
+    Cc = Cl*salpha - Cd*calpha
+    return Cn, Cc
+end
