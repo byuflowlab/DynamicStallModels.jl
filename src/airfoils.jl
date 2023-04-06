@@ -273,7 +273,7 @@ end
 
 
 
-function update_airfoil(airfoil::Airfoil; dsmodel=nothing, polar=nothing, dcldalpha=nothing, dcndalpha=nothing, alpha0=nothing, alphasep=nothing, sfun=nothing, chord=nothing, xcp=nothing)
+function update_airfoil(airfoil::Airfoil; dsmodel::DSModel=nothing, polar=nothing, dcldalpha=nothing, dcndalpha=nothing, alpha0=nothing, alphasep=nothing, sfun=nothing, chord=nothing, xcp=nothing)
 
     if !(dsmodel == nothing)
         newdsmodel = dsmodel
@@ -340,6 +340,10 @@ function update_airfoil(airfoil::Airfoil; dsmodel=nothing, polar=nothing, dcldal
 
 
     return Airfoil(newdsmodel, newpolar, newcl, newcd, newcm, newcn, newcc, newslope, newdcndalpha, newalpha0, newalphasep, newsfun, newchord, newxcp)
+end
+
+function Base.getproperty(obj::AbstractVector{<:Airfoil}, sym::Symbol)
+    return getfield.(obj,sym)
 end
 
 

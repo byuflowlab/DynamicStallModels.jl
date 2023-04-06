@@ -71,6 +71,11 @@ function update_states!(airfoil::Airfoil, oldstates, newstates, y, dt) #Note: Mi
     return newstates
 end
 
+function get_loads(dsmodel::DSModel, states, y, airfoil)
+    loads = zeros(3)
+    get_loads!(dsmodel, airfoil, states, loads, y)
+end
+
 #=
 Convinience function to access state rate equations
     - Todo: Add a check_dsm_type() function or capability to see if 
@@ -143,16 +148,20 @@ function solve_indicial(airfoils::Array{Airfoil, 1}, tvec, Uvec, alphavec; verbo
             xs1 = view(states, i+1, nsi1:nsi2)
             ys = view(y, 4*(j-1)+1:4*j)
 
-            idxs = 1:3
+            # idxs = 1:3 #Todo: What the heck is going on here? 
+            idxs = 3*(j-1)+1:3j
             loads_j = view(loads, i+1, idxs)
 
             update_environment!(ys, Uvec[i+1], Udotvec[i+1], alphavec[i+1], alphadotvec[i+1]) #TODO: Figure out how to make this work for varying stations. 
             
             update_states!(airfoils[j], xsi, xs1, ys, dt)
 
-            getloads!(airfoils[j].model, airfoils[j], xs1, loads_j, ys) 
+            get_loads!(airfoils[j].model, airfoils[j], xs1, loads_j, ys) 
         end
     end
 
     return states, loads
 end
+
+
+

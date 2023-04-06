@@ -93,23 +93,6 @@ end
 # end
 
 
-# function getloads(dsmodel::Oye, airfoil::Airfoil, states, p) #Todo: update to use getloads!
-#     if isa(dsmodel.detype, Functional)
-#         error("Oye functional implementation not yet prepared.")
-#     elseif isa(dsmodel.detype, Iterative)
-#         error("Oye iterative implementation not prepared for use yet.")
-#     else #Indicial
-#         if dsmodel.version == 1
-#             return getcoefficient_indicial_hansen(dsmodel, states, p, airfoil)
-#         elseif dsmodel.version == 2
-#             return getcoefficient_indicial_faber(dsmodel, states, p, airfoil)
-#         else
-#             ver = dsmodel.version
-#             return getcoefficient_indicial_hansen(dsmodel, states, p, airfoil)
-#         end
-#     end
-# end
-
 function initialize(dsmodel::Oye, airfoil::Airfoil, tvec, y)
     if isa(dsmodel.detype, Functional)
         @warn("Oye Functional implementation isn't prepared yet. - initialize()")
@@ -128,7 +111,7 @@ function initialize(dsmodel::Oye, airfoil::Airfoil, tvec, y)
         states = [fst]
 
         loads = zeros(3)
-        getloads!(dsmodel::Oye, airfoil, states, loads, y)
+        get_loads!(dsmodel::Oye, airfoil, states, loads, y)
         
         return states, loads, y
     end
@@ -168,7 +151,7 @@ function update_states!(dsmodel::Oye, airfoil::Airfoil, oldstate, newstate, y, d
     newstate[1] = f
 end
 
-function getloads!(dsmodel::Oye, airfoil::Airfoil, states, loads, y)
+function get_loads!(dsmodel::Oye, airfoil::Airfoil, states, loads, y)
     ### Unpack
     f = states[1]
 

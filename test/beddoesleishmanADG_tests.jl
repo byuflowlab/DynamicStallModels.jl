@@ -14,13 +14,8 @@ path = dirname(@__FILE__)
 cd(path)
 
 include("./parseaerodyn.jl")
+include("./testingutils.jl")
 
-err(x, xt) = x.-xt
-relerr(x, xt) = (x.-xt)./xt
-function RMS(x, xt)
-    diff = @. (x -xt)^2
-    return sqrt(sum(diff)/length(x))
-end
 
 
 
@@ -98,8 +93,6 @@ tvec = tspan[1]:dt:4.9
 
     ### Loop through the nodes and test them. 
     for i = 1:numnodes
-# i = 17
-
         ### Make sure that the nodes in the intermediate states file are correct. 
         @test isapprox(mat[1,1,i], i)
 
@@ -212,10 +205,10 @@ tvec = tspan[1]:dt:4.9
 
         # @test tau_rms <= 1e-16 #Todo: Really good for everything but the root. (Same as comment above)
 
-        ### Relative percent error
+        ### Relative percent error 
         @test mean(abs.(Cnerr)) <= 0.08
-        @test mean(abs.(Ccerr)) <= 0.11 #Todo: This error isn't really acceptable. This could be why I have a difference. 
-        @test mean(abs.(Cmerr)) <= 0.17 #0.06
+        @test mean(abs.(Ccerr)) <= 0.11 
+        @test mean(abs.(Cmerr)) <= 0.17 
 
     end #End looping through the nodes to test them. 
 

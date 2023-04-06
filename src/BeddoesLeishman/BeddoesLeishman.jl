@@ -55,12 +55,7 @@ end
 
 
 
-function getloads(dsmodel::BeddoesLeishman, states, p, airfoil)
-    loads = zeros(3)
-    getloads!(dsmodel, airfoil, states, loads, y)
-end
-
-function getloads!(dsmodel::BeddoesLeishman, airfoil::Airfoil, states, loads, y)
+function get_loads!(dsmodel::BeddoesLeishman, airfoil::Airfoil, states, loads, y)
     if isa(dsmodel.detype, Functional)
         @warn("Functional implementation not yet prepared.")
     elseif isa(dsmodel.detype, Indicial)

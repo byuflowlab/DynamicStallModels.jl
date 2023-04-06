@@ -57,7 +57,7 @@ end
 
 
 
-export Linear #Todo: Add to FLOWMath. 
+export Linear #Todo: Add to FLOWMath? 
 
 struct Linear
     x
@@ -76,12 +76,17 @@ end
 
 
 
-function (interp::Linear)(x)
+function (interp::Linear)(x; verbose::Bool=true)
+
     if x<interp.x[1]
-        @warn("Linear(): Outside of linear interpolation domain.")
+        if verbose
+            @warn("Linear(): Outside of linear interpolation domain.")
+        end
         return interp.y[1]
     elseif x>interp.x[end]
-        @warn("Linear(): Outside of linear interpolation domain.")
+        if verbose
+            @warn("Linear(): Outside of linear interpolation domain.")
+        end
         return interp.y[end]
 
     elseif x==interp.x[1]
@@ -117,3 +122,4 @@ function rotate_load(Cl, Cd, aoa)
     Cc = Cl*salpha - Cd*calpha
     return Cn, Cc
 end
+
