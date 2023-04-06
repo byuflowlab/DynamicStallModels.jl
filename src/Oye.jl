@@ -143,8 +143,12 @@ end
 function update_states(dsmodel::Oye, airfoil::Airfoil, oldstate, y, dt)
     newstate = zero(oldstate)
     update_states!(dsmodel, airfoil, oldstate, newstate, y, dt)
+    return newstate
 end
 
+#=
+In-place version. 
+=#
 function update_states!(dsmodel::Oye, airfoil::Airfoil, oldstate, newstate, y, dt)
     ### Unpack 
     U, _, alpha, _ = y

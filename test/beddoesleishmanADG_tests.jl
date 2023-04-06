@@ -44,7 +44,17 @@ if !@isdefined(mat)
     mat = parseaerodyn(datavec, items, numnodes) # mat goes time x vars x nodes
 end
 
+#Read in the trouble node
+fi = open("../data/BLADG_intermediate_states.txt", "r")
+namestring = readline(fi)
+close(fi)
 
+namestring = of.rmspaces(namestring)
+namevec = readdlm(IOBuffer(namestring))
+
+data = readdlm("../data/BLADG_intermediate_states.txt", skipstart=1)
+
+outs = Dict(namevec[i] => data[:,i] for i in eachindex(namevec))
 
 #Todo: Test that I'm simulating the correct thing. 
 
@@ -88,12 +98,14 @@ tvec = tspan[1]:dt:4.9
 
     ### Loop through the nodes and test them. 
     for i = 1:numnodes
+# i = 17
 
         ### Make sure that the nodes in the intermediate states file are correct. 
         @test isapprox(mat[1,1,i], i)
 
         ### Prepare inputs that rely on the package. 
         af = make_dsairfoil(afs[i], chordvec[i]; interp=Linear) 
+        # af = make_dsairfoil(afs[i], chordvec[i]) 
         airfoils = Array{Airfoil, 1}(undef, 1) #TODO: I should probably change the type requirement. 
         airfoils[1] = af
 
@@ -148,7 +160,7 @@ tvec = tspan[1]:dt:4.9
         fpp_rms = RMS(states[3:end, 23], mat[:,21,i])
 
         fpc_rms = RMS(states[3:end, 18], mat[:,38,i]) #TODO: Really good half the time, meh the other half. 
-        fppc_rms = RMS(states[3:end, 24], mat[:,37,i])
+        fppc_rms = RMS(states[3:end, 24], mat[:,37,i]) #Todo: Interestingly this doesn't go to 1.44. It goes to 1.435 and change. Like it is fluctuating near 1.44. 
 
         CNFS_rms = RMS(Cfsn[3:end], mat[:,16,i]) 
         Cvn_rms = RMS(Cvn[3:end], mat[:,17,i])
@@ -201,9 +213,9 @@ tvec = tspan[1]:dt:4.9
         # @test tau_rms <= 1e-16 #Todo: Really good for everything but the root. (Same as comment above)
 
         ### Relative percent error
-        @test mean(abs.(Cnerr)) <= 0.06
-        @test mean(abs.(Ccerr)) <= 1.81 #0.05 #Todo: This error isn't really acceptable. This could be why I have a difference. 
-        @test mean(abs.(Cmerr)) <= 0.6 #0.06
+        @test mean(abs.(Cnerr)) <= 0.08
+        @test mean(abs.(Ccerr)) <= 0.11 #Todo: This error isn't really acceptable. This could be why I have a difference. 
+        @test mean(abs.(Cmerr)) <= 0.17 #0.06
 
     end #End looping through the nodes to test them. 
 

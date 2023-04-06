@@ -56,7 +56,8 @@ function update_states_ADG!(airfoil::Airfoil, oldstates, states, y, deltat)  #TO
     b1, b2, b5 = model.b
     Tp, Tf0, Tv0, Tvl, Tsh = model.T
     zeta = model.zeta
-    # Cd0 = model.Cd0
+    Cd0 = model.Cd0
+    Cm0 = model.Cm0
     Cn1 = model.Cn1
 
     ### Unpack environmental inputs
@@ -269,12 +270,12 @@ function update_states_ADG!(airfoil::Airfoil, oldstates, states, y, deltat)  #TO
     states[17] = fp = separationpoint(airfoil, alphaf, dcndalpha_circ) #EQ 1.33, modifications from OpenFAST v3.3.0
     states[18] = fpc = chordwiseseparationpoint(airfoil, alphaf, dcndalpha_circ) 
 
-    Cntemp = airfoil.cl(alphaf)*cos(alphaf) + (airfoil.cd(alphaf) - airfoil.cd(airfoil.alpha0))*sin(alphaf) #TODO: Do I want too move this into a function? Like the who thing to get the moment separation point value. 
+    Cntemp = airfoil.cl(alphaf)*cos(alphaf) + (airfoil.cd(alphaf) - Cd0)*sin(alphaf) #TODO: Do I want too move this into a function? Like the who thing to get the moment separation point value. 
 
     if abs(Cntemp)<0.01
         states[19] = fpm = 0 #TODO: Theoretically this makes more sense to be a one, but... whatever this is what OpenFAST v3.3.0 has. 
     else
-        states[19] = fpm = (airfoil.cm(alphaf)-airfoil.cm(airfoil.alpha0))/Cntemp
+        states[19] = fpm = (airfoil.cm(alphaf)-Cm0)/Cntemp
     end
 
     
@@ -485,6 +486,10 @@ function BLADG_coefficients!(airfoil::Airfoil, loads, states, y)
     
     Cfsc = Cpot*eta*(sqrt(fppc)-0.2) #EQ 1.40, Gonzalez modifications 
 
+    if c==2.086
+        # @show Cpot, fppc
+    end
+
     ### Chordwise force 
     Cc = Cfsc #EQ 1.55b
 
@@ -554,7 +559,9 @@ function initialize_ADG(airfoil::Airfoil, tvec, y)
     
     Cpotn = airfoil.cl(alpha) +(airfoil.cd(alpha)-Cd0)*sin(alpha)
     fp = fpp = 1.0
+    # fp = fpp = 0.0
     fpc = fppc = fclimit
+    # fpc = fppc = 0.0
     fpm = fppm = 0.0 #TODO: I'm not sure what to start this as. -> It works as is, so I'll leave it. 
     tauv = 0.0
     Nv = 0.0

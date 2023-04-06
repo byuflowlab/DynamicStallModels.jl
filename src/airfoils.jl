@@ -671,11 +671,22 @@ end
 Gonzalez modification of the separation point function, as found in OpenFAST v3.3.0
 =#
 function chordwiseseparationpoint(sfun::ADGSP, airfoil::Airfoil, alpha, dcndalpha_circ)
-    Cc = airfoil.cl(alpha)*sin(alpha) - (airfoil.cd(alpha) - airfoil.cd(airfoil.alpha0))*cos(alpha)
+    # @show alpha, dcndalpha_circ
+    Cd0 = airfoil.model.Cd0
+
+    Cc = airfoil.cl(alpha)*sin(alpha) - (airfoil.cd(alpha) - Cd0)*cos(alpha)
+
+    # println(airfoil.cl(alpha), ",  ", airfoil.cd(alpha), ", ", Cd0, ", ", alpha)
 
     D = airfoil.model.eta*dcndalpha_circ*(alpha-airfoil.alpha0)*alpha
 
-    fc = (Cc/D + 0.2)^2
+    fc = (Cc/D + 0.2)^2 #Todo. This is always over 1.44
+
+    # delalpha = airfoil.alpha0-alpha #Note: I don't have the add_sub_2pi() function here (to bring the difference of the angles within a difference of pi), but... It doesn't look like that's the current problem. It looks like it is something else. 
+    # @show delalpha
+
+    # @show fc
+    # @show Cc, D #Todo. These values are off, not by tons, but off. -> Cd0 was off. 
 
     return min(fc, fclimit)
 end

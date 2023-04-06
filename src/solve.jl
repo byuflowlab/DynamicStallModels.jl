@@ -79,6 +79,8 @@ function (airfoil::Airfoil)(x, p, t)
     if airfoil.model.detype==Indicial
         error("airfoil: This DEType cannot be used to return a state rate.")
     end
+
+    state_rates!(airfoil.model, airfoil, dx, x, p, t)
 end
 
 function (airfoil::Airfoil)(dx, x, p, t)
