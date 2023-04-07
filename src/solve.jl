@@ -80,15 +80,24 @@ end
 Convinience function to access state rate equations
     - Todo: Add a check_dsm_type() function or capability to see if 
 =#
-function (airfoil::Airfoil)(x, p, t)
-    if airfoil.model.detype==Indicial
-        error("airfoil: This DEType cannot be used to return a state rate.")
-    end
-
-    state_rates!(airfoil.model, airfoil, dx, x, p, t)
+function (airfoil::Airfoil)(state_in, y, t_aspect)
+    state_out = zeros(numberofstates(airfoil.model))
+    return airfoil(state_out, state_in, y, t_aspect)
 end
 
-function (airfoil::Airfoil)(dx, x, p, t)
+# Same as above, but for calculations
+function (airfoil::Airfoil)(state_out, state_in, y, t_aspect)
+    if isa(airfoil.model.detype, Indicial)
+        return update_states!(airfoil, state_out, state_in, y, t_aspect)
+    else
+        return state_rates!(airfoil, state_out, state_in, y, t_aspect)
+    end
+end
+
+function (airfoils::AbstractVector{<:Airfoil})(state_in, y, t_aspect)
+end
+
+function (airfoils::AbstractVector{<:Airfoil})(state_out, state_in, y, t_aspect)
 end
 
 function update_environment!(y, U, Udot, alpha, alphadot)
@@ -154,7 +163,7 @@ function solve_indicial(airfoils::Array{Airfoil, 1}, tvec, Uvec, alphavec; verbo
 
             update_environment!(ys, Uvec[i+1], Udotvec[i+1], alphavec[i+1], alphadotvec[i+1]) #TODO: Figure out how to make this work for varying stations. 
             
-            update_states!(airfoils[j], xsi, xs1, ys, dt)
+            airfoils[j](xsi, xs1, ys, dt)
 
             get_loads!(airfoils[j].model, airfoils[j], xs1, loads_j, ys) 
         end
