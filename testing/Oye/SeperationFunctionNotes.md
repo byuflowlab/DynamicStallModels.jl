@@ -162,13 +162,13 @@ The if statement checks if sfun is of the ADSP type, and then runs the line give
   
   - [ ] Create a separation point test file (do this first and match figure 4-c)
     
-    - [ ] Write out the questions I want to answer, what the answers should be, and where/when to find them
+    - [x] Write out the questions I want to answer, what the answers should be, and where/when to find them
     
-    - [ ] create the file and testset
+    - [x] create the file and testset
     
     - [ ] make it automated
     
-    - [ ] test against figure 4-c (Larsen Paper) separation point curve
+    - [x] test against figure 4-c (Larsen Paper) separation point curve
   
   - [x] Fix Oye solver functions (check with Weston on this)
     

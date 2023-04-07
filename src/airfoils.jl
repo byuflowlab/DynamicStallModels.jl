@@ -632,6 +632,7 @@ Larsen's separation point function from his 2007 paper.
 function separationpoint(sfun::LSP, airfoil::Airfoil, alpha)
     #println("using the LSP separation point function. Currently at line 639 in airfoils.jl ")
     if alpha>airfoil.alphasep[2] #? right after stall is fully separated? not partially?
+    
         return 0.0
     else
         alpha0 = airfoil.alpha0
@@ -653,13 +654,15 @@ function separationpoint(sfun::LSP, airfoil::Airfoil, alpha)
         cn_fs = cl_fullysep_faber(cn, cn_sep, airfoil.dcldalpha, alpha, alpha0, airfoil.alphasep[2]) #checked
         fst = (cn - cn_fs)/(cn_inv - cn_fs) #checked
         #println(fst)
-        if fst>1
+        #=if fst>1
             return 1.0  
         elseif fst<0
             return 0.0
         else
             return fst #! is something up with these values? running a for loop with alphavec on oyecomparer.jl doesn't go above .02ish
         end
+        =#
+        return fst
     end
 end
 

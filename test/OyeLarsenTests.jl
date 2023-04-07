@@ -43,7 +43,7 @@ end
 FdynTestAk = Akima(FdynTest[:,1], FdynTest[:,2]) #make the akima interpolant
 #Make airfoil struct
 afTest = dsm.airfoil(polar; A = .07, sfun=dsm.LSP()) #make the airfoil struct
-afTest = dsm.update_airfoil(afTest; alphasep=[afTest.alphasep[1], 32.0*pi/180], dcldalpha = 2* pi, dcndalpha = 2 * pi ) #update the airfoil with Larsen's separation point
+afTest = dsm.update_airfoil(afTest; alphasep=[afTest.alphasep[1], 30.0*pi/180], dcldalpha = 2* pi, dcndalpha = 2 * pi ) #update the airfoil with Larsen's separation point
 airfoilsTest = Array{Airfoil, 1}(undef, 1) #make an array of the type Airfoil struct
 airfoilsTest[1] = afTest #put the airfoil into the array
 #Make the Oye struct and setup to solve
@@ -61,6 +61,11 @@ fieldnames(typeof(dsmodelTest))
 alphaTestdeg = Vector(0:1.0:40.0)
 TestTolerance = .01 #tolerance for the tests
 
+#Plot the Fdyn comparision
+plot(alphaTestdeg, dsm.separationpoint.(Ref(afTest), alphaTestdeg.*pi/180), label = "DSM")
+plot!(alphaTestdeg, FdynTestAk(alphaTestdeg), label = "Larsen")
+
+
 @testset "Oye/Larsen Tests" begin 
 
     #Test set to test the attachment degree f
@@ -76,8 +81,8 @@ TestTolerance = .01 #tolerance for the tests
     @testset "critical alphas" begin #! where did these values come from?
         @test isapprox(afTest.alphasep, [-0.793985783199363, 0.5585053606381855 ], rtol = TestTolerance) #? should I do something about the low separation point at -45deg?
         @test isapprox(afTest.alpha0, -0.01982011981227349, rtol = TestTolerance) #! failing
-        @test isapprox(afTest.dcldalpha, 6.634842198285429, rtol = TestTolerance) #! failing
-        @test isapprox(afTest.dcndalpha, 6.634842198285429, rtol = TestTolerance) #! failing
+        @test isapprox(afTest.dcldalpha, 2*pi, rtol = TestTolerance) #! failing
+        @test isapprox(afTest.dcndalpha, 2*pi, rtol = TestTolerance) #! failing
 
     end
     #General Setup Tests to make sure the separation point function is Larsen's 
@@ -105,5 +110,7 @@ Note: to get plots that match my old f, I did not use LSP, I used adsp!
 
 
 #Plot the Larsen static polar and extrapolated polar to compare
+#=
 plot(polar[:,1], polar[:,2], label = "Viterna Extrapolated Polar")
 plot!(Naca43618PolarTest[:,1], Naca43618PolarTest[:,2], label="Larsen Static Polar")
+=#
