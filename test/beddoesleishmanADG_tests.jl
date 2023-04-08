@@ -28,7 +28,6 @@ items = ["i", "t", "U", "alpha", "a_s", "M", "Gonzalez_factor", "c", "C_nalpha",
 
 
 ### Read in AeroDyn files #Todo: Switch to a test that doesn't depend on updates from OpenFASTsr.
-#Todo: I might have changed the input files... which would be a bummer. 
 addriver = of.read_addriver("NREL5MW_ADdriver.dvr", "../testing/OpenFAST_NREL5MW_modified")
 adfile = of.read_adfile("NREL5MW_ADfile.dat","../testing/OpenFAST_NREL5MW_modified")
 adblade = of.read_adblade("NREL5MW_adblade.dat", "../testing/OpenFAST_NREL5MW_modified")
@@ -206,9 +205,9 @@ tvec = tspan[1]:dt:4.9
         # @test tau_rms <= 1e-16 #Todo: Really good for everything but the root. (Same as comment above)
 
         ### Relative percent error 
-        @test mean(abs.(Cnerr)) <= 0.08
+        @test mean(abs.(Cnerr)) <= 0.07
         @test mean(abs.(Ccerr)) <= 0.11 
-        @test mean(abs.(Cmerr)) <= 0.17 
+        @test mean(abs.(Cmerr)) <= 0.11
 
     end #End looping through the nodes to test them. 
 

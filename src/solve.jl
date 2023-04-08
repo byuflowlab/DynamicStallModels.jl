@@ -19,7 +19,7 @@ Or something like that.
 
 export solve_indicial
 
-function numberofstates_total(airfoils::Array{Airfoil,1})
+function numberofstates_total(airfoils::AbstractVector{<:Airfoil})
     ns = 0
 
     for i in eachindex(airfoils)
@@ -28,7 +28,7 @@ function numberofstates_total(airfoils::Array{Airfoil,1})
     return ns
 end
 
-function numberofparams_total(airfoils::Array{Airfoil,1})
+function numberofparams_total(airfoils::AbstractVector{<:Airfoil})
     ns = 0
 
     for i in eachindex(airfoils)
@@ -39,7 +39,7 @@ end
 
 
 
-function initialize(airfoil, tvec, y)  
+function initialize(airfoil, tvec, y)  #Todo: Why do I have tvec as one of the entries of this function? I didn't see something in the indicial models, so I wonder if I needed to initialize the functionals or iterative models. 
     return initialize(airfoil.model, airfoil, tvec, y) 
 end
 
@@ -86,18 +86,48 @@ function (airfoil::Airfoil)(state_in, y, t_aspect)
 end
 
 # Same as above, but for calculations
-function (airfoil::Airfoil)(state_out, state_in, y, t_aspect)
+function (airfoil::Airfoil)(state_in, state_out, y, t_aspect)
     if isa(airfoil.model.detype, Indicial)
-        return update_states!(airfoil, state_out, state_in, y, t_aspect)
+        return update_states!(airfoil, state_in, state_out, y, t_aspect)
     else
-        return state_rates!(airfoil, state_out, state_in, y, t_aspect)
+        return state_rates!(airfoil, state_in, state_out, y, t_aspect)
     end
 end
 
-function (airfoils::AbstractVector{<:Airfoil})(state_in, y, t_aspect)
+function (airfoils::AbstractVector{<:Airfoil})(state_in, state_idxs, y, t_aspect)
+    ns = numberofstates_total(airfoils)
+    state_out = zeros(ns)
+
+    for i in eachindex(airfoils)
+        nsi1, nsi2 = state_indices(airfoils[i].model, state_idxs[i])
+        xsi = view(state_in, nsi1:nsi2)
+        xs1 = view(state_out, nsi1:nsi2)
+        ys = view(y, 4*(i-1)+1:4*i)
+
+        airfoils[i](xsi, xs1, ys, t_aspect)
+
+        # if any(item -> isnan(item), xs1) #Todo: I don't know if having something like this would be more robust, or just a nusiance. 
+        #     @show xsi
+        #     @show xs1
+        #     @show ys
+        #     error("Found NaN while updating states")
+        # end
+    end
 end
 
-function (airfoils::AbstractVector{<:Airfoil})(state_out, state_in, y, t_aspect)
+#Todo: Need to write a test for this. 
+function (airfoils::AbstractVector{<:Airfoil})(state_in, state_out, state_idxs, y, t_aspect)
+
+    for i in eachindex(airfoils)
+        nsi1, nsi2 = state_indices(airfoils[i].model, state_idxs[i])
+        xsi = view(state_in, nsi1:nsi2)
+        xs1 = view(state_out, nsi1:nsi2)
+        ys = view(y, 4*(i-1)+1:4*i)
+
+        # @show ys
+
+        airfoils[i](xsi, xs1, ys, t_aspect)
+    end
 end
 
 function update_environment!(y, U, Udot, alpha, alphadot)
@@ -163,7 +193,7 @@ function solve_indicial(airfoils::Array{Airfoil, 1}, tvec, Uvec, alphavec; verbo
 
             update_environment!(ys, Uvec[i+1], Udotvec[i+1], alphavec[i+1], alphadotvec[i+1]) #TODO: Figure out how to make this work for varying stations. 
             
-            airfoils[j](xsi, xs1, ys, dt)
+            airfoils[j](xsi, xs1, ys, dt) #Todo: I had xsi, xs1... 
 
             get_loads!(airfoils[j].model, airfoils[j], xs1, loads_j, ys) 
         end

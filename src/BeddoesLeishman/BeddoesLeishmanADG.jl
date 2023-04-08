@@ -234,6 +234,9 @@ function update_states_ADG!(airfoil::Airfoil, oldstates, states, y, deltat)  #TO
     ### Circulatory component of normal force
     alphae = (alpha - alpha0) - X1 - X2 #EQ 1.14, Effective angle of attack
     dcndalpha_circ = dcndalpha/beta #EQ 1.12, Circulatory component of the normal force coefficient response to step change in alpha. #Checked against OpenFAST v3.3.0
+
+    # @show dcndalpha, beta
+
     Ncirc_aq = dcndalpha_circ*alphae #+ Cc_nq #EQ 1.13, Circulatory component of normal force via lumped approach. #TODO: This appears to be equal to Cpotcn
 
     ### Total normal force under attached conditions
@@ -262,8 +265,12 @@ function update_states_ADG!(airfoil::Airfoil, oldstates, states, y, deltat)  #TO
 
     Cpn = Npot - Dp #EQ 1.35, lagged circulatory normal force 
 
+    # @show Npot, Dp
+
 
     alphaf = Cpn/dcndalpha_circ + alpha0 #EQ 1.34, delayed effective angle of incidence  Note: this is not the filtered angle of attack. 
+
+    # @show alphaf, Cpn, dcndalpha_circ, alpha0
 
     
     #### Separation points

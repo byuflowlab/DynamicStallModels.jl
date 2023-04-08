@@ -626,7 +626,11 @@ Gonzalez modification of the separation point function, as found in OpenFAST v3.
 function separationpoint(sfun::ADGSP, airfoil::Airfoil, alpha, dcndalpha_circ)
     delalpha = alpha-airfoil.alpha0
 
-    Cn = airfoil.cl(alpha)*cos(alpha) + (airfoil.cd(alpha) - airfoil.cd(airfoil.alpha0))*sin(alpha)
+    # Cd0 = airfoil.cd(airfoil.alpha0)
+    Cd0 = airfoil.model.Cd0
+    # @show alpha
+    
+    Cn = airfoil.cl(alpha)*cos(alpha) + (airfoil.cd(alpha) - Cd0)*sin(alpha)
 
     if isapprox(dcndalpha_circ, 0.0)
         tr = 0
