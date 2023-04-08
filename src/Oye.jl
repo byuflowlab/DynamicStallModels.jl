@@ -240,7 +240,7 @@ function update_states_oye_faber(dsmodel::Oye, oldstates, U, alpha, deltat, c, d
         println("Hansen tau: ", tau)
     elseif dsmodel.version == 2 #Faber
         tau = A*c/(2*U) #derived from faber and hansen by jacob child, #todo double check
-        #println("Faber tau: ", tau) 
+        println("Faber tau: ", tau) 
     elseif dsmodel.version == 4 #Larsen
         tau = 1.0 / A #derived from larsen (according to his paper omega3 would be our A input) and hansen by jacob child, #todo double check
         #! I think Larsen's paper might have a typo, I think that if the omega3 he is inputting is 0.07, then tau = A, not 1.0/a
@@ -253,6 +253,8 @@ function update_states_oye_faber(dsmodel::Oye, oldstates, U, alpha, deltat, c, d
     end
     #println(fst)
     f = fst + (fold - fst)*exp(-deltat/tau) #Delay on separation point 
+
+    println("Dynamic Separation Point: ", f)
 
     if f>1
         return [1.0]
@@ -350,7 +352,65 @@ function updateenvironment_oye_indicial!(p, U, aoa)
     p[7] = aoa
 end
 
+########## Functional code
+
+function Oye_State_Rate!(dx, x, A, c, airfoil, Uvec, alphavec, t)
+    T_f = (Uvec(t))/(A[1]*c)
+
+    fst = separationpoint(airfoil, alphavec(t))
+
+    dx[1] = -T_f*(x[1]-fst)
+end
+
+function Oye_ODE!(model, dx, x, p, t)
+    A, c, Uvec, alphavec = p
+    for i in 1:model.n
+        airfoil = model.airfoils[i]
+        idx = (i-1)*1
+        xs = view(x , idx+1:idx+1)
+        dxs = view(dx, idx+1:idx+1)
+        Oye_State_Rate!(dxs, xs, A, c, airfoil, Uvec, alphavec, t)
+    end
+end
+
+function (model::Oye)(dx, x , p, t)
+    Oye_ODE!(model, dx, x, p, t)
+end
+
+export parsesolution_Oye
+
+function parsesolution_Oye(sol, p, af)
+    _, _, _, alphavec = p
+    f = Array(sol)
+    tvec = sol.t
+    airfoil = af
+
+    alpha0 = airfoil.alpha0
 
 
+    
+    alpha = []
+    Lift = []
+
+    for i in 1:length(tvec)
+
+        push!(alpha, alphavec(tvec[i]))
+        
+        C_inv = airfoil.dcldalpha*(alphavec(tvec[i]) - alpha0)
+
+        cl = airfoil.cl(alphavec(tvec[i]))
+
+        cl_sep = airfoil.cl(airfoil.alphasep[2])
+
+        C_fs = cl_fullysep_faber(cl, cl_sep, airfoil.dcldalpha, alphavec(tvec[i]), alpha0, airfoil.alphasep[2])
+
+        C_L_dyn = f[i]*C_inv+(1-f[i])*C_fs
+
+        push!(Lift, C_L_dyn)
+    end
+
+    return Lift, alpha
+
+end
 
 
