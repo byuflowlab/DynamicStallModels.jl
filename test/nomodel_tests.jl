@@ -99,12 +99,21 @@ include("./testingutils.jl")
 
     states, loads = solve_indicial(airfoils, tvec, Uvec, alphavec)
 
-    # @show size(loads), nt, numnodes*3
 
     for j in eachindex(airfoils)
         loadidx = 3*(j-1)+1:3j
         if j<5
-            @test !any(k -> k>0.0, loads[:, loadidx])
+            clvec = loads[:, loadidx[1]]
+            cdvec = loads[:, loadidx[2]]
+            cmvec = loads[:, loadidx[3]]
+
+            clvec_gold = airfoils[j].cl.(alphavec)
+            cdvec_gold = airfoils[j].cd.(alphavec)
+            cmvec_gold = airfoils[j].cm.(alphavec)
+
+            @test isapprox(clvec, clvec_gold)
+            @test isapprox(cdvec, cdvec_gold)
+            @test isapprox(cmvec, cmvec_gold)
         else
             @test mean(loads[:,loadidx])!=0.0
             #TODO: Should probably check that the no model doesn't affect the other states... or loads. 

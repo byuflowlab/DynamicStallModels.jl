@@ -382,22 +382,23 @@ end
 
 
 
-function BLADG_coefficients(airfoil::Airfoil, states, y) #Todo: I don't know if I need this function. 
-    loads = zeros(3)
-    BLADG_coefficients!(airfoil, loads, states, y)
-    return loads
+function BLADG_coefficients!(airfoil::Airfoil, loads, states, y) #Todo: I don't know if I need this function. 
+    loads .= BLADG_coefficients(airfoil, states, y)
 end
 
 
-function BLADG_coefficients!(airfoil::Airfoil, loads, states, y)
+function BLADG_coefficients(airfoil::Airfoil, states, y)
 
     U = y[1]
 
     c = airfoil.c
     clfit = airfoil.cl
     cdfit = airfoil.cd
+    cmfit = airfoil.cm
     dcndalpha = airfoil.dcndalpha
     alpha0 = airfoil.alpha0
+    alphacut = airfoil.alphacut[2]
+    cutrad = airfoil.cutrad
     xcp = airfoil.xcp
 
     model = airfoil.model
@@ -410,7 +411,7 @@ function BLADG_coefficients!(airfoil::Airfoil, loads, states, y)
     eta = model.eta
     a = model.a
 
-    aoa = states[1]
+    aoa = states[1] #Todo: Which of these bad boyz should I be using here? 
     alpha = states[2]
 
     qf = states[4]
@@ -541,8 +542,21 @@ function BLADG_coefficients!(airfoil::Airfoil, loads, states, y)
         Cm = Mfs + Mv
     end
 
-    loads[:] = [Cl, Cd, Cm]
+    ### Blend the unsteady coefficients with static with cutouts. 
+    W1 = 1 - blend_cosine(aoa, alphacut-cutrad, alphacut)
+    W2 = blend_cosine(U, 0.0, 1.0)
+    W = W1*W2 
+
+    if W<1
+        # println("blending loads")
+        Cl = Cl*W + (1-W)*clfit(aoa)
+        Cd = Cd*W + (1-W)*cdfit(aoa)
+        Cm = Cm*W + (1-W)*cmfit(aoa)
+    end
+
+    # loads[:] = [Cl, Cd, Cm]
     # return Cn, Cc, Cl, Cd, Cm
+    return Cl, Cd, Cm
 end
 
 function initialize_ADG(airfoil::Airfoil, tvec, y) 

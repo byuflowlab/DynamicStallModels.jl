@@ -73,6 +73,24 @@ function get_loads!(dsmodel::BeddoesLeishman, airfoil::Airfoil, states, loads, y
     end
 end
 
+function get_loads(dsmodel::BeddoesLeishman, airfoil::Airfoil, states, y)
+    if isa(dsmodel.detype, Functional)
+        @warn("Functional implementation not yet prepared.")
+    elseif isa(dsmodel.detype, Indicial)
+        if dsmodel.version==1
+            @warn("Original indicial Beddoe-Leishman not prepared for use yet.")
+        elseif dsmodel.version==2
+            return getloads_BLA(dsmodel, states, p, airfoil)
+        elseif dsmodel.version==3
+            # @warn("AeroDyn Beddoe-Leishman with Gonzalez's modifications not prepared for use yet.")
+            # return getloads_BLAG(dsmodel, states, p, airfoil)
+            return BLADG_coefficients(airfoil::Airfoil, states, y)
+        elseif dsmodel.version==4
+            @warn("AeroDyn Beddoe-Leishman with Minema's modifications not prepared for use yet.")
+        end
+    end
+end
+
 function numberofstates(dsmodel::BeddoesLeishman) #TODO: This probably need to be augmented to check if the model is a functional, an iterative, or an indicial. 
     if dsmodel.version==1 #Todo: This function should be changed to reflect the number of states for a single 2D airfoil, not the total number of states.... or I should have two different functions. 
         @warn("The orginal Beddoes-Leishman model is not yet prepared.")

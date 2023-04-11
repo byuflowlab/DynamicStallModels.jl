@@ -123,3 +123,18 @@ function rotate_load(Cl, Cd, aoa)
     return Cn, Cc
 end
 
+function blend_cosine(x, lb, ub)
+    if ub<lb
+        @warn("blend_cosine: Bounds out of order")
+        lb, ub = ub, lb
+    end
+
+    if x>=ub
+        return 1.0
+    elseif x<=lb
+        return 0.0
+    else
+        cterm = cos((x-lb)*pi/(ub-lb))
+        return (1-cterm)/2
+    end
+end

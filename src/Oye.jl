@@ -151,7 +151,7 @@ function update_states!(dsmodel::Oye, airfoil::Airfoil, oldstate, newstate, y, d
     newstate[1] = f
 end
 
-function get_loads!(dsmodel::Oye, airfoil::Airfoil, states, loads, y)
+function get_loads(dsmodel::Oye, airfoil::Airfoil, states, y)
     ### Unpack
     f = states[1]
 
@@ -174,10 +174,16 @@ function get_loads!(dsmodel::Oye, airfoil::Airfoil, states, loads, y)
     if dsmodel.cflag==2 #delay applied to normal and tangential loads
         #Rotate loads
     else 
-        loads[1] = f*cn_inv + (1-f)*cn_fs #Hansen 2004 EQ 17. Cl
-        loads[2] = zero(loads[1]) #Cd
-        loads[3] = zero(loads[1]) #Cm
+        Cl = f*cn_inv + (1-f)*cn_fs #Hansen 2004 EQ 17. Coefficient of lift
+        Cd = zero(Cl) #Coefficient of drag
+        Cm = zero(Cl) #Coefficient of moment
     end
+
+    return Cl, Cd, Cm
+end
+
+function get_loads!(dsmodel::Oye, airfoil::Airfoil, states, loads, y)
+    loads .= get_loads(dsmodel, airfoil, states, y)
 end
 
 function cl_fullysep_hansen(airfoil, alpha) #Todo: Move to Hansen's file

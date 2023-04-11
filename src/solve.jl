@@ -86,6 +86,17 @@ function (airfoil::Airfoil)(state_in, y, t_aspect)
 end
 
 # Same as above, but for calculations
+"""
+    (airfoil::Airfoil)(state_in, state_out, y, t_aspect)
+
+A method on the Airfoil struct to either update the states, or the state rates of the dynamic stall model (respective to if the model is indicial, or functional/iterative). 
+
+### Inputs
+- state_in::Vector{TF} - A vector of the old states. 
+- state_out::Vector{TF} - A vector of the new states if the model is indicial, and a vector of the new state rates if the model is a state space model (functional/iterative). 
+- y::Vector{TF} - A vector of the environmental inputs. 
+- t_aspect::TF - Either the time step if the model is indicial, or the current time value if the model is a state space model. 
+"""
 function (airfoil::Airfoil)(state_in, state_out, y, t_aspect)
     if isa(airfoil.model.detype, Indicial)
         return update_states!(airfoil, state_in, state_out, y, t_aspect)
@@ -115,7 +126,7 @@ function (airfoils::AbstractVector{<:Airfoil})(state_in, state_idxs, y, t_aspect
     end
 end
 
-#Todo: Need to write a test for this. 
+
 function (airfoils::AbstractVector{<:Airfoil})(state_in, state_out, state_idxs, y, t_aspect)
 
     for i in eachindex(airfoils)

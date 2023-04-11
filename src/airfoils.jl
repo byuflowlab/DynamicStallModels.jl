@@ -148,6 +148,8 @@ struct Airfoil{TF, Tfit, Fun}
     dcndalpha::TF #Normal curve slope at alpha0
     alpha0::TF #The zero lift angle of attack
     alphasep #::TFV #The separation angles of attack #Todo: Figure out how to put this as a vector or an array. 
+    alphacut
+    cutrad::TF
     sfun::Fun #The separation point function
     c::TF #Chord length
     xcp::TF #The center of pressure
@@ -196,10 +198,13 @@ function make_simpleairfoil(polar, dsmodel::DSModel, chord)
 
     alphasep = [alphavec[minclidx], alphavec[maxclidx]]
 
+    alphacut = 45*pi/180
+    cutrad = 5*pi/180
+
     sfun(x) = 0.0
 
     xcp = 0.2
-    return Airfoil(dsmodel, polar, cl, cd, cm, cn, cc, dcldalpha, dcldalpha, alpha0, alphasep, sfun, chord, xcp)
+    return Airfoil(dsmodel, polar, cl, cd, cm, cn, cc, dcldalpha, dcldalpha, alpha0, alphasep, alphacut, cutrad, sfun, chord, xcp)
 end
 
 
@@ -220,7 +225,7 @@ A slightly more complex version of simpleairfoil. Takes a polar and numerically 
 ### Outputs
 - Airfoil
 """
-function make_airfoil(polar, dsmodel::DSModel, chord; xcp=0.2, sfun::Union{SeparationPoint, Function}=ADSP(1, 1)) 
+function make_airfoil(polar, dsmodel::DSModel, chord; xcp=0.2, sfun::Union{SeparationPoint, Function}=ADSP(1, 1), alphacut = 45*pi/180, cutrad = 5*pi/180) 
     #TODO: Need some sort of behavior when the provided polar is too small. 
 
     alphavec = polar[:,1]
@@ -268,12 +273,12 @@ function make_airfoil(polar, dsmodel::DSModel, chord; xcp=0.2, sfun::Union{Separ
         sfun = ADSP(alphavec, cnvec, ccvec, alpha0, alphasep, dcldalpha, eta)
     end
 
-    return Airfoil(dsmodel, polar, cl, cd, cm, cn, cc, dcldalpha, dcldalpha, alpha0, alphasep, sfun, chord, xcp)
+    return Airfoil(dsmodel, polar, cl, cd, cm, cn, cc, dcldalpha, dcldalpha, alpha0, alphasep, alphacut, cutrad, sfun, chord, xcp)
 end
 
 
 
-function update_airfoil(airfoil::Airfoil; dsmodel::DSModel=nothing, polar=nothing, dcldalpha=nothing, dcndalpha=nothing, alpha0=nothing, alphasep=nothing, sfun=nothing, chord=nothing, xcp=nothing)
+function update_airfoil(airfoil::Airfoil; dsmodel::DSModel=nothing, polar=nothing, dcldalpha=nothing, dcndalpha=nothing, alpha0=nothing, alphasep=nothing, alphacut=nothing, cutrad=nothing, sfun=nothing, chord=nothing, xcp=nothing)
 
     if !(dsmodel == nothing)
         newdsmodel = dsmodel
@@ -320,6 +325,18 @@ function update_airfoil(airfoil::Airfoil; dsmodel::DSModel=nothing, polar=nothin
         newalphasep = airfoil.alphasep
     end
 
+    if !(alphacut==nothing)
+        newalphacut = alphacut
+    else
+        newalphacut = airfoil.alphacut
+    end
+
+    if !(cutrad==nothing)
+        newcutrad = cutrad
+    else
+        newcutrad = airfoil.cutrad
+    end
+
     if !(sfun==nothing)
         newsfun = sfun
     else
@@ -339,7 +356,7 @@ function update_airfoil(airfoil::Airfoil; dsmodel::DSModel=nothing, polar=nothin
     end
 
 
-    return Airfoil(newdsmodel, newpolar, newcl, newcd, newcm, newcn, newcc, newslope, newdcndalpha, newalpha0, newalphasep, newsfun, newchord, newxcp)
+    return Airfoil(newdsmodel, newpolar, newcl, newcd, newcm, newcn, newcc, newslope, newdcndalpha, newalpha0, newalphasep, newalphacut, newcutrad, newsfun, newchord, newxcp)
 end
 
 function Base.getproperty(obj::AbstractVector{<:Airfoil}, sym::Symbol)
