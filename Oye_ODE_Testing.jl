@@ -46,12 +46,14 @@ p = [[4], c, Uvector, alpha]
 
 tspan = (0.0 , 2.0)
 
-x0 = [0.7]
+x0 = [0.9]
 
 prob = ODEProblem(dsmodel, x0, tspan, p)
 
-sol = DifferentialEquations.solve(prob)
+sol = DifferentialEquations.solve(prob, reltol=1e-8)
 
-Lift, aoa = parsesolution_Oye(sol, p, af)
+Lift, aoa = parsesolution_Oye(dsmodel, sol, p, af)
 
-plot(aoa, Lift)
+plot(aoa.*180/pi, Lift, xlabel = L"\alpha", ylabel = L"C_L", label = "Øye (Solver Method)", linewidth=2)
+
+#savefig("ODE_Solver_Oye")

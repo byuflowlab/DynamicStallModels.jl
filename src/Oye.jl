@@ -379,30 +379,42 @@ end
 
 export parsesolution_Oye
 
-function parsesolution_Oye(sol, p, af)
+function parsesolution_Oye(dsmodel::Oye, sol, p, af)
     _, _, _, alphavec = p
     f = Array(sol)
     tvec = sol.t
     airfoil = af
 
     alpha0 = airfoil.alpha0
-
-
     
     alpha = []
     Lift = []
+
+    if dsmodel.cflag == 1
+        cl_sep = airfoil.cl(airfoil.alphasep[2])
+    else
+        cl_sep = airfoil.cn(airfoil.alphasep[2])
+    end
+
 
     for i in 1:length(tvec)
 
         push!(alpha, alphavec(tvec[i]))
         
-        C_inv = airfoil.dcldalpha*(alphavec(tvec[i]) - alpha0)
+        C_inv = airfoil.dcldalpha*(alphavec(tvec[i]) - alpha0) #need to do a check for cn or cl. I need drag, though
 
-        cl = airfoil.cl(alphavec(tvec[i]))
+        if dsmodel.cflag == 1
+            cl = airfoil.cl(alphavec(tvec[i]))
+        else
+            cl = airfoil.cn(alphavec(tvec[i]))
+        end
 
-        cl_sep = airfoil.cl(airfoil.alphasep[2])
-
-        C_fs = cl_fullysep_faber(cl, cl_sep, airfoil.dcldalpha, alphavec(tvec[i]), alpha0, airfoil.alphasep[2])
+        if dsmodel.version == 1
+            fst = (2*sqrt(abs(cl/C_inv))-1)^2
+            C_fs = (cl - (C_inv*fst))/(1-fst)
+        elseif dsmodel.version == 2
+            C_fs = cl_fullysep_faber(cl, cl_sep, airfoil.dcldalpha, alphavec(tvec[i]), alpha0, airfoil.alphasep[2])
+        end
 
         C_L_dyn = f[i]*C_inv+(1-f[i])*C_fs
 
