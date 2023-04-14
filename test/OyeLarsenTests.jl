@@ -53,16 +53,16 @@ for i in 1:(length(FdynTest[:,1])-2)
     delta[i] = FdynTest[i+1,1] - FdynTest[i,1]
 end
 avg = sum(delta)/length(delta)
-FdynExtraAlpha = Vector(afTest.alpha0-10*avg:avg:FdynTest[1,1])
+FdynExtraAlpha = Vector(afTest.alpha0-20*avg:avg:FdynTest[1,1])
 FdynExtraF = zeros(length(FdynExtraAlpha))
 FFull = [[FdynExtraAlpha FdynExtraF]; FdynTest]
 #Find where FFull starts going down
 FirstOne = findfirst(x -> x == 1.0, FFull[:,2])
-println("FFull starts going back down at: ", FFull[findlast(x -> x == 1.0, FFull[:,2]),1], " deg")
+#println("FFull starts going back down at: ", FFull[findlast(x -> x == 1.0, FFull[:,2]),1], " deg")
 
 #Plot and compare the F from dsm to Fdyn from Larsen
 plot(FFull[:,1], FFull[:,2], label = "Larsen", title = "Fdyn Comparison", xlabel = "alpha (deg)", ylabel = "Fdyn")
-plot!(FFull[:,1], dsm.separationpoint.(Ref(afTest), FFull[:,1] .* pi/180,avg), label = "DSM")
+plot!(FFull[:,1], dsm.separationpoint.(Ref(afTest), FFull[:,1] .* pi/180), label = "DSM")
 
 
 #=

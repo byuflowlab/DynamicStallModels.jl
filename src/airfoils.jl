@@ -653,15 +653,26 @@ function separationpoint(sfun::LSP, airfoil::Airfoil, alpha)
 
         cn_fs = cl_fullysep_faber(cn, cn_sep, airfoil.dcldalpha, alpha, alpha0, airfoil.alphasep[2]) #checked
         fst = (cn - cn_fs)/(cn_inv - cn_fs) #checked
-        #println(fst)
-        #=if fst>1
+        
+        #Attempting to fix the numerical instability of fst that happens when cn - cn_fs and cn_inv - cn_fs are both small
+        #and it approaches a 0/0 thus shoots towards -inf when close to alpha0. The equation itself should go to 1
+        #but because of the numerical small value 0/0 instability we have to correct it in that region
+        # for context, using the OyeLarsenTests.jl file and data we see alpha0 is at -3.0955deg. A step before at -3.1733deg
+        # fst = -0.0 (-inf essentially) and cn - cn_fs = 0.0 and the bottom cn_inv - cn_fs = -0.00335 -> thus causing an instability
+        # this can be seen at \DynamicStallModels\testing\Oye\Outputs\FSTInstabilityScreenshot.png
+        # one step after the instability fst begins to ramp up, but doesn't hit 1 (the value it should be at) until 2.34 deg
+        # thus the instability is lasting about 5 degrees. before alpha0 ***what happens?***
+        println("fst: ", fst, ", top: (cn-cn_fs): ", (cn-cn_fs), ", bottom: (cn_inv-cn_fs): ", (cn_inv-cn_fs), ", alpha ", alpha *180/pi)
+
+
+        if fst>1
             return 1.0  
         elseif fst<0
             return 0.0
         else
             return fst #! is something up with these values? running a for loop with alphavec on oyecomparer.jl doesn't go above .02ish
         end
-        =#
+        
         return fst
     end
 end
