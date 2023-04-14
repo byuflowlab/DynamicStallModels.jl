@@ -42,3 +42,9 @@ I wrote a test file, there are still some bugs I need to work out, it caught the
 
 - Accomplished a big chunk of my To Do list
 - Learned to document everything! (I didn't document where my critical alpha test values came from, and I had to spend a lot of time relearning how to plot f values and figuring out why it didn't match my old plots, I was comparing different methods)
+
+## April 12th, 2023
+
+![20230408_002553.jpg](C:\Users\child\.julia\dev\DynamicStallModels\testing\Oye\Outputs\ClTypesHandDraw.jpg)
+
+![20230408_002553.jpg](C:\Users\child\.julia\dev\DynamicStallModels\testing\Oye\Outputs\ClTypesPlotted.png)

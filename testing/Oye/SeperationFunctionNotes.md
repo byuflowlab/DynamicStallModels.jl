@@ -143,7 +143,7 @@ The if statement checks if sfun is of the ADSP type, and then runs the line give
       - [ ] this is linked with multiple dispatch down below, I can implement it I believe
       - [ ] Delete HSP
       - [ ] Add a flag to all separation point functions for Cl or Cn, default for ADSP and ADGSP and Riso/Hansen (RSP/HSP) -> needs to be Cn. Larsen's paper uses Cl
-      - [ ] Create the change A function
+      - [ ] Create the change A function, ie see below, we want to be able to mismatch functions, so the change function can convert it, but the code will always run Hansen's Tau value
     
     - [x] make sure I am using the larsen separation point and not hansen's when it expects it
       
@@ -152,7 +152,7 @@ The if statement checks if sfun is of the ADSP type, and then runs the line give
       - [x] Use update airfoil function to make sure alpha0 is the same as in Larsen's paper
       - [x] try 1/tau and just straight tau for the omega3 = 0.07-> Solved?: my conversion was wrong
       - [ ] Add and check my static Cl plot and webplot digitize his polar/static plot (they are the same)
-      - [x] We want to be able to mismatch functions, un-hardcode Hansen's function so it is a function call
+      - [ ] We want to be able to mismatch functions, un-hardcode Hansen's function so it is a function call
     
     - [x] I implemented `dsmodel.version == 3` as being Larsen and Adam already has it as BeddoesLeishman, fix all of them to `dsmodel.version == 4`
     
@@ -179,6 +179,47 @@ The if statement checks if sfun is of the ADSP type, and then runs the line give
     - [x] Add the `separationpoint` function call in the 1 or 2 places necessary, comment out the if statements
     
     - [x] check how the Oye solvers are called and fix/update them (check with Weston during this also)
+
+**Tracking**
+
+```julia
+#! the following code is just to be ran once and will not work again
+cnTest = zeros(length(FFull[:,1]))
+cn_sepTest = zeros(length(FFull[:,1]))
+cn_invTest = zeros(length(FFull[:,1]))
+cn_fsTest = zeros(length(FFull[:,1]))
+fstTest = zeros(length(FFull[:,1]))
+for i in 1:20
+    cnTest[i], cn_sepTest[i], cn_invTest[i], cn_fsTest[i], fstTest[i] = dsm.separationpoint.(Ref(afTest), FFull[i,1] .* pi/180)
+end
+#plot all the data close up 
+plot(FFull[1:20,1], cnTest[1:20], label = "Cl static", title = "Cl Comparison", xlabel = "alpha (deg)", ylabel = "Cl")
+plot!(FFull[1:20,1], cn_sepTest[1:20], label = "Cl sep")
+plot!(FFull[1:20,1], cn_invTest[1:20], label = "Cl inv")
+plot!(FFull[1:20,1], cn_fsTest[1:20], label = "Cl fs", legend = :bottomright)
+#the following lines were run after fixing airfoils.jl back to normal
+plot!(FFull[1:20,1], FFull[1:20,2], label = "F Larsen")
+plot!(FFull[1:20,1], dsm.separationpoint.(Ref(afTest),FFull[1:20,1] .*pi/180), label = "F DSM")
+plot!(ylabel = "Cl/Fdyn")
+```
+
+![](C:\Users\child\.julia\dev\DynamicStallModels\testing\Oye\Outputs\ClTypesPlotted.png)
+
+TODO after this plot
+
+- [ ] Replot the above and go just a bit further to see what happens between Cl inv and Cl static as a possible change finder
+
+- [ ] There is no "ramp up" to alpha0 (zero lift angle of attack) it is fully separated until then, why? Does it need to be?
+
+- [ ] I am using alpha0 && something else in the if statement, should it be && or ||?
+  
+  - [ ] Adam's first option should be ||, his second?
+
+- [ ] The BIG CLINCHER: Even if it can find the location correctly, what does it do after??? If it reverts to fst it jumps back up to 1.0, and then lags, if I do something between other values to calculate, cn or anything, or even f, how can I guarantee that it will be consistent in other use cases. 
+  
+  - [ ] Could it be a lag term issue? check Cl_fullysep_faber and see
+  
+  - [ ] Did we ever figure out the lag conversion? Do that!!!!
 
 ### Grad School Project Ideas
 

@@ -31,7 +31,7 @@ polar = [aoa Cl Cd zeros(size(aoa))]
 #Extract Fdyn data
 FdynTest = readdlm("../testing/Oye/Outputs/LarsenFig4cFdynAttachment.csv", ',') #read in the Fdyn data from Larsen
 #Quick for loop to make all Fdyn values close to 1 = 1 and values close to 0 = 0
-#=for i in 1:length(FdynTest[:,2])
+for i in 1:length(FdynTest[:,2])
     if FdynTest[i,2] < .01
         FdynTest[i,2] = 0.0
     elseif FdynTest[i,2] > .99
@@ -39,11 +39,57 @@ FdynTest = readdlm("../testing/Oye/Outputs/LarsenFig4cFdynAttachment.csv", ',') 
     end
     #println(FdynTest[i,2])
 end
-=#
-FdynTestAk = Akima(FdynTest[:,1], FdynTest[:,2]) #make the akima interpolant
+
+
 #Make airfoil struct
+#! somehow the airfoil function is being called twice?
 afTest = dsm.airfoil(polar; A = .07, sfun=dsm.LSP()) #make the airfoil struct
 afTest = dsm.update_airfoil(afTest; alphasep=[afTest.alphasep[1], 30.0*pi/180], dcldalpha = 2* pi, dcndalpha = 2 * pi ) #update the airfoil with Larsen's separation point
+
+#! I deleted FdynTestAk as we should compare just to explicit data
+#for the sake of testing ->
+delta = zeros(length(FdynTest[:,1]) - 1)
+for i in 1:(length(FdynTest[:,1])-2)
+    delta[i] = FdynTest[i+1,1] - FdynTest[i,1]
+end
+avg = sum(delta)/length(delta)
+FdynExtraAlpha = Vector(afTest.alpha0-10*avg:avg:FdynTest[1,1])
+FdynExtraF = zeros(length(FdynExtraAlpha))
+FFull = [[FdynExtraAlpha FdynExtraF]; FdynTest]
+#Find where FFull starts going down
+FirstOne = findfirst(x -> x == 1.0, FFull[:,2])
+println("FFull starts going back down at: ", FFull[findlast(x -> x == 1.0, FFull[:,2]),1], " deg")
+
+#Plot and compare the F from dsm to Fdyn from Larsen
+plot(FFull[:,1], FFull[:,2], label = "Larsen", title = "Fdyn Comparison", xlabel = "alpha (deg)", ylabel = "Fdyn")
+plot!(FFull[:,1], dsm.separationpoint.(Ref(afTest), FFull[:,1] .* pi/180,avg), label = "DSM")
+
+
+#=
+#! the following code is just to be ran once and will not work again
+cnTest = zeros(length(FFull[:,1]))
+cn_sepTest = zeros(length(FFull[:,1]))
+cn_invTest = zeros(length(FFull[:,1]))
+cn_fsTest = zeros(length(FFull[:,1]))
+fstTest = zeros(length(FFull[:,1]))
+for i in 1:20
+    cnTest[i], cn_sepTest[i], cn_invTest[i], cn_fsTest[i], fstTest[i] = dsm.separationpoint.(Ref(afTest), FFull[i,1] .* pi/180)
+end
+#plot all the data close up 
+plot(FFull[1:20,1], cnTest[1:20], label = "Cl static", title = "Cl Comparison", xlabel = "alpha (deg)", ylabel = "Cl")
+plot!(FFull[1:20,1], cn_sepTest[1:20], label = "Cl sep")
+plot!(FFull[1:20,1], cn_invTest[1:20], label = "Cl inv")
+plot!(FFull[1:20,1], cn_fsTest[1:20], label = "Cl fs", legend = :bottomright)
+plot!(FFull[1:20,1], FFull[1:20,2], label = "F Larsen")
+plot!(FFull[1:20,1], dsm.separationpoint.(Ref(afTest),FFull[1:20,1] .*pi/180), label = "F DSM")
+plot!(ylabel = "Cl/Fdyn")
+=#
+
+#make my AlphaTest vector
+#AlphaTest = Vector(-20:0.1:40.0)
+
+
+#= #commenting all out so I can figure out the if statement fdyn follower
 airfoilsTest = Array{Airfoil, 1}(undef, 1) #make an array of the type Airfoil struct
 airfoilsTest[1] = afTest #put the airfoil into the array
 #Make the Oye struct and setup to solve
@@ -113,4 +159,7 @@ Note: to get plots that match my old f, I did not use LSP, I used adsp!
 #=
 plot(polar[:,1], polar[:,2], label = "Viterna Extrapolated Polar")
 plot!(Naca43618PolarTest[:,1], Naca43618PolarTest[:,2], label="Larsen Static Polar")
+=#
+
+
 =#
