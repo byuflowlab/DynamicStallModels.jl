@@ -8,7 +8,7 @@ point functions and the Oye method overall
 =#
 
 #Packages to use
-using Test, DynamicStallModels, DelimitedFiles, OpenFASTsr, Plots, CCBlade, FLOWMath 
+using Test, DynamicStallModels, DelimitedFiles, OpenFASTsr, Plots, CCBlade, FLOWMath, Revise 
 
 dsm = DynamicStallModels
 of = OpenFASTsr
@@ -23,10 +23,8 @@ Naca43618PolarTest = readdlm("../polars/LarsenFig4bClStaticPlot.csv", ',') #read
 Naca43618PolarTest[:,1] = Naca43618PolarTest[:,1] .* pi/180 #convert to radians
 Naca43618PolarTest = [Naca43618PolarTest zeros(size(Naca43618PolarTest[:,1]))]
 #Extend polar
-#TODO before extending add a point at [0,0]
 cr75 = .2 #chord/blade radius ratio at 75%
 aoa, Cl, Cd = viterna(Naca43618PolarTest[:,1], Naca43618PolarTest[:,2], Naca43618PolarTest[:,3], cr75)
-#Cl[1] = 0.0 #Cl[2] - (Cl[3] - Cl[2]) #! fix this later? a cop out fix as the first value is really bad
 polar = [aoa Cl Cd zeros(size(aoa))]
 #Extract Fdyn data
 FdynTest = readdlm("../testing/Oye/Outputs/LarsenFig4cFdynAttachment.csv", ',') #read in the Fdyn data from Larsen
@@ -46,14 +44,13 @@ end
 afTest = dsm.airfoil(polar; A = .07, sfun=dsm.LSP()) #make the airfoil struct
 afTest = dsm.update_airfoil(afTest; alphasep=[afTest.alphasep[1], 30.0*pi/180], dcldalpha = 2* pi, dcndalpha = 2 * pi ) #update the airfoil with Larsen's separation point
 
-#! I deleted FdynTestAk as we should compare just to explicit data
 #for the sake of testing ->
 delta = zeros(length(FdynTest[:,1]) - 1)
 for i in 1:(length(FdynTest[:,1])-2)
     delta[i] = FdynTest[i+1,1] - FdynTest[i,1]
 end
 avg = sum(delta)/length(delta)
-FdynExtraAlpha = Vector(afTest.alpha0-20*avg:avg:FdynTest[1,1])
+FdynExtraAlpha = Vector(afTest.alpha0-10*avg:avg:FdynTest[1,1])
 FdynExtraF = zeros(length(FdynExtraAlpha))
 FFull = [[FdynExtraAlpha FdynExtraF]; FdynTest]
 #Find where FFull starts going down
@@ -65,31 +62,29 @@ plot(FFull[:,1], FFull[:,2], label = "Larsen", title = "Fdyn Comparison", xlabel
 plot!(FFull[:,1], dsm.separationpoint.(Ref(afTest), FFull[:,1] .* pi/180), label = "DSM")
 
 
-#=
+
 #! the following code is just to be ran once and will not work again
+#=
 cnTest = zeros(length(FFull[:,1]))
 cn_sepTest = zeros(length(FFull[:,1]))
 cn_invTest = zeros(length(FFull[:,1]))
 cn_fsTest = zeros(length(FFull[:,1]))
 fstTest = zeros(length(FFull[:,1]))
-for i in 1:20
+for i in 1:40
     cnTest[i], cn_sepTest[i], cn_invTest[i], cn_fsTest[i], fstTest[i] = dsm.separationpoint.(Ref(afTest), FFull[i,1] .* pi/180)
 end
 #plot all the data close up 
-plot(FFull[1:20,1], cnTest[1:20], label = "Cl static", title = "Cl Comparison", xlabel = "alpha (deg)", ylabel = "Cl")
-plot!(FFull[1:20,1], cn_sepTest[1:20], label = "Cl sep")
-plot!(FFull[1:20,1], cn_invTest[1:20], label = "Cl inv")
-plot!(FFull[1:20,1], cn_fsTest[1:20], label = "Cl fs", legend = :bottomright)
-plot!(FFull[1:20,1], FFull[1:20,2], label = "F Larsen")
-plot!(FFull[1:20,1], dsm.separationpoint.(Ref(afTest),FFull[1:20,1] .*pi/180), label = "F DSM")
+plot(FFull[1:40,1], cnTest[1:40], label = "Cl static", title = "Cl Comparison", xlabel = "alpha (deg)", ylabel = "Cl")
+plot!(FFull[1:40,1], cn_sepTest[1:40], label = "Cl sep")
+plot!(FFull[1:40,1], cn_invTest[1:40], label = "Cl inv")
+plot!(FFull[1:40,1], cn_fsTest[1:40], label = "Cl fs", legend = :bottomright)
+plot!(FFull[1:40,1], FFull[1:40,2], label = "F Larsen")
+plot!(FFull[1:40,1], dsm.separationpoint.(Ref(afTest),FFull[1:40,1] .*pi/180), label = "F DSM")
 plot!(ylabel = "Cl/Fdyn")
 =#
 
-#make my AlphaTest vector
-#AlphaTest = Vector(-20:0.1:40.0)
-
-
-#= #commenting all out so I can figure out the if statement fdyn follower
+#use FFull as my test vector
+#Make the airfoil array
 airfoilsTest = Array{Airfoil, 1}(undef, 1) #make an array of the type Airfoil struct
 airfoilsTest[1] = afTest #put the airfoil into the array
 #Make the Oye struct and setup to solve
@@ -104,24 +99,24 @@ fieldnames(typeof(dsmodelTest))
 (:detype, :n, :airfoils, :cflag, :version)
 =#
 #Test setup variables
-alphaTestdeg = Vector(0:1.0:40.0)
 TestTolerance = .01 #tolerance for the tests
-
-#Plot the Fdyn comparision
-plot(alphaTestdeg, dsm.separationpoint.(Ref(afTest), alphaTestdeg.*pi/180), label = "DSM")
-plot!(alphaTestdeg, FdynTestAk(alphaTestdeg), label = "Larsen")
+Tol2 = .5 #tolerance to find the alpha test values
 
 
 @testset "Oye/Larsen Tests" begin 
 
     #Test set to test the attachment degree f
     @testset "f deg" begin
-        @test dsm.separationpoint.(Ref(afTest), alphaTestdeg[3] .* pi/180) == FdynTestAk(alphaTestdeg[3]) #checking at about 2 deg, so should be fully attached
-        @test dsm.separationpoint.(Ref(afTest), alphaTestdeg[11] .* pi/180) == FdynTestAk(alphaTestdeg[11]) #checking at about 10 deg, so linear region
-        @test dsm.separationpoint.(Ref(afTest), alphaTestdeg[33] .* pi/180) == FdynTestAk(alphaTestdeg[33]) #checking at about 32 deg, so where deep stall begins
-        @test dsm.separationpoint.(Ref(afTest), alphaTestdeg[41] .* pi/180) == FdynTestAk(alphaTestdeg[41]) #checking at about 40 deg, so in deep stall
+        TwoDegIdx = findfirst(x->isapprox(x,2,atol = Tol2), FFull[:,1])
+        TenDegIdx = findfirst(x->isapprox(x,10,atol = Tol2), FFull[:,1])
+        ThirtyTwoDegIdx = findfirst(x->isapprox(x,32,atol = Tol2), FFull[:,1])
+        FortyDegIdx = findfirst(x->isapprox(x,40,atol = Tol2), FFull[:,1])
+        @test dsm.separationpoint.(Ref(afTest), FFull[TwoDegIdx,1] .* pi/180) == FFull[TwoDegIdx,1] #checking at about 2 deg, so should be fully attached
+        @test dsm.separationpoint.(Ref(afTest), FFull[TenDegIdx ,1] .* pi/180) == FFull[TenDegIdx ,1] #checking at about 10 deg, so linear region
+        @test dsm.separationpoint.(Ref(afTest), FFull[ThirtyTwoDegIdx ,1] .* pi/180) == FFull[ThirtyTwoDegIdx ,1] #checking at about 32 deg, so where deep stall begins
+        @test dsm.separationpoint.(Ref(afTest), FFull[FortyDegIdx ,1] .* pi/180) == FFull[FortyDegIdx ,1] #checking at about 40 deg, so in deep stall
         #print for debugging
-        print("f af at 2 deg: ", dsm.separationpoint.(Ref(afTest), alphaTestdeg[2] .* pi/180), " fdynLarsen at 2 deg: ", FdynTestAk(alphaTestdeg[2] .* pi/180))
+        print("f af at 2 deg: ", dsm.separationpoint.(Ref(afTest), FFull[TwoDegIdx,1] .* pi/180), ", fdynLarsen at 2 deg: ", FFull[TwoDegIdx,1] )
     end
     #Test set to test the critical alphas (alphasep, alpha0?)
     @testset "critical alphas" begin #! where did these values come from?
@@ -146,7 +141,7 @@ end
 
 
 
-#Plot the attachment degree f
+#Plot the attachment degree f for reference
 #= How to do it with Vertol
 dsm.separationpoint.(Ref(af), VertolPolar[:,1])
 plot(VertolPolar[:,1] .*180/pi , dsm.separationpoint.(Ref(af), VertolPolar[:,1])
@@ -159,7 +154,4 @@ Note: to get plots that match my old f, I did not use LSP, I used adsp!
 #=
 plot(polar[:,1], polar[:,2], label = "Viterna Extrapolated Polar")
 plot!(Naca43618PolarTest[:,1], Naca43618PolarTest[:,2], label="Larsen Static Polar")
-=#
-
-
 =#
