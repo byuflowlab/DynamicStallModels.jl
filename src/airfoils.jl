@@ -632,7 +632,10 @@ Larsen's separation point function from his 2007 paper.
 function separationpoint(sfun::LSP, airfoil::Airfoil, alpha)
     #println("using the LSP separation point function. Currently at line 639 in airfoils.jl ")
     if alpha>airfoil.alphasep[2] #? right after stall is fully separated? not partially?
-    
+          
+        return 0.0
+    elseif alpha<airfoil.alpha0
+        
         return 0.0
     else
         alpha0 = airfoil.alpha0
@@ -662,15 +665,24 @@ function separationpoint(sfun::LSP, airfoil::Airfoil, alpha)
         # this can be seen at \DynamicStallModels\testing\Oye\Outputs\FSTInstabilityScreenshot.png
         # one step after the instability fst begins to ramp up, but doesn't hit 1 (the value it should be at) until 2.34 deg
         # thus the instability is lasting about 5 degrees. before alpha0 ***what happens?***
-        println("fst: ", fst, ", top: (cn-cn_fs): ", (cn-cn_fs), ", bottom: (cn_inv-cn_fs): ", (cn_inv-cn_fs), ", alpha ", alpha *180/pi)
+        #println("fst: ", fst, ", top: (cn-cn_fs): ", (cn-cn_fs), ", bottom: (cn_inv-cn_fs): ", (cn_inv-cn_fs), ", alpha ", alpha *180/pi)
+        
+        #define tolerances
+        tol1 = .35
+        tol2 = .35
+        if (cn - cn_fs) < tol1 && (cn_inv - cn_fs) < tol2
+            #println("fst: ", fst, ", top: (cn-cn_fs): ", (cn-cn_fs), ", bottom: (cn_inv-cn_fs): ", (cn_inv-cn_fs), ", alpha ", alpha *180/pi)
+            return 1.0
+        end
 
 
+        #return fst
         if fst>1
             return 1.0  
         elseif fst<0
-            return 0.0
+            #return 0.0
         else
-            return fst #! is something up with these values? running a for loop with alphavec on oyecomparer.jl doesn't go above .02ish
+            return fst 
         end
         
         return fst
