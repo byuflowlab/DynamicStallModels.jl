@@ -5,6 +5,7 @@ of = OpenFASTsr
 
 path = dirname(@__FILE__)
 cd(path)
+include("./NACA_0015_DSM.jl")
 
 #original c = 0.55, M = 0.07
 
@@ -42,18 +43,18 @@ function alpha(t)
     return alf*(pi/180)
 end
 
-p = [[4], c, Uvector, alpha]
+param = [[4], c, Uvector, [alpha]]
 
 tspan = (0.0 , 2.0)
 
 x0 = [0.9]
 
-prob = ODEProblem(dsmodel, x0, tspan, p)
+prob = ODEProblem(dsmodel, x0, tspan, param)
 
 sol = DifferentialEquations.solve(prob, reltol=1e-8)
 
-Lift, aoa = parsesolution_Oye(dsmodel, sol, p, af)
+Lift = parsesolution_Oye(dsmodel, sol, param)
 
-plot(aoa.*180/pi, Lift, xlabel = L"\alpha", ylabel = L"C_L", label = "Øye (Solver Method)", linewidth=2)
+plot(Lift[2,:].*180/pi, Lift[1,:], xlabel = L"\alpha", ylabel = L"C_L", label = "Øye (Solver Method)", linewidth=2)
 
 #savefig("ODE_Solver_Oye")

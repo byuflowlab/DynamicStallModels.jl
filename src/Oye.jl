@@ -32,7 +32,8 @@ end
 
 function (dsmodel::Oye)(x, p, t, dt)
     if isa(dsmodel.detype, Functional)
-        error("The state space Oye model is not setup yet.")
+        Oye_ODE!(dsmodel, x, p, t, dt)
+        # error("The functional Oye model is not set up yet.")
     elseif isa(dsmodel.detype, Iterative)
         error("The iterative Oye model is not set up yet.")
     else #The model is indicial
@@ -53,6 +54,7 @@ function (dsmodel::Oye)(x, p, t, dt)
         return newstates
     end
 end
+
 
 function numberofstates(dsmodel::Oye)
     return 1
@@ -369,59 +371,65 @@ function Oye_ODE!(model, dx, x, p, t)
         idx = (i-1)*1
         xs = view(x , idx+1:idx+1)
         dxs = view(dx, idx+1:idx+1)
+        alphavec = alphavec[i]
         Oye_State_Rate!(dxs, xs, A, c, airfoil, Uvec, alphavec, t)
     end
 end
 
-function (model::Oye)(dx, x , p, t)
-    Oye_ODE!(model, dx, x, p, t)
-end
+# function (model::Oye)(dx, x , p, t)
+#     Oye_ODE!(model, dx, x, p, t)
+# end
 
 export parsesolution_Oye
 
-function parsesolution_Oye(dsmodel::Oye, sol, p, af)
+function parsesolution_Oye(dsmodel::Oye, sol, p)
     _, _, _, alphavec = p
     f = Array(sol)
     tvec = sol.t
-    airfoil = af
 
-    alpha0 = airfoil.alpha0
-    
-    alpha = []
-    Lift = []
+    Lift_aoa_Matrix = zeros(2*dsmodel.n , length(tvec))
 
-    if dsmodel.cflag == 1
-        cl_sep = airfoil.cl(airfoil.alphasep[2])
-    else
-        cl_sep = airfoil.cn(airfoil.alphasep[2])
-    end
+    for w in 1:dsmodel.n
 
+        alphavec = alphavec[w]
 
-    for i in 1:length(tvec)
+        airfoil = dsmodel.airfoils[w]
 
-        push!(alpha, alphavec(tvec[i]))
-        
-        C_inv = airfoil.dcldalpha*(alphavec(tvec[i]) - alpha0) #need to do a check for cn or cl. I need drag, though
+        alpha0 = airfoil.alpha0
 
         if dsmodel.cflag == 1
-            cl = airfoil.cl(alphavec(tvec[i]))
+            cl_sep = airfoil.cl(airfoil.alphasep[2])
         else
-            cl = airfoil.cn(alphavec(tvec[i]))
+            cl_sep = airfoil.cn(airfoil.alphasep[2])
         end
 
-        if dsmodel.version == 1
-            fst = (2*sqrt(abs(cl/C_inv))-1)^2
-            C_fs = (cl - (C_inv*fst))/(1-fst)
-        elseif dsmodel.version == 2
-            C_fs = cl_fullysep_faber(cl, cl_sep, airfoil.dcldalpha, alphavec(tvec[i]), alpha0, airfoil.alphasep[2])
+        for i in 1:length(tvec)
+
+            Lift_aoa_Matrix[w+1, i] = alphavec(tvec[i])
+            
+            C_inv = airfoil.dcldalpha*(alphavec(tvec[i]) - alpha0) #need to do a check for cn or cl. I need drag, though
+
+            if dsmodel.cflag == 1
+                cl = airfoil.cl(alphavec(tvec[i]))
+            else
+                cl = airfoil.cn(alphavec(tvec[i]))
+            end
+
+            if dsmodel.version == 1
+                fst = (2*sqrt(abs(cl/C_inv))-1)^2
+                C_fs = (cl - (C_inv*fst))/(1-fst)
+            elseif dsmodel.version == 2
+                C_fs = cl_fullysep_faber(cl, cl_sep, airfoil.dcldalpha, alphavec(tvec[i]), alpha0, airfoil.alphasep[2])
+            end
+
+            C_L_dyn = f[w,i]*C_inv+(1-f[w,i])*C_fs
+
+            Lift_aoa_Matrix[w,i] = C_L_dyn
         end
 
-        C_L_dyn = f[i]*C_inv+(1-f[i])*C_fs
-
-        push!(Lift, C_L_dyn)
     end
 
-    return Lift, alpha
+    return Lift_aoa_Matrix
 
 end
 
