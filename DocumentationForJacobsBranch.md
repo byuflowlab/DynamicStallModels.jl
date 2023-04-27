@@ -17,7 +17,7 @@ Abbreviations
 
 #### Documentation
 
-- JacobsExtras
+- **JacobsExtras**
   
   - [GettingStartedTest1.jl](JacobsExtras\GettingStartedTest1.jl)
     
@@ -31,7 +31,7 @@ Abbreviations
     
     - This was used at weekly work meetings (that I periodically attended) to update my fellows and ask advice. The images likely won't load as the path will have probably changed and some of them were temporary and not directly linked.
 
-- Polars
+- **Polars**
   
   - [LarsenFig4bClStaticPlot.csv](polars\LarsenFig4bClStaticPlot.csv)
     
@@ -39,7 +39,7 @@ Abbreviations
   
   - Other files - were pre existing, or I have forgotten If I was the one to add them.
 
-- src
+- **src**
   
   - [airfoils.jl](src\airfoils.jl)
     
@@ -61,7 +61,7 @@ Abbreviations
   
   - [Oye.jl](src%5COye.jl)
     
-    - 19 & 74-83, 171: Version flags existed for which version (Hansen, Faber, BeddoesLeishman, Larsen) of the Oye model would be used to solve things. Faber and Larsen have the same coefficient model, so the if statements reflect that.
+    - 19 & 74-83, 171: Version flags existed for which version (Hansen, Faber, BeddoesLeishman, Larsen) of the Oye model would be used to solve things. I added the Larsen (4) flag. Faber and Larsen have the same coefficient model, so the if statements reflect that.
     
     - 126, 193, 224, 300: I added some or all of these, I can't remember. I made sure that every hardcoded separation point equation was deleted or commented out and replaced with the multiple dispatch separationpoint function call. This allows the user to mix and match solving methods with different separationpoint equation methods.
     
@@ -71,7 +71,7 @@ Abbreviations
     
     - 249: This is the hermite interpolation fix discussed earlier and done by Weston.
 
-- test
+- **test**
   
   - [OyeLarsenTests.jl](test\OyeLarsenTests.jl)
     
@@ -101,7 +101,7 @@ Abbreviations
     
     - This file was made to learn more about the Julia Test package. It goes through a bunch of different styles of tests and is heavily commented. It is not needed but could be helpful for me or someone in the future to study if help is needed creating or analyzing a test file.
 
-- testing/Oye (ie the Oye folder in the testing folder)
+- **testing/Oye** (ie the Oye folder in the testing folder)
   
   - [OyeComparer.jl](testing\Oye\OyeComparer.jl)
     
