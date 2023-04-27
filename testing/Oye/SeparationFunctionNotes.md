@@ -1,5 +1,87 @@
 # Separation Function Notes
 
+### Will Do's
+
+- [ ] Make the Larsen separation point functions and related Oye solver fully functional and multiple dispatch
+  
+  - [ ] Fix separation point functions
+    
+    - [ ] Make sure I can call the Larsen function and get into it where I need to
+      
+      - [ ] this is linked with multiple dispatch down below, I can implement it I believe
+      - [ ] Delete HSP
+      - [ ] Add a flag to all separation point functions for Cl or Cn, default for ADSP and ADGSP and Riso/Hansen (RSP/HSP) -> needs to be Cn. Larsen's paper uses Cl
+      - [x] Create the change A function, ie see below, we want to be able to mismatch functions, so the change function can convert it, but the code will always run Hansen's Tau value
+        - [ ] The above is done, but the conversion equations have not been checked!!!
+    
+    - [x] make sure I am using the larsen separation point and not hansen's when it expects it
+      
+      - [x] find the difference between the two, one overshoots, and one under?
+      - [x] Ans: Larsen and Faber both want the fully separated alphasep, so in deep stall, in the Larsen vertol case, that is 32 deg
+      - [x] Use update airfoil function to make sure alpha0 is the same as in Larsen's paper
+      - [x] try 1/tau and just straight tau for the omega3 = 0.07-> Solved?: my conversion was wrong
+      - [ ] Add and check my static Cl plot and webplot digitize his polar/static plot (they are the same)
+      - [ ] We want to be able to mismatch functions, un-hardcode Hansen's function so it is a function call
+    
+    - [x] I implemented `dsmodel.version == 3` as being Larsen and Adam already has it as BeddoesLeishman, fix all of them to `dsmodel.version == 4`
+    
+    - [x] Make sure all the equations in the Larsen function are correct
+    
+    - [x] Check the update states (step 6) equations and Tau
+  
+  - [ ] Create a separation point test file (do this first and match figure 4-c)
+    
+    - [x] Write out the questions I want to answer, what the answers should be, and where/when to find them
+    
+    - [x] create the file and testset
+    
+    - [ ] make it automated
+    
+    - [x] test against figure 4-c (Larsen Paper) separation point curve
+  
+  - [x] Fix Oye solver functions (check with Weston on this)
+    
+    - [x] check the equations in step 7 above
+  
+  - [x] Make multiple dispatch
+    
+    - [x] Add the `separationpoint` function call in the 1 or 2 places necessary, comment out the if statements
+    
+    - [x] check how the Oye solvers are called and fix/update them (check with Weston during this also)
+
+**Tracking**
+
+```julia
+#! the following code is just to be ran once and will not work again
+cnTest = zeros(length(FFull[:,1]))
+cn_sepTest = zeros(length(FFull[:,1]))
+cn_invTest = zeros(length(FFull[:,1]))
+cn_fsTest = zeros(length(FFull[:,1]))
+fstTest = zeros(length(FFull[:,1]))
+for i in 1:20
+    cnTest[i], cn_sepTest[i], cn_invTest[i], cn_fsTest[i], fstTest[i] = dsm.separationpoint.(Ref(afTest), FFull[i,1] .* pi/180)
+end
+#plot all the data close up 
+plot(FFull[1:20,1], cnTest[1:20], label = "Cl static", title = "Cl Comparison", xlabel = "alpha (deg)", ylabel = "Cl")
+plot!(FFull[1:20,1], cn_sepTest[1:20], label = "Cl sep")
+plot!(FFull[1:20,1], cn_invTest[1:20], label = "Cl inv")
+plot!(FFull[1:20,1], cn_fsTest[1:20], label = "Cl fs", legend = :bottomright)
+#the following lines were run after fixing airfoils.jl back to normal
+plot!(FFull[1:20,1], FFull[1:20,2], label = "F Larsen")
+plot!(FFull[1:20,1], dsm.separationpoint.(Ref(afTest),FFull[1:20,1] .*pi/180), label = "F DSM")
+plot!(ylabel = "Cl/Fdyn")
+```
+
+TODO after this plot
+
+- [ ] Replot the above and go just a bit further to see what happens between Cl inv and Cl static as a possible change finder
+
+- [ ] There is no "ramp up" to alpha0 (zero lift angle of attack) it is fully separated until then, why? Does it need to be?
+
+- [ ] Could it be a lag term issue? -> possibly!!! lag changes a lot
+
+- [ ] did we ever figure out the lag conversion? -> the update_oye_A function exists, but the actual conversions have not been verified!!!
+
 **Important Info:**
 The separation function setup section starts on line 251 of [airfoils.jl](../../src/airfoils.jl) with the line `alpha0, _ = brent(cl, -0.25, 0.25)` (*Note: I don't know what this does*)
 
@@ -118,7 +200,7 @@ The if statement checks if sfun is of the ADSP type, and then runs the line give
       | HSP     |                                                                                                                     | Same as RSP                                                                                                                                                                                                                                                                                                                                                                                                                           |
       | LSP     | `dsm.LSP()` -> no inputs                                                                                            | Larsen separation point function from 2007 paper, and repeated in Oye from Faber 2018. Line 639 in airfoils.jl It calls `cl_fullysep_faber` to calculate the cl (or cn) values and then uses the same calculation as Oye, Larsen, and Faber $fst = (C_l^{st} - C_l^{fs}) / (C_l^{inv} - C_l^{fs})$ . st = static, fs = fully separated, inv = inviscid. It then clips values larger than 1 or smaller than 0... Hermite Interpolation |
       
-      2. It than makes the Oye model struct `dsmodel = Oye(Indicial(), 1, airfoils,2,2)` this calls the solver type, how many airfoils, the airfoils, a flag for if the delay is applied to $C_l$ (1) or $C_n$ (2), and then a flag for solving with the Hansen (1) or Faber (2) model
+      2. It then makes the Oye model struct `dsmodel = Oye(Indicial(), 1, airfoils,2,2)` this calls the solver type, how many airfoils, the airfoils, a flag for if the delay is applied to $C_l$ (1) or $C_n$ (2), and then a flag for solving with the Hansen (1) or Faber (2) model
       
       3. `solve_indicial(dsmodel....)` takes us to the solver
       
@@ -131,97 +213,7 @@ The if statement checks if sfun is of the ADSP type, and then runs the line give
       7. It then makes its way to `getcoefficient_indicial_faber` function in Oye.jl line 295, here It calculates Cn using Hansen's equation for Cn_inv and final (returned) Cn, and Faber for the fully separated Cn, *can they play all together like that?* 
       
       8. It then returns the states and loads and goes all the way back to my OyeComparer.jl file
-
-# Will Do's
-
-- [ ] Make the Larsen separation point functions and  related Oye solver fully functional and multiple dispatch
-  
-  - [ ] Fix separation point functions
-    
-    - [ ] Make sure I can call the Larsen function and get into it where I need to
-      
-      - [ ] this is linked with multiple dispatch down below, I can implement it I believe
-      - [ ] Delete HSP
-      - [ ] Add a flag to all separation point functions for Cl or Cn, default for ADSP and ADGSP and Riso/Hansen (RSP/HSP) -> needs to be Cn. Larsen's paper uses Cl
-      - [ ] Create the change A function, ie see below, we want to be able to mismatch functions, so the change function can convert it, but the code will always run Hansen's Tau value
-    
-    - [x] make sure I am using the larsen separation point and not hansen's when it expects it
-      
-      - [x] find the difference between the two, one overshoots, and one under?
-      - [x] Ans: Larsen and Faber both want the fully separated alphasep, so in deep stall, in the Larsen vertol case, that is 32 deg
-      - [x] Use update airfoil function to make sure alpha0 is the same as in Larsen's paper
-      - [x] try 1/tau and just straight tau for the omega3 = 0.07-> Solved?: my conversion was wrong
-      - [ ] Add and check my static Cl plot and webplot digitize his polar/static plot (they are the same)
-      - [ ] We want to be able to mismatch functions, un-hardcode Hansen's function so it is a function call
-    
-    - [x] I implemented `dsmodel.version == 3` as being Larsen and Adam already has it as BeddoesLeishman, fix all of them to `dsmodel.version == 4`
-    
-    - [x] Make sure all the equations in the Larsen function are correct
-    
-    - [x] Check the update states (step 6) equations and Tau
-  
-  - [ ] Create a separation point test file (do this first and match figure 4-c)
-    
-    - [x] Write out the questions I want to answer, what the answers should be, and where/when to find them
-    
-    - [x] create the file and testset
-    
-    - [ ] make it automated
-    
-    - [x] test against figure 4-c (Larsen Paper) separation point curve
-  
-  - [x] Fix Oye solver functions (check with Weston on this)
-    
-    - [x] check the equations in step 7 above
-  
-  - [x] Make multiple dispatch
-    
-    - [x] Add the `separationpoint` function call in the 1 or 2 places necessary, comment out the if statements
-    
-    - [x] check how the Oye solvers are called and fix/update them (check with Weston during this also)
-
-**Tracking**
-
-```julia
-#! the following code is just to be ran once and will not work again
-cnTest = zeros(length(FFull[:,1]))
-cn_sepTest = zeros(length(FFull[:,1]))
-cn_invTest = zeros(length(FFull[:,1]))
-cn_fsTest = zeros(length(FFull[:,1]))
-fstTest = zeros(length(FFull[:,1]))
-for i in 1:20
-    cnTest[i], cn_sepTest[i], cn_invTest[i], cn_fsTest[i], fstTest[i] = dsm.separationpoint.(Ref(afTest), FFull[i,1] .* pi/180)
-end
-#plot all the data close up 
-plot(FFull[1:20,1], cnTest[1:20], label = "Cl static", title = "Cl Comparison", xlabel = "alpha (deg)", ylabel = "Cl")
-plot!(FFull[1:20,1], cn_sepTest[1:20], label = "Cl sep")
-plot!(FFull[1:20,1], cn_invTest[1:20], label = "Cl inv")
-plot!(FFull[1:20,1], cn_fsTest[1:20], label = "Cl fs", legend = :bottomright)
-#the following lines were run after fixing airfoils.jl back to normal
-plot!(FFull[1:20,1], FFull[1:20,2], label = "F Larsen")
-plot!(FFull[1:20,1], dsm.separationpoint.(Ref(afTest),FFull[1:20,1] .*pi/180), label = "F DSM")
-plot!(ylabel = "Cl/Fdyn")
-```
-
-![](C:\Users\child\.julia\dev\DynamicStallModels\testing\Oye\Outputs\ClTypesPlotted.png)
-
-TODO after this plot
-
-- [ ] Replot the above and go just a bit further to see what happens between Cl inv and Cl static as a possible change finder
-
-- [ ] There is no "ramp up" to alpha0 (zero lift angle of attack) it is fully separated until then, why? Does it need to be?
-
-- [ ] I am using alpha0 && something else in the if statement, should it be && or ||?
-  
-  - [ ] Adam's first option should be ||, his second?
-
-- [ ] The BIG CLINCHER: Even if it can find the location correctly, what does it do after??? If it reverts to fst it jumps back up to 1.0, and then lags, if I do something between other values to calculate, cn or anything, or even f, how can I guarantee that it will be consistent in other use cases. 
-  
-  - [ ] Could it be a lag term issue? check Cl_fullysep_faber and see
-  
-  - [ ] Did we ever figure out the lag conversion? Do that!!!!
-
-### Grad School Project Ideas
+- [ ] ### Grad School Project Ideas
 
 - Dr. Ning's Lab
   

@@ -29,7 +29,8 @@ VertolPolar = readdlm("C:/Users/child/Documents/Projects/FlowLab_DynamicStall/Dy
 #af = of.make_dsairfoil(Vertol) #make the airfoil into a DynamicStallModels airfoil
 #af = dsm.simpleairfoil(VertolPolar) #? testing this versus the dsm.airfoil
 af = dsm.airfoil(VertolPolar; A = .07, sfun=dsm.LSP()) #A= 7.14
-af = dsm.update_airfoil(af; alphasep=[af.alphasep[1], 32.0*pi/180] ) #update the airfoil with Larsen's separation point
+af = dsm.update_oye_A(af, c, V, "Larsen") #update the airfoil with Larsen's A converted to Hansens
+af = dsm.update_airfoil(af; alphasep=[af.alphasep[1], 30.0*pi/180] ) #update the airfoil with Larsen's separation point
 airfoils = Array{Airfoil, 1}(undef, 1) #make an array of the type Airfoil struct
 airfoils[1] = af #put the airfoil into the array
 
@@ -83,8 +84,8 @@ cyclecnplt = plot(xaxis="Angle of Attack (deg)", yaxis=L"C_n", leg=:topright)
 # Now we will compare the results to the Larsen Oye model
 #I am going to use a bunch of vectors rather than matrices as Julia has good vector functions
 # Import the data #! this is hardcoded with my info for now!
-LarsenOyeDyn = readdlm("C:\\Users\\child\\Documents\\Projects\\FlowLab_DynamicStall\\DynamicStallModels.jl\\data\\Larsen2007\\Oye\\WPDLarsenFig9dDataTrimmed.csv", ',') #dynamic oye data
-LarsenStatic = readdlm("C:\\Users\\child\\Documents\\Projects\\FlowLab_DynamicStall\\DynamicStallModels.jl\\data\\Larsen2007\\Oye\\WPDLarsenFig9DataStatic.csv", ',') #static data
+LarsenOyeDyn = readdlm("C:\\Users\\child\\.julia\\dev\\DynamicStallModels\\data\\Larsen2007\\Oye\\WPDLarsenFig9dDataTrimmed.csv", ',') #dynamic oye data
+LarsenStatic = readdlm("C:\\Users\\child\\.julia\\dev\\DynamicStallModels\\data\\Larsen2007\\Oye\\WPDLarsenFig9DataStatic.csv", ',') #static data
 LarsenOyeDynDeg = vec(LarsenOyeDyn[:,1]) #angle of attack in degrees
 LarsenOyeDynCn = LarsenOyeDyn[:,2] #normal force coefficient
 LarsenStaticDeg = LarsenStatic[:,1] #angle of attack in degrees

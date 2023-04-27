@@ -288,6 +288,33 @@ function airfoil(polar; A = [0.3, 0.7, 1.0], b = [0.14, 0.53, 5.0], T = [1.7, 3.
 
     return Airfoil(polar, cl, cd, cm, cn, cc, dcldalpha, dcldalpha, alpha0, alphasep, A, b, T, sfun, xcp, eta, zeta)
 end
+"""
+update_oye_A Function used to update/change the A coefficient regardless of the method, into the desired/flag format
+    airfoil - the Airfoil struct in which A will be changed. (To my knowledge in the given papers A is: Larsen = 0.07, Faber = 8.0, Hansen = 4.0)
+    c - chord length
+    U - velocity 
+    flag - "Larsen", "Faber"
+    Background: the current separation point function takes the input A and uses it in the Hansen equation tau = A*c/U,
+    this function converts the user input A into the proper format so the tau coming out of the Hansen equation is in fact the Larsen or Faber tau
+"""
+function update_oye_A(airfoil::Airfoil, c, U, flag)
+    af = airfoil
+    A = af.A
+    if flag == "Hansen"
+        println("The separationpoint function is already in Hansen format")
+        return error()
+    elseif flag == "Larsen"
+        NewA = A*U/c 
+        update_airfoil(af; A=NewA)
+    elseif flag == "Faber"
+        NewA = A / 2.0 
+        update_airfoil(af; A=NewA)
+    else
+        println("The flag is not recognized")
+        return error()
+    end
+end
+
 
 
 

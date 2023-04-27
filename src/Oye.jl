@@ -184,21 +184,16 @@ function update_states_oye_hansen(dsmodel::Oye, oldstates, U, alpha, deltat, c, 
     fold = oldstates[1]
     airfoil = dsmodel.airfoils[i]
 
-    # @show alpha
     if dsmodel.cflag == 2
         cn = airfoil.cn(alpha) #Static normal force
     else
         cn = airfoil.cl(alpha)
     end
-    cn_inv = dcndalpha*(alpha-alpha0) #Inviscid normal force
+    #cn_inv = dcndalpha*(alpha-alpha0) #Inviscid normal force
     fst = separationpoint(airfoil, alpha)
     #below is Hansen's separation point function
-    #fst = (2*sqrt(abs(cn/cn_inv)) - 1)^2 #New separation point. #TODO: I wonder if I could hot swap this out for any separation point function of my choice. 
     tau = A*c/U #checked, this is good for Hansen
-    # @show tau
-
-    println(tau, "this is tau in update states hansen")
-    f = fst + (fold - fst)*exp(-deltat/tau) #Delay on separation point #? I think this is the correct way to implement the delay. 
+    f = fst + (fold - fst)*exp(-deltat/tau) #Delay on separation point 
 
     if f>1
         return [1.0]
@@ -223,31 +218,15 @@ function update_states_oye_faber(dsmodel::Oye, oldstates, U, alpha, deltat, c, d
         cn = airfoil.cl(alpha)
         cn_sep = airfoil.cl(alphasep)
     end
-    cn_inv = dcndalpha*(alpha-alpha0) #Inviscid normal force
+    #cn_inv = dcndalpha*(alpha-alpha0) #Inviscid normal force
 
-    cn_fs = cl_fullysep_faber(cn, cn_sep, dcndalpha, alpha, alpha0, alphasep)
+    #cn_fs = cl_fullysep_faber(cn, cn_sep, dcndalpha, alpha, alpha0, alphasep)
     fst = separationpoint(airfoil, alpha)  
     if alpha>alphasep
         fst = 0.0
     end
-
-    #? implementing a conversion between the different model's inputs and how they are defined
-    # the original line is tau = A*c/U, this is Hansen's equation I am going to act like there is a Hansen (1), Faber (2), and Larsen (4) flag and convert them all to Hansen 
-    if dsmodel.version == 1 #Hansen
-        tau = A*c/U 
-        println("Hansen tau: ", tau)
-    elseif dsmodel.version == 2 #Faber
-        tau = A*c/(2*U) #derived from faber and hansen by jacob child
-        println("Faber tau: ", tau) 
-    elseif dsmodel.version == 4 #Larsen
-        tau = c/(A*2.0*U) #derived from larsen (according to his paper omega3 would be our A input) and hansen by jacob child
-        
-        #println("Larsen tau: ", tau)
-    else
-        ver = dsmodel.version
-        @warn("$ver not an option, defaulting to Hansen 2008 (option 1)")
-        tau = A*c/U 
-    end
+    
+    tau = A*c/U #checked, this is good for Hansen
     
     f = fst + (fold - fst)*exp(-deltat/tau) #Delay on separation point 
 
