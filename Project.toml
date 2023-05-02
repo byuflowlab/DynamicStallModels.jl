@@ -1,7 +1,7 @@
 name = "DynamicStallModels"
 uuid = "1fe18b12-a608-438b-96ea-7dfa0357455b"
 authors = ["cardoza2 <adam@cardoza.one>"]
-version = "0.1.0"
+version = "0.3.0"
 
 [deps]
 CurveFit = "5a033b19-8c74-5913-a970-47c3779ef25c"

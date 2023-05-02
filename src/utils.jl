@@ -1,14 +1,7 @@
-function numberofstates_total(dsmodel::DSModel)
-    return dsmodel.n*numberofstates(dsmodel)
-end
+#=
+Auxilliary functions for the package. 
 
-function numberofparams_total(dsmodel::DSModel)
-    return dsmodel.n*numberofparams(dsmodel)
-end
-
-function numberofloads_total(dsmodel::DSModel)
-    return dsmodel.n*numberofloads(dsmodel)
-end
+=#
 
 function nearestto(xvec, x) 
     mins = abs.(xvec.-x)
@@ -64,7 +57,7 @@ end
 
 
 
-export Linear #Todo: Add to FLOWMath. 
+export Linear #Todo: Add to FLOWMath? 
 
 struct Linear
     x
@@ -83,12 +76,17 @@ end
 
 
 
-function (interp::Linear)(x)
+function (interp::Linear)(x; verbose::Bool=true)
+
     if x<interp.x[1]
-        @warn("Linear(): Outside of linear interpolation domain.")
+        if verbose
+            @warn("Linear(): Outside of linear interpolation domain.")
+        end
         return interp.y[1]
     elseif x>interp.x[end]
-        @warn("Linear(): Outside of linear interpolation domain.")
+        if verbose
+            @warn("Linear(): Outside of linear interpolation domain.")
+        end
         return interp.y[end]
 
     elseif x==interp.x[1]
@@ -98,8 +96,12 @@ function (interp::Linear)(x)
 
     end
 
+    # @show x, interp.x[1], interp.x[end]
+    #Todo: I should probably figure out a behavior if the function gets passed a NaN 
+
     idx = findfirst(i -> x<i, interp.x)
 
+    # @show idx
 
     x0 = interp.x[idx-1]
     x1 = interp.x[idx]
@@ -112,3 +114,27 @@ function (interp::Linear)(x)
     return top/bot
 end
 
+
+function rotate_load(Cl, Cd, aoa)
+    calpha = cos(aoa)
+    salpha = sin(aoa)
+    Cn = Cl*calpha + Cd*salpha #Cd has friction added back in. 
+    Cc = Cl*salpha - Cd*calpha
+    return Cn, Cc
+end
+
+function blend_cosine(x, lb, ub)
+    if ub<lb
+        @warn("blend_cosine: Bounds out of order")
+        lb, ub = ub, lb
+    end
+
+    if x>=ub
+        return 1.0
+    elseif x<=lb
+        return 0.0
+    else
+        cterm = cos((x-lb)*pi/(ub-lb))
+        return (1-cterm)/2
+    end
+end

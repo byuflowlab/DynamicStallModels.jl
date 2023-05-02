@@ -15,9 +15,9 @@ Vrel = M*a #60
 # polar = readdlm("/Users/adamcardoza/Library/CloudStorage/Box-Box/research/FLOW/learning/exploring/exampledata/NACA4412.dat", '\t'; skipstart=3) 
 # af = airfoil(polar) #Todo: This constructor is broken.
 
-du21_a17 = of.read_airfoilinput("../../data/airfoils/DU40_A17.dat") 
-af = of.make_dsairfoil(du21_a17) #Todo: I think this polar might be my problem. I should try a different polar.... which means that I need to fix the constructor. :| 
+dsmodel = Oye(Indicial(), 1, 1, 4.0)
 
+<<<<<<< HEAD
 <<<<<<< HEAD
 
 # af = update_airfoil(af, A=[4.0], dcndalpha=6.320368333107256, alpha0=-0.0033903071711640564)
@@ -25,17 +25,28 @@ af = of.make_dsairfoil(du21_a17) #Todo: I think this polar might be my problem. 
 # af = update_airfoil(af, A=[4.0], dcndalpha=6.320368333107256, alpha0=-0.0033903071711640564, sfun=dsm.LSP(), alphasep=af.alphasep.*5)
 af = update_airfoil(af, A=[4.0], sfun=dsm.LSP(), alphasep=af.alphasep.*4.5)
 >>>>>>> adam
+=======
+du21_a17 = of.read_airfoilinput("../../data/airfoils/DU40_A17.dat") 
+af = of.make_dsairfoil(du21_a17, c) 
+
+
+af = update_airfoil(af; dsmodel, sfun=dsm.LSP(), alphasep=af.alphasep.*4.5)
+>>>>>>> dev
 
 airfoils = Array{Airfoil, 1}(undef, 1)
 airfoils[1] = af
 
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 
 
 dsmodel = Oye(Indicial(), 1, airfoils)
 =======
 dsmodel = Oye(Indicial(), 1, airfoils, 1, 2)
+=======
+
+>>>>>>> dev
 #Note: alphasep is much higher for Faber's implemenation of the dsmodel. -> It might need more tuning... but it's something. 
 >>>>>>> adam
 
@@ -60,7 +71,8 @@ end
 
 alphavec = alpha.(tvec)
 
-states, loads = solve_indicial(dsmodel, [c], tvec, Uvec, alphavec)
+# states, loads = solve_indicial(dsmodel, [c], tvec, Uvec, alphavec)
+states, loads = solve_indicial(airfoils, tvec, Uvec, alphavec)
 
 
 stateplt = plot(tvec, states[:,1], leg=false, xaxis="time (s)", yaxis="f")
@@ -85,6 +97,7 @@ plot!(alphavec.*(180/pi), cn, lab="DSM")
 plot!(alphavec.*(180/pi), cn_static, lab="Static")
 # vline!([af.alphasep[2]*(180/pi)], lab=L"\alpha_s")
 display(cyclecnplt) 
+# savefig("/Users/adamcardoza/Desktop/fabermethod.png")
 
 #=
 I think that I have the models matching, the difference is that I'm using Cn in this model and Cl in the other. 
