@@ -165,7 +165,7 @@ function get_loads(dsmodel::Oye, airfoil::Airfoil, states, y)
     cn_inv = dcndalpha*(alpha-alpha0) #Hansen 2004 EQ 19.
 
     if dsmodel.version==2 #Larsen (Faber) #TODO: I wonder if there is a good way to use multiple dispatch on this. 
-        cn_fs = cl_fullysep_larsen(airfoil, alpha)
+        cn_fs = cl_fullysep_faber(airfoil, alpha) #this was originally cl_fullysep_larsen, but it needs to be cl_fullysep_faber
     else #Hansen
         cn_fs = cl_fullysep_hansen(airfoil, alpha)
     end
@@ -226,8 +226,102 @@ function cl_fullysep_faber(airfoil, alpha) #Todo: Move to Larsen's file
     end
 end
 
+function state_rates!(airfoil, state_in, state_out, y, t_aspect)
+    
+    c, Uvec, alphavec = y
+
+    for i in 1:length(airfoil)
+        afi = airfoil[i] 
+
+        A = afi.model.A
 
 
+        idx = (i-1)*1 
+        xs = view(state_out , idx+1:idx+1) 
+        dxs = view(state_in, idx+1:idx+1) 
+
+        Uvec = Uvec[i]
+
+        c = c[i]
+
+        alphavec = alphavec[i] 
+
+
+        state_rate(dxs, xs, A, c, afi, Uvec, alphavec, t_aspect) 
+    end
+end
+
+function state_rate(dxs, xs, A, c, afi, Uvec, alphavec, t_aspect)
+    T_f = (Uvec(t_aspect))/(A*c)
+
+    fst = separationpoint(af.sfun, af, alphavec(t_aspect))
+
+    dx[1] = -T_f*(x[1]-fst) 
+end
+
+function parsesolution_Oye(airfoil, sol, y)
+    _, _, _, alphavec = y
+    f = Array(sol) 
+    tvec = sol.t 
+
+
+    #preallocates a matrix to be filled with the dynamic lift and angle of attack values for each airfoil evaluated
+    Lift_aoa_Matrix = zeros(2*length(airfoil) , length(tvec)) 
+
+
+
+    for w in 1:length(airfoil) #this loops through each airfoil that was evaluated during the solve
+
+        alphavec = alphavec[w] 
+        airfoil = airfoil[w] 
+        alpha0 = airfoil.alpha0 
+
+
+
+        if dsmodel.cflag == 1 #checks to see if the user chose the coefficient of lift flag
+            cl_sep = airfoil.cl(airfoil.alphasep[2])
+        else
+            cl_sep = airfoil.cn(airfoil.alphasep[2]) #find the coefficient of normal force at the fully seperated angle of attack 
+        end
+
+
+
+        for i in 1:length(tvec) 
+
+
+            Lift_aoa_Matrix[w+1, i] = alphavec(tvec[i]) 
+            C_inv = airfoil.dcldalpha*(alphavec(tvec[i]) - alpha0) 
+
+
+
+            if dsmodel.cflag == 1 #checks to see if the user used the coefficient of lift flag
+                cl = airfoil.cl(alphavec(tvec[i])) 
+            else
+                cl = airfoil.cn(alphavec(tvec[i])) #finds what the coefficient of static normal force value is at a given angle of attack
+            end
+
+
+
+
+            if dsmodel.version == 1 #checks to see if the Hansen method is chosen for this Oye solve
+                fst = (2*sqrt(abs(cl/C_inv))-1)^2 
+                C_fs = (cl - (C_inv*fst))/(1-fst) #finds the fully separated coefficient of lift value 
+            elseif dsmodel.version == 2
+                C_fs = cl_fullysep_faber(cl, cl_sep, airfoil.dcldalpha, alphavec(tvec[i]), alpha0, airfoil.alphasep[2]) #finds the fully separated coefficient of lift value for the Faber method
+            end
+
+
+
+
+            C_L_dyn = f[w,i]*C_inv+(1-f[w,i])*C_fs 
+            Lift_aoa_Matrix[w,i] = C_L_dyn 
+        end
+
+    end
+
+    return Lift_aoa_Matrix 
+
+end
 
 
 

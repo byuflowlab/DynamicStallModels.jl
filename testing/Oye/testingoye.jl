@@ -6,61 +6,40 @@ of = OpenFASTsr
 path = dirname(@__FILE__)
 cd(path)
 
-c = 0.1
+c = 0.55
 
-M = 0.379
+M = 0.11
 a = 343.0
 Vrel = M*a #60
 
 # polar = readdlm("/Users/adamcardoza/Library/CloudStorage/Box-Box/research/FLOW/learning/exploring/exampledata/NACA4412.dat", '\t'; skipstart=3) 
 # af = airfoil(polar) #Todo: This constructor is broken.
 
-dsmodel = Oye(Indicial(), 1, 1, 4.0)
+dsmodel = Oye(Indicial(), 1, 2, 4.0)
 
-<<<<<<< HEAD
-<<<<<<< HEAD
+#du21_a17 = of.read_airfoilinput("../../data/airfoils/DU40_A17.dat") 
+#af = of.make_dsairfoil(du21_a17, c) 
 
-# af = update_airfoil(af, A=[4.0], dcndalpha=6.320368333107256, alpha0=-0.0033903071711640564)
-=======
-# af = update_airfoil(af, A=[4.0], dcndalpha=6.320368333107256, alpha0=-0.0033903071711640564, sfun=dsm.LSP(), alphasep=af.alphasep.*5)
-af = update_airfoil(af, A=[4.0], sfun=dsm.LSP(), alphasep=af.alphasep.*4.5)
->>>>>>> adam
-=======
-du21_a17 = of.read_airfoilinput("../../data/airfoils/DU40_A17.dat") 
-af = of.make_dsairfoil(du21_a17, c) 
-
-
-af = update_airfoil(af; dsmodel, sfun=dsm.LSP(), alphasep=af.alphasep.*4.5)
->>>>>>> dev
+af = dsm.make_airfoil(polar_0015, dsmodel, c; sfun=dsm.LSP())
 
 airfoils = Array{Airfoil, 1}(undef, 1)
 airfoils[1] = af
 
 
-<<<<<<< HEAD
-<<<<<<< HEAD
 
-
-dsmodel = Oye(Indicial(), 1, airfoils)
-=======
-dsmodel = Oye(Indicial(), 1, airfoils, 1, 2)
-=======
-
->>>>>>> dev
 #Note: alphasep is much higher for Faber's implemenation of the dsmodel. -> It might need more tuning... but it's something. 
->>>>>>> adam
 
 
-tvec = range(0, 0.05, 1000) #0:0.001:0.05
+tvec = range(0, 1.0, 1000) #0:0.001:0.05
 Uvec = Vrel.*ones(length(tvec))
 
 function alpha(t)
-    c = 0.1
-    M = 0.379
+    c = 0.55
+    M = 0.11
     a = 343.0
-    shift = 10.3
-    amp = 8.1
-    k = 0.075
+    shift = 10.0
+    amp = 10.0
+    k = 0.051
 
     v = M*a
     omega = k*2*v/c

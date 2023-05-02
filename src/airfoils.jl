@@ -247,7 +247,7 @@ function make_airfoil(polar, dsmodel::DSModel, chord; xcp=0.2, sfun::Union{Separ
     _, maxclidx = findmax(polar[:,2])
     _, minclidx = findmin(polar[1:maxclidx,2])
 
-    if isa(sfun, LSP)
+    if isa(sfun, LSP) #this kind of setup is required for hermite interpolation to work properly
         alphasep = [-32*pi/180, 32*pi/180]
     else
         alphasep = [polar[minclidx, 1], polar[maxclidx,1]]
