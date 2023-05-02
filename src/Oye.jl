@@ -3,10 +3,6 @@ The Oye model, as given by ???.
 
 Indicial States
 1 - f
-
-Environmental Parameters (y)
-U, alpha
-
 =#
 export Oye
 
@@ -17,92 +13,75 @@ The Øye model struct. It stores airfoil data for every section to be simulated.
 
 ### Inputs
 - detype - The type of model it is, Functional(), Iterative(), or Indicial().
-- cflag::Int - A flag to apply the separation delay to the coefficient of 1) lift, 2) normal force. 
-- version::Int - A flag to say whether to use 1) Hansen 2008, or 2) Larsen's Hermite interpolation from Faber's 2018's implementation of the model.
-- A::Float - Dynamic stall coefficient. 
+- n - The number of sections to be simulated. 
+- airfoils - A vector of Airfoil structs, one corresponding to each section to be simulated. 
 """
-struct Oye{TI, TF} <: DSModel
+struct Oye{TI} <: DSModel
     detype::DEType 
-    cflag::TI 
-    version::TI
-    A::TF
-
-    function Oye{TI, TF}(detype::DEType, cflag::TI, version::TI, A::TF) where {TI, TF}
-        if cflag>2
-            error("Øye: the cflag only accepts flags of 1 or 2.")
-        elseif version>2
-            error("Øye: the version only accepts values of 1 or 2.")
-        end
-        return new{TI, TF}(detype, cflag, version, A)
-    end
-
-    Oye(detype::DEType, cflag::TI, version::TI, A::TF) where {TI, TF} = Oye{TI, TF}(detype, cflag, version, A)
+    n::TI #Number of airfoils simulated
+    airfoils::Array{Airfoil,1}
 end
 
-# function Oye(detype::DEType; cflag=1, version=1, A=4.0)
-#     return Oye(detype, cflag, version, A)
-# end
-
+function (dsmodel::Oye)(x, p, t, dt)
+    if isa(dsmodel.detype, Functional)
+        error("The state space Oye model is not setup yet.")
+    elseif isa(dsmodel.detype, Iterative)
+        error("The iterative Oye model is not set up yet.")
+    else #The model is indicial
+        nst = numberofstates_total(dsmodel)
+        ns = numberofstates(dsmodel)
+        np = numberofparams(dsmodel)
+        newstates = Array{eltype(p), 1}(undef, nst)
+        for i = 1:dsmodel.n
+            ps = view(p, np*(i-1)+1:np*i)
+        
+            c, dcndalpha, alpha0, A, U, aoa = ps #Inputs 
+            
+            xs = view(x, ns*(i-1)+1:ns*i) #Nodal states. 
+            
+            idx = ns*(i-1)+1:ns*i
+            newstates[idx] = update_states(dsmodel, xs, U, aoa, dt, c, dcndalpha, alpha0, A, i)
+        end
+        return newstates
+    end
+end
 
 function numberofstates(dsmodel::Oye)
     return 1
 end
 
 function numberofparams(dsmodel::Oye)
-    return 2
+    return 6
 end
 
-function get_cn(airfoil, alpha)
-    if airfoil.model.cflag == 2
-        return airfoil.cn(alpha) #Static normal force
-    else
-        return airfoil.cl(alpha)
+function numberofloads(dsmodel::Oye)
+    return 1
+end
+
+function getloads(dsmodel::Oye, states, p, airfoil)
+    if isa(dsmodel.detype, Functional)
+        error("Oye functional implementation not yet prepared.")
+    elseif isa(dsmodel.detype, Iterative)
+        error("Oye iterative implementation not prepared for use yet.")
+    else #Indicial
+        return getcoefficient_Oye_indicial(dsmodel, states, p, airfoil)
     end
 end
 
-function get_dcndalpha(airfoil)
-    if airfoil.model.cflag == 2
-        return airfoil.dcndalpha #Static normal force
-    else
-        return airfoil.dcldalpha
-    end
-end
-
-# function (dsmodel::Oye)(x, p, t, dt)
-#     if isa(dsmodel.detype, Functional)
-#         error("The state space Oye model is not setup yet.")
-#     elseif isa(dsmodel.detype, Iterative)
-#         error("The iterative Oye model is not set up yet.")
-#     else #The model is indicial
-#         nst = numberofstates_total(dsmodel)
-#         ns = numberofstates(dsmodel)
-#         np = numberofparams(dsmodel)
-#         newstates = Array{eltype(p), 1}(undef, nst)
-#         for i = 1:dsmodel.n
-#             ps = view(p, np*(i-1)+1:np*i)
-        
-#             c, dcndalpha, alpha0, alphasep, A, U, aoa = ps #Inputs 
-            
-#             xs = view(x, ns*(i-1)+1:ns*i) #Nodal states. 
-            
-#             idx = ns*(i-1)+1:ns*i
-#             newstates[idx] = update_states(dsmodel, xs, U, aoa, dt, c, dcndalpha, alpha0, alphasep, A, i)
-#         end
-#         return newstates
-#     end
-# end
-
-
-function initialize(dsmodel::Oye, airfoil::Airfoil, tvec, y)
+function initialize(dsmodel::Oye, Uvec, aoavec, tvec, airfoil::Airfoil, c, a)
     if isa(dsmodel.detype, Functional)
         @warn("Oye Functional implementation isn't prepared yet. - initialize()")
     elseif isa(dsmodel.detype, Iterative)
         @warn("Oye Iterative implementation isn't prepared yet. - initialize()")
     else #Model is indicial
+        U = Uvec[1]
+        alpha = aoavec[1]
+        envvars = [U, alpha]
 
-        _, _, alpha, _ = y
-
-        fst = separationpoint(airfoil, alpha)
+        cn = airfoil.cn(alpha) #Static normal force
+        cn_inv = airfoil.dcndalpha*(alpha-airfoil.alpha0) #Inviscid normal force 
+        
+        fst = (2*sqrt(abs(cn/cn_inv)) - 1)^2
 
         if fst>1
             fst = 1.0
@@ -110,12 +89,30 @@ function initialize(dsmodel::Oye, airfoil::Airfoil, tvec, y)
         
         states = [fst]
 
-        loads = zeros(3)
-        get_loads!(dsmodel::Oye, airfoil, states, loads, y)
+        A = airfoil.A[1]
+
+        params = [c, airfoil.dcndalpha, airfoil.alpha0, A]
+
+        p = vcat(params, envvars)
         
-        return states, loads, y
+        loads = getloads(dsmodel, states, p, airfoil) #Todo: Calculate Cld
+         
+        
+        return states, loads, p
     end
 end
+
+function update_environment!(dsmodel::Oye, p, U, aoa)
+    if isa(dsmodel.detype, Functional)
+        @warn("Oye functional implementation isn't prepared yet. - initialize()")
+    elseif isa(dsmodel.detype, Iterative)
+        @warn("Oye iterative implementation isn't prepared yet. - initialize()")
+    else #Model is indicial
+        updateenvironment_oye_indicial!(p, U, aoa)
+    end
+end
+
+
 
 
 
@@ -123,110 +120,49 @@ end
 
 
 ######## Indicial code
-function update_states(dsmodel::Oye, airfoil::Airfoil, oldstate, y, dt)
-    newstate = zero(oldstate)
-    update_states!(dsmodel, airfoil, oldstate, newstate, y, dt)
-    return newstate
-end
 
-#=
-In-place version. 
-=#
-function update_states!(dsmodel::Oye, airfoil::Airfoil, oldstate, newstate, y, dt)
-    ### Unpack 
-    U, _, alpha, _ = y
-    fold = oldstate[1]
+function update_states(dsmodel::Oye, oldstates, U, alpha, deltat, c, dcndalpha, alpha0, A, i)
+    ### Unpack
+    fold = oldstates[1]
+    airfoil = dsmodel.airfoils[i]
 
+    # @show alpha
+    cn = airfoil.cn(alpha) #Static normal force
+    cn_inv = dcndalpha*(alpha-alpha0) #Inviscid normal force 
 
-    fst = separationpoint(airfoil, alpha) #Current static degree of attachment (separation point)  
+    fst = (2*sqrt(abs(cn/cn_inv)) - 1)^2 #New separation point. #TODO: I wonder if I could hot swap this out for any separation point function of my choice. 
+    tau = A*c/U #checked. 
+    # @show tau
 
-    tau = dsmodel.A*airfoil.c/U #Time constant - From Hansen's 2008 paper (all other constants will need to be converted to Hansen's format)
-
-    f = fst + (fold - fst)*exp(-dt/tau) #Delay on separation point 
+    f = fst + (fold - fst)*exp(-deltat/tau) #Delay on separation point #Todo: This isn't quite right. 
 
     if f>1
-        f = 1.0
+        return [1.0]
+    else
+        return [f]
     end
-
-    newstate[1] = f
 end
 
-function get_loads(dsmodel::Oye, airfoil::Airfoil, states, y)
+
+function getcoefficient_Oye_indicial(dsmodel::Oye, states, p, airfoil)
     ### Unpack
     f = states[1]
-
-    _, _, alpha, _ = y # U, alpha = y
-
-
-    dcndalpha = get_dcndalpha(airfoil)
-
-    alpha0 = airfoil.alpha0
-
-    cn_inv = dcndalpha*(alpha-alpha0) #Hansen 2004 EQ 19.
-
-    if dsmodel.version==2 #Larsen (Faber) #TODO: I wonder if there is a good way to use multiple dispatch on this. 
-        cn_fs = cl_fullysep_larsen(airfoil, alpha)
-    else #Hansen
-        cn_fs = cl_fullysep_hansen(airfoil, alpha)
-    end
-
-    #Todo: Calculate the Cc, Cl, Cd, and potentially the Cm if possible. 
-    if dsmodel.cflag==2 #delay applied to normal and tangential loads
-        #Rotate loads
-    else 
-        Cl = f*cn_inv + (1-f)*cn_fs #Hansen 2004 EQ 17. Coefficient of lift
-        Cd = zero(Cl) #Coefficient of drag
-        Cm = zero(Cl) #Coefficient of moment
-    end
-
-    return Cl, Cd, Cm
-end
-
-function get_loads!(dsmodel::Oye, airfoil::Airfoil, states, loads, y)
-    loads .= get_loads(dsmodel, airfoil, states, y)
-end
-
-function cl_fullysep_hansen(airfoil, alpha) #Todo: Move to Hansen's file
-    cn = get_cn(airfoil, alpha) #Static lift
-    dcndalpha = get_dcndalpha(airfoil)
-
-    cn_inv = dcndalpha*(alpha-airfoil.alpha0) #Hansen 2004 EQ 19, inviscid lift
+    _, dcndalpha, alpha0, _, _, alpha = p
     
-    # fst = (2*sqrt(abs(cn/cn_inv)) - 1)^2 #Hansen 2004 EQ 15.
-    fst = separationpoint(airfoil, alpha)
-    cn_fs = (cn-(cn_inv*fst))/(1-fst) #Hansen 2004 EQ 18, fully separated lift
+    cn = airfoil.cn(alpha)
+    cn_inv = dcndalpha*(alpha-alpha0)
+    fst = (2*sqrt(abs(cn/cn_inv)) - 1)^2 
+    cn_fs = (cn-(cn_inv*fst))/(1-fst) #Todo: I think this should actually use fst, not f. 
 
-    return cn_fs
+    Cn = f*cn_inv + (1-f)*cn_fs #Todo: Calculate the Cc, Cl, Cd, and potentially the Cm if possible. 
+
+    return [Cn]
 end
 
-#=
-Larsen's fully separated lift coefficient from Faber's 2018 masters thesis. 
-=#
-function cl_fullysep_faber(airfoil, alpha) #Todo: Move to Larsen's file
-    alpha0 = airfoil.alpha0
-    alpha_sep = airfoil.alphasep[2]
-
-    cn = get_cn(airfoil, alpha)
-    cn_sep = get_cn(airfoil, alpha_sep)
-    dcndalpha = get_dcndalpha(airfoil)
-
-    if alpha0 < alpha < alpha_sep
-        #Hermite Interpolation as in Faber 2018
-        #TODO: Needs to be extended to work for angles less than alpha0, it should have a reflection to what is done here. 
-        t0 = (alpha - alpha0)/(alpha_sep - alpha0) #Faber 2018 EQ A.1a
-        #As alpha -> alpha_sep this will diverge. So... what keeps it from diverging? 
-        t1 = (alpha - alpha_sep)/(alpha_sep - alpha0) #Faber 2018 EQ A.1b
-        term1 = (alpha_sep - alpha0)*dcndalpha*(1 + t0*(7*t1/6 - 1))/2
-        term2 = cn_sep*t0*(1-( 2*t1))
-        clfs = t0*(term1+term2) #Faber 2018 EQ A.4
-
-        return clfs
-    else
-        return cn
-    end
+function updateenvironment_oye_indicial!(p, U, aoa)
+    p[5] = U
+    p[6] = aoa
 end
-
-
 
 
 
