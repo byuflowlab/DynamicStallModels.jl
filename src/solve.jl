@@ -214,4 +214,3 @@ function solve_indicial(airfoils::Array{Airfoil, 1}, tvec, Uvec, alphavec; verbo
 end
 
 
-
