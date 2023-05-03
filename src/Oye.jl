@@ -226,44 +226,64 @@ function cl_fullysep_faber(airfoil, alpha) #Todo: Move to Larsen's file
     end
 end
 
-function state_rates!(airfoil, state_out, state_in, y, t_aspect)
-    Uvec, _, alphavec, _ = y
 
-    A = airfoil.model.A
+"""
+    state_rates!(model::Oye, airfoil::Airfoil, dx, x, y, t)
 
+Calculate the state rates of the Øye model. 
+
+**Arguments**
+- model::DSModel: The model to be used.
+- airfoil::Airfoil: The airfoil to be used.
+- dx::Vector: The vector to be filled with the state rates.
+- x::Vector: The current state.
+- y::Vector: The current input.
+- t::Float64: The current time.
+"""
+function state_rates!(model::Oye, airfoil::Airfoil, dx, x, y, t)
+    ### Unpack
+    Ufun, _, alphafun, _ = y
+
+    ### Evaluate environmental functions
+    U = Ufun(t)
+    alpha = alphafun(t)
+
+    # @show t, U, alpha
+
+    ### Prepare time constant
+    A = model.A
     c = airfoil.c
+    T_f = U/(A*c)
 
-    state_rate(state_out, state_in, A, c, airfoil, Uvec, alphavec, t_aspect) 
+    ### Fetch static separation point
+    fst = separationpoint(airfoil, alpha)
+    # @show fst
+
+    ### Calculate state rate
+    dx[1] = -T_f*(x[1]-fst) 
 end
 
-function state_rate(dxs, xs, A, c, airfoil, Uvec, alphavec, t_aspect)
-    T_f = (Uvec(t_aspect))/(A*c)
+export parsesolution
 
-    fst = separationpoint(airfoil.sfun, airfoil, alphavec(t_aspect))
 
-    dxs[1] = -T_f*(xs[1]-fst) 
-end
-
-function parsesolution_Oye(airfoil, sol, y)
-    _, _, _, alphavec = y
+function parsesolution(airfoil::Airfoil, sol, y)
+    _, _, alphavec, _ = y
     f = Array(sol) 
     tvec = sol.t 
 
 
     #preallocates a matrix to be filled with the dynamic lift and angle of attack values for each airfoil evaluated
-    Lift_aoa_Matrix = zeros(2*length(airfoil) , length(tvec)) 
+    Lift_aoa_Matrix = zeros(2*1 , length(tvec))  #needs to be changed for a list of airfoils
 
 
 
-    for w in 1:length(airfoil) #this loops through each airfoil that was evaluated during the solve
+    for w in 1:1 #this needs to be changed to loop through all of the airfoils
 
-        alphavec = alphavec[w] 
-        airfoil = airfoil[w] 
         alpha0 = airfoil.alpha0 
 
 
 
-        if dsmodel.cflag == 1 #checks to see if the user chose the coefficient of lift flag
+        if airfoil.model.cflag == 1 #checks to see if the user chose the coefficient of lift flag
             cl_sep = airfoil.cl(airfoil.alphasep[2])
         else
             cl_sep = airfoil.cn(airfoil.alphasep[2]) #find the coefficient of normal force at the fully seperated angle of attack 
@@ -274,12 +294,12 @@ function parsesolution_Oye(airfoil, sol, y)
         for i in 1:length(tvec) 
 
 
-            Lift_aoa_Matrix[w+1, i] = alphavec(tvec[i]) 
+            Lift_aoa_Matrix[w, i] = alphavec(tvec[i]) 
             C_inv = airfoil.dcldalpha*(alphavec(tvec[i]) - alpha0) 
 
 
 
-            if dsmodel.cflag == 1 #checks to see if the user used the coefficient of lift flag
+            if airfoil.model.cflag == 1 #checks to see if the user used the coefficient of lift flag
                 cl = airfoil.cl(alphavec(tvec[i])) 
             else
                 cl = airfoil.cn(alphavec(tvec[i])) #finds what the coefficient of static normal force value is at a given angle of attack
@@ -288,18 +308,18 @@ function parsesolution_Oye(airfoil, sol, y)
 
 
 
-            if dsmodel.version == 1 #checks to see if the Hansen method is chosen for this Oye solve
+            if airfoil.model.version == 1 #checks to see if the Hansen method is chosen for this Oye solve
                 fst = (2*sqrt(abs(cl/C_inv))-1)^2 
                 C_fs = (cl - (C_inv*fst))/(1-fst) #finds the fully separated coefficient of lift value 
-            elseif dsmodel.version == 2
-                C_fs = cl_fullysep_faber(cl, cl_sep, airfoil.dcldalpha, alphavec(tvec[i]), alpha0, airfoil.alphasep[2]) #finds the fully separated coefficient of lift value for the Faber method
+            elseif airfoil.model.version == 2
+                C_fs = cl_fullysep_faber(airfoil, alphavec(tvec[i])) #finds the fully separated coefficient of lift value for the Faber method
             end
 
 
 
 
             C_L_dyn = f[w,i]*C_inv+(1-f[w,i])*C_fs 
-            Lift_aoa_Matrix[w,i] = C_L_dyn 
+            Lift_aoa_Matrix[w+1,i] = C_L_dyn 
         end
 
     end
@@ -307,6 +327,5 @@ function parsesolution_Oye(airfoil, sol, y)
     return Lift_aoa_Matrix 
 
 end
-
 
 
