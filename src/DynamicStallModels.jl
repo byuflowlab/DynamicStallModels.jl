@@ -1,6 +1,6 @@
 module DynamicStallModels
 
-using FLOWMath, StaticArrays, Roots, CurveFit
+using FLOWMath, StaticArrays, Roots, CurveFit, SciMLBase
 
 
 export Functional, Iterative, Indicial
