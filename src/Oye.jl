@@ -241,14 +241,10 @@ Calculate the state rates of the Øye model.
 - t::Float64: The current time.
 """
 function state_rates!(model::Oye, airfoil::Airfoil, dx, x, y, t)
-    ### Unpack
-    Ufun, _, alphafun, _ = y
-
+    
     ### Evaluate environmental functions
-    U = Ufun(t)
-    alpha = alphafun(t)
-
-    # @show t, U, alpha
+    U, _, alpha, _ = evaluate_environment(y, t)
+    
 
     ### Prepare time constant
     A = model.A

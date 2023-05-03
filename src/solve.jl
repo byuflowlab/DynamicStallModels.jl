@@ -246,4 +246,13 @@ function SciMLBase.ODEProblem(airfoils::AbstractVector{<:Airfoil}, x0, tspan, y)
     return SciMLBase.ODEProblem{true, true}(fun, x0, tspan, y)
 end
 
+function evaluate_environment(y, t)
+
+    y1 = isa(y[1], Function) ? y[1](t) : y[1]
+    y2 = isa(y[2], Function) ? y[2](t) : y[2]
+    y3 = isa(y[3], Function) ? y[3](t) : y[3]
+    y4 = isa(y[4], Function) ? y[4](t) : y[4]
 >>>>>>> d53e0063c115078ffc939dc4ba8805ec0e07aa04
+
+    return y1, y2, y3, y4
+end
