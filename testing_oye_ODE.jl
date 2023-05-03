@@ -1,7 +1,7 @@
-using DynamicStallModels, DelimitedFiles, Plots, FLOWMath, OpenFASTsr, LaTeXStrings, DifferentialEquations
+using DynamicStallModels, DelimitedFiles, Plots, FLOWMath, LaTeXStrings, DifferentialEquations
 
 dsm = DynamicStallModels
-of = OpenFASTsr
+# of = OpenFASTsr
 
 path = dirname(@__FILE__)
 cd(path)
@@ -13,14 +13,17 @@ a = 343.0
 Vrel = M*a #60
 
 # polar = readdlm("/Users/adamcardoza/Library/CloudStorage/Box-Box/research/FLOW/learning/exploring/exampledata/NACA4412.dat", '\t'; skipstart=3) 
-# af = airfoil(polar) #Todo: This constructor is broken.
+polar = readdlm("./data/polars/naca0012.txt", skipstart=3)
+polar[:,1] = polar[:,1].*pi/180
+# polar_0015 = readdlm("/Users/adamcardoza/Library/CloudStorage/Box-Box/research/FLOW/learning/exploring/exampledata/NACA0015.dat", '\t'; skipstart=3)
+# polar_
 
 dsmodel = Oye(Functional(), 1, 2, 4.0)
 
 #du21_a17 = of.read_airfoilinput("../../data/airfoils/DU40_A17.dat") 
 #af = of.make_dsairfoil(du21_a17, c) 
 
-af = dsm.make_airfoil(polar_0015, dsmodel, c; sfun=dsm.LSP())
+af = dsm.make_airfoil(polar, dsmodel, c; sfun=dsm.LSP())
 
 airfoils = Array{Airfoil, 1}(undef, 1)
 airfoils[1] = af
@@ -55,6 +58,8 @@ parameters = [Uvector, 0.0, alpha, 0.0]
 
 x_initial = [0.5]
 
-prob = ODEProblem(airfoils, x_initial, tspan, parameters)
+prob = ODEProblem(af, x_initial, tspan, parameters)
 
 sol = DifferentialEquations.solve(prob, reltol=1e-8)
+
+plot(sol)

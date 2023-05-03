@@ -71,6 +71,15 @@ function update_states!(airfoil::Airfoil, oldstates, newstates, y, dt) #Note: Mi
     return newstates
 end
 
+function state_rates!(airfoil, state_rates, states, y, t_aspect)
+    # @show state_rates
+    # @show states
+    state_rates!(airfoil.model, airfoil, state_rates, states, y, t_aspect)
+    # @show state_rates
+    # @show states
+    # println("")
+end
+
 function get_loads(dsmodel::DSModel, states, y, airfoil)
     loads = zeros(3)
     get_loads!(dsmodel, airfoil, states, loads, y)

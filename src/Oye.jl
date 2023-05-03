@@ -226,23 +226,44 @@ function cl_fullysep_faber(airfoil, alpha) #Todo: Move to Larsen's file
     end
 end
 
-function state_rates!(airfoil, state_out, state_in, y, t_aspect)
-    Uvec, _, alphavec, _ = y
 
-    A = airfoil.model.A
+"""
+    state_rates!(model::Oye, airfoil::Airfoil, dx, x, y, t)
 
+Calculate the state rates of the Øye model. 
+
+**Arguments**
+- model::DSModel: The model to be used.
+- airfoil::Airfoil: The airfoil to be used.
+- dx::Vector: The vector to be filled with the state rates.
+- x::Vector: The current state.
+- y::Vector: The current input.
+- t::Float64: The current time.
+"""
+function state_rates!(model::Oye, airfoil::Airfoil, dx, x, y, t)
+    ### Unpack
+    Ufun, _, alphafun, _ = y
+
+    ### Evaluate environmental functions
+    U = Ufun(t)
+    alpha = alphafun(t)
+
+    # @show t, U, alpha
+
+    ### Prepare time constant
+    A = model.A
     c = airfoil.c
+    T_f = U/(A*c)
 
-    state_rate(state_out, state_in, A, c, airfoil, Uvec, alphavec, t_aspect) 
+    ### Fetch static separation point
+    fst = separationpoint(airfoil, alpha)
+    # @show fst
+
+    ### Calculate state rate
+    dx[1] = -T_f*(x[1]-fst) 
 end
 
-function state_rate(dxs, xs, A, c, airfoil, Uvec, alphavec, t_aspect)
-    T_f = (Uvec(t_aspect))/(A*c)
 
-    fst = separationpoint(airfoil.sfun, airfoil, alphavec(t_aspect))
-
-    dxs[1] = -T_f*(xs[1]-fst) 
-end
 
 function parsesolution_Oye(airfoil, sol, y)
     _, _, _, alphavec = y
