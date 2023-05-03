@@ -111,8 +111,8 @@ function (airfoils::AbstractVector{<:Airfoil})(state_idxs, state_in, y, t_aspect
 
     for i in eachindex(airfoils)
         nsi1, nsi2 = state_indices(airfoils[i].model, state_idxs[i])
-        xsi = view(state_out, trunc(Int,nsi1):trunc(Int,nsi2))
-        xs1 = view(state_in, trunc(Int,nsi1):trunc(Int,nsi2))
+        xsi = view(state_out, trunc(Int,nsi1+1):trunc(Int,nsi2+1))
+        xs1 = view(state_in, trunc(Int,nsi1+1):trunc(Int,nsi2+1))
         ys = view(y, 4*(i-1)+1:4*i)
 
 
@@ -151,7 +151,7 @@ end
 
 function state_indices(dsmodel::DSModel, startidx)
     nsi = numberofstates(dsmodel)
-    return startidx+1, startidx+nsi
+    return startidx, startidx+nsi-1
 end
 
 function solve_indicial(airfoils::Array{Airfoil, 1}, tvec, Uvec, alphavec; verbose::Bool=false, Udotvec=zeros(length(Uvec)), alphadotvec=zeros(length(Uvec)))
