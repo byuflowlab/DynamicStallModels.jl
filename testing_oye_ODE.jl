@@ -5,6 +5,7 @@ of = OpenFASTsr
 
 path = dirname(@__FILE__)
 cd(path)
+include("./NACA_0015_DSM.jl")
 
 c = 0.55
 
