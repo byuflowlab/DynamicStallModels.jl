@@ -223,4 +223,27 @@ function solve_indicial(airfoils::Array{Airfoil, 1}, tvec, Uvec, alphavec; verbo
     return states, loads
 end
 
+export ODEProblem
 
+<<<<<<< HEAD
+=======
+function SciMLBase.ODEProblem(airfoils::AbstractVector{<:Airfoil}, x0, tspan, y)
+
+    n = length(airfoils)
+    stateidx = Vector{Int}(undef, n)
+
+    tempx = 1
+    
+    for i in eachindex(airfoils)
+        stateidx[i] = tempx
+        tempx += numberofstates(airfoils[i].model)
+    end
+
+    fun(dx, x, p, t) = airfoils(dx, x, stateidx, p, t)
+
+    # @show typeof(tspan)
+
+    return SciMLBase.ODEProblem{true, true}(fun, x0, tspan, y)
+end
+
+>>>>>>> d53e0063c115078ffc939dc4ba8805ec0e07aa04

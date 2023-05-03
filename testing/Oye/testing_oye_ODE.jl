@@ -59,7 +59,7 @@ parameters = [Uvector, 0.0, alpha, 0.0]
 
 x_initial = [0.8]
 
-prob = ODEProblem(af, x_initial, tspan, parameters)
+prob = ODEProblem(airfoils, x_initial, tspan, parameters)
 
 sol = DifferentialEquations.solve(prob, reltol=1e-8)
 
