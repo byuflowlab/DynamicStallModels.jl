@@ -97,23 +97,24 @@ A method on the Airfoil struct to either update the states, or the state rates o
 - y::Vector{TF} - A vector of the environmental inputs. 
 - t_aspect::TF - Either the time step if the model is indicial, or the current time value if the model is a state space model. 
 """
-function (airfoil::Airfoil)(state_in, state_out, y, t_aspect)
+function (airfoil::Airfoil)(state_out, state_in, y, t_aspect)
     if isa(airfoil.model.detype, Indicial)
-        return update_states!(airfoil, state_in, state_out, y, t_aspect)
-    else
-        return state_rates!(airfoil, state_in, state_out, y, t_aspect)
+        return update_states!(airfoil, state_out, state_in, y, t_aspect)
+    elseif isa(airfoil.model.detype, Functional)
+        return state_rates!(airfoil, state_out, state_in, y, t_aspect)
     end
 end
 
-function (airfoils::AbstractVector{<:Airfoil})(state_in, state_idxs, y, t_aspect)
+function (airfoils::AbstractVector{<:Airfoil})(state_idxs, state_in, y, t_aspect)
     ns = numberofstates_total(airfoils)
     state_out = zeros(ns)
 
     for i in eachindex(airfoils)
         nsi1, nsi2 = state_indices(airfoils[i].model, state_idxs[i])
-        xsi = view(state_in, nsi1:nsi2)
-        xs1 = view(state_out, nsi1:nsi2)
+        xsi = view(state_out, trunc(Int,nsi1):trunc(Int,nsi2))
+        xs1 = view(state_in, trunc(Int,nsi1):trunc(Int,nsi2))
         ys = view(y, 4*(i-1)+1:4*i)
+
 
         airfoils[i](xsi, xs1, ys, t_aspect)
 
@@ -150,7 +151,7 @@ end
 
 function state_indices(dsmodel::DSModel, startidx)
     nsi = numberofstates(dsmodel)
-    return startidx, startidx+nsi-1
+    return startidx+1, startidx+nsi
 end
 
 function solve_indicial(airfoils::Array{Airfoil, 1}, tvec, Uvec, alphavec; verbose::Bool=false, Udotvec=zeros(length(Uvec)), alphadotvec=zeros(length(Uvec)))
@@ -212,5 +213,6 @@ function solve_indicial(airfoils::Array{Airfoil, 1}, tvec, Uvec, alphavec; verbo
 
     return states, loads
 end
+
 
 

@@ -226,37 +226,22 @@ function cl_fullysep_faber(airfoil, alpha) #Todo: Move to Larsen's file
     end
 end
 
-function state_rates!(airfoil, state_in, state_out, y, t_aspect)
-    
-    c, Uvec, alphavec = y
+function state_rates!(airfoil, state_out, state_in, y, t_aspect)
+    Uvec, _, alphavec, _ = y
 
-    for i in 1:length(airfoil)
-        afi = airfoil[i] 
+    A = airfoil.model.A
 
-        A = afi.model.A
+    c = airfoil.c
 
-
-        idx = (i-1)*1 
-        xs = view(state_out , idx+1:idx+1) 
-        dxs = view(state_in, idx+1:idx+1) 
-
-        Uvec = Uvec[i]
-
-        c = c[i]
-
-        alphavec = alphavec[i] 
-
-
-        state_rate(dxs, xs, A, c, afi, Uvec, alphavec, t_aspect) 
-    end
+    state_rate(state_out, state_in, A, c, airfoil, Uvec, alphavec, t_aspect) 
 end
 
-function state_rate(dxs, xs, A, c, afi, Uvec, alphavec, t_aspect)
+function state_rate(dxs, xs, A, c, airfoil, Uvec, alphavec, t_aspect)
     T_f = (Uvec(t_aspect))/(A*c)
 
-    fst = separationpoint(af.sfun, af, alphavec(t_aspect))
+    fst = separationpoint(airfoil.sfun, airfoil, alphavec(t_aspect))
 
-    dx[1] = -T_f*(x[1]-fst) 
+    dxs[1] = -T_f*(xs[1]-fst) 
 end
 
 function parsesolution_Oye(airfoil, sol, y)

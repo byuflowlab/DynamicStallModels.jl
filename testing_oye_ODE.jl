@@ -51,7 +51,7 @@ function alpha(t)
     return alf*(pi/180)
 end
 
-parameters = [[c], [Uvector], [alpha]]
+parameters = [Uvector, 0.0, alpha, 0.0]
 
 x_initial = [0.5]
 
