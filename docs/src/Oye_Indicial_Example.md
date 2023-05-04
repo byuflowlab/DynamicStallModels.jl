@@ -6,7 +6,7 @@
 ---
 This version of the Øye method utilizes the indicial solve. An indicial solve analytically solves the state rate equation and solves for new state values with a time step. 
 
-To begin, we prepare for our indicial solve. In this example, a NACA 0015 polar from Faber's paper is read in using the package `DelimitedFiles`. Additionally, the model that we will be using for the solve is set up in this block. The Øye method is chosen for the dynamic stall model; an indicial solve is picked; the number 1 indicates that the coefficient of lift is being evaluated; the number 2 shows that the Faber/Larsen use of Hermite interpolation for the fully separated lift is used; and the 4.0 value is the constant used in the time scale parameter.
+To begin, we prepare for our indicial solve. In this example, a NACA 0015 polar from Faber's paper is read in using the package `DelimitedFiles`. Additionally, the model that we will be using for the solve is set up in this block. The Øye method is chosen for the dynamic stall model; an indicial solve is picked; the number `1` indicates that the coefficient of lift is being evaluated; the number `2` shows that the Faber/Larsen use of Hermite interpolation for the fully separated lift is used; and the `4.0` value is the constant used in the time scale parameter.
 
 ```julia
 using DynamicStallModels, DelimitedFiles
@@ -57,7 +57,7 @@ The state values and loads can be found using the `solve_indicial` function.
 ``` julia
 states, loads = solve_indicial(airfoils, tvec, Uvec, alphavec)
 ```
-This block of code changes the load values to either be with respect to lift or normal force.
+This block of code changes the load values to either be with respect to lift or normal force coefficients.
 ``` julia
 cn = loads[:,1]
 if dsmodel.cflag == 2
