@@ -36,4 +36,5 @@ end
 
 polar_0015 = reduce(vcat,transpose.(matrix))
 
+writedlm("NACA_0015_Faber.csv", polar_0015, ',')
 #plot(polar_0015[:,1], polar_0015[:,3])

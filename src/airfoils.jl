@@ -196,7 +196,11 @@ function make_simpleairfoil(polar, dsmodel::DSModel, chord)
     _, minclidx = findmin(clvec) #TODO: I have the find_seperation_alpha function. 
     _, maxclidx = findmax(clvec)
 
-    alphasep = [alphavec[minclidx], alphavec[maxclidx]]
+    if isa(sfun, LSP) #this kind of setup is required for hermite interpolation to work properly
+        alphasep = [-32*pi/180, 32*pi/180]
+    else
+        alphasep = [polar[minclidx, 1], polar[maxclidx,1]]
+    end
 
     alphacut = 45*pi/180
     cutrad = 5*pi/180
