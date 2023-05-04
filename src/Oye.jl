@@ -262,7 +262,7 @@ end
 export parsesolution
 
 
-function parsesolution(airfoil::Airfoil, sol, y)
+function parsesolution(model::Oye, airfoil::Airfoil, sol, y)
     _, _, alphavec, _ = y
     f = Array(sol) 
     tvec = sol.t 
@@ -287,7 +287,7 @@ function parsesolution(airfoil::Airfoil, sol, y)
 
 
 
-        for i in 1:length(tvec) 
+        for i in 1:eachindex(tvec) 
 
 
             Lift_aoa_Matrix[w, i] = alphavec(tvec[i]) 

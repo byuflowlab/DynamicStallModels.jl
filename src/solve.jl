@@ -137,7 +137,7 @@ function (airfoils::AbstractVector{<:Airfoil})(state_idxs, state_in, y, t_aspect
 end
 
 
-function (airfoils::AbstractVector{<:Airfoil})(state_in, state_out, state_idxs, y, t_aspect)
+function (airfoils::AbstractVector{<:Airfoil})(state_out, state_in, state_idxs, y, t_aspect)
 
     for i in eachindex(airfoils)
         nsi1, nsi2 = state_indices(airfoils[i].model, state_idxs[i])
@@ -147,7 +147,7 @@ function (airfoils::AbstractVector{<:Airfoil})(state_in, state_out, state_idxs, 
 
         # @show ys
 
-        airfoils[i](xsi, xs1, ys, t_aspect)
+        airfoils[i](xs1, xsi, ys, t_aspect)
     end
 end
 
@@ -207,7 +207,7 @@ function solve_indicial(airfoils::Array{Airfoil, 1}, tvec, Uvec, alphavec; verbo
             xsi = view(states, i, nsi1:nsi2)
             xs1 = view(states, i+1, nsi1:nsi2)
             ys = view(y, 4*(j-1)+1:4*j)
-
+         
             # idxs = 1:3 #Todo: What the heck is going on here? 
             idxs = 3*(j-1)+1:3j
             loads_j = view(loads, i+1, idxs)
@@ -225,8 +225,6 @@ end
 
 export ODEProblem
 
-<<<<<<< HEAD
-=======
 function SciMLBase.ODEProblem(airfoils::AbstractVector{<:Airfoil}, x0, tspan, y)
 
     n = length(airfoils)
@@ -252,7 +250,6 @@ function evaluate_environment(y, t)
     y2 = isa(y[2], Function) ? y[2](t) : y[2]
     y3 = isa(y[3], Function) ? y[3](t) : y[3]
     y4 = isa(y[4], Function) ? y[4](t) : y[4]
->>>>>>> d53e0063c115078ffc939dc4ba8805ec0e07aa04
 
     return y1, y2, y3, y4
 end

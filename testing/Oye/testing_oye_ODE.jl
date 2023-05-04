@@ -5,7 +5,7 @@ dsm = DynamicStallModels
 
 path = dirname(@__FILE__)
 cd(path)
-include("./NACA_0015_DSM.jl")
+include("/Users/westonpace/.julia/dev/DynamicStallModels/data/NACA_0015_DSM.jl")
 
 c = 0.55
 
@@ -63,6 +63,6 @@ prob = ODEProblem(airfoils, x_initial, tspan, parameters)
 
 sol = DifferentialEquations.solve(prob, reltol=1e-8)
 
-answer = parsesolution(af, sol, parameters)
+answer = parsesolution(dsmodel, af, sol, parameters)
 
 plot(answer[1,:], answer[2,:])
