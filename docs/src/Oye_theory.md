@@ -6,7 +6,7 @@ The state is:
 
 | Variable | Name | Comments |
 | -------- | -------------------------- | ----- |
-| $\dot{f}^d$ | Dynamic Attachment Degree | This differential equation is also utilized in the Riso model and Beddoes-Leishman model |
+| $f^d$ | Dynamic Attachment Degree | This differential equation is also utilized in the Riso model and Beddoes-Leishman model |
 
 ## State Rate Equation
 
@@ -16,7 +16,7 @@ $$
 \end{equation}
 $$
 
-As stated, $f^d$ is the only state rate equation in this model. $\tau$ is the time constant, and $f^s(\alpha)$ is the position of the fluid's separation point as a function of the angle of attack.
+As stated, equation 1 is the only state rate equation in this model. $f^d$ is the state, $\tau$ is the time constant, and $f^s(\alpha)$ is the position of the fluid's separation point as a function of the angle of attack (also known as the static separation point).
 
 Additionally, it should be noted that variables with a dot above them, such as $\dot{f}^d$, are derivatives with respect to time.
 
@@ -28,7 +28,7 @@ C_{L}(t) = f^{d}(t)C_l^{inv} + (1-f^{d}(t))C_l^{fs}
 \end{equation}
 $$
 
-The indicial approach simply solves equation 1 by assuming that the inflow velocity and angle of attack do not vary within the time step, and they use an integrating factor:
+The indicial approach simply solves equation 1 by assuming that the inflow velocity and angle of attack do not vary within the time step, and using an integrating factor:
 
 $$
 \begin{equation}
@@ -40,30 +40,64 @@ $$
 ## Explanation of Variables
 #### Time Constant
 
+The time constant is experimentally determined, and provides the needed information for how long it takes to come to steady state. 
+
 $$
 \begin{equation}
 \tau = \frac{V}{A c}
 \end{equation}
 $$
 
-The time constant is experimentally determined, and provides the needed information for how long it takes to come to steady state. Each author tends to implement the time constant in a different way. Here we rely on Hansen's approach (as seen above). 
+where $\tau$ is the time constant, $V$ is the inflow velocity (m/s) $A$ is the airfoil time coefficient, and $c$ is the airfoil chord (m). $A$ is assumed to be $A=4$.
+For myriad reasons, different authors have decided to rearrange this equation to suit their circumstance. Since we verified our code against Faber and Larsen, we present here their formulations for the airfoil time coefficient.
 
-We need to show each of the author's equations for the time constant and how to switch between (we don't have to show our work though.). 
-Faber's Approach
-The constant $\tau$ is said to be around $\tau \approx 8$.
-
-Larsen's Approach
-
-
-#### Static Separation Point
+Faber multiplies the airfoil time coefficient by two:
 
 $$
 \begin{equation}
-f^s(\alpha) = \frac{C_l^{s} - C_l^{fs}}{C_l^{inv} - C_l^{fs}}
+A = \frac{T}{2}
 \end{equation}
 $$
 
-There are a few common ways to calculate the separation point. The way shown above is how Øye, Larsen, and Faber obtain this value. However, in Hansen's version of the Øye method, he uses a noticeably different approach:
+and suggests a value of $T=8$. This provides for the exact same value as Øye, but note that he uses slightly different notation than what is presented here.
+
+Larsen used a dimensionalized and non-dimensionalized frequencies:
+
+$$
+\begin{equation}
+A = \frac{1}{2\omega}
+\end{equation}
+$$
+
+where 
+$$
+\begin{equation*}
+\hat{\omega} = \frac{\omega c}{2v}
+\end{equation*}
+$$
+
+
+#### Static Separation Point
+Øye assumes a linear interpolation between the inviscid and static lifts, that interpolation percent he deems as the static separation point:
+
+$$
+\begin{equation}
+f^s(\alpha) = \frac{C_l^{st} - C_l^{fs}}{C_l^{inv} - C_l^{fs}}
+\end{equation}
+$$
+
+
+The static attatchment degree $f$ is used to describe the separation point of the fluid. The range of values for $f$ is in between $0$ and $1$: where $1$ would indicate fully attatched flow and $0$ represents fully separated flow. If $f$ were to equal a value of $0.75$, then the fluid would have a separation point that occurs $75\%$ the length of the chord away from the leading edge. 
+
+For $f(\alpha)$, $C_l^{st}$ represents the  static lift coefficient; $C_l^{fs}$ is the lift for an airfoil that is under the condition of fully separated flow; and $C_l^{inv}$ is the lift for an airfoil in inviscid flow. It should also be mentioned that all of these coefficient of lift values are functions of angle of attack that range from $\alpha_{0} \leq \alpha \leq \alpha_{sep}$: where $\alpha_0$ is the angle of attack that produces zero lift and $\alpha_{sep}$ is the angle of attack where full separation occurs following static stall.
+
+Because $C_l^{inv}$ is the lift under inviscid flow, it has a completely linear relationship with the angle of attack. The slope for the line of $C_l^{inv}$ is equal to the slope of $C_l^{st}$ at $\alpha_0$ (i.e. $\frac{\partial C_l^{st}}{\partial \alpha}\big|_{\alpha_0}$). This initial slope is approximately equal to $2\pi$, which allows $C_l^{inv}$ to be represented by the equation:
+
+$$C_l^{inv} \approx 2\pi(\alpha - \alpha_0)$$
+
+Note that here we default to $2\pi$, but ultimately the slope is set by the user. 
+
+When Hansen describes this method in his textbook, he uses the same approach he used in his dynamic stall model:
 
 $$
 \begin{equation}
@@ -71,37 +105,43 @@ f^s_{H}\left(\alpha\right) = \left(2\sqrt{\frac{C_l^{st}}{C_l^{inv}}}\right)^2
 \end{equation}
 $$
 
-Note that we notate the separation point from Hansen's paper with the subscript $H$, so the two versions of the separation point can be distinguished.
-
-In DynamicStallModels.jl, either one of these ways of finding the separation point can be implemented with a simple toggle. 
-
-The static attatchment degree $f$ is used to describe the separation point of the fluid. The range of values for $f$ is in between $0$ and $1$: where $1$ would indicate fully attatched flow and $0$ represents fully separated flow. If $f$ were to equal a value of $0.75$, then the fluid would have a separation point that occurs $75\%$ the length of the chord away from the leading edge. 
-
-For $f(\alpha)$, $C_l^{s}$ represents the  static lift coefficient; $C_l^{fs}$ is the lift for an airfoil that is under the condition of fully separated flow; and $C_l^{inv}$ is the lift for an airfoil in inviscid flow. It should also be mentioned that all of these coefficient of lift values are functions of angle of attack that range from $\alpha_{0} \leq \alpha \leq \alpha_{sep}$: where $\alpha_0$ is the angle of attack that produces zero lift and $\alpha_{sep}$ is the angle of attack where full separation occurs following static stall.
-
-Because $C_l^{inv}$ is the lift under inviscid flow, it has a completely linear relationship with the angle of attack. The slope for the line of $C_l^{inv}$ is equal to the slope of $C_l^{s}$ at $\alpha_0$ (i.e. $\frac{\partial C_l^{s}}{\partial \alpha}\big|_{\alpha_0}$). This initial slope is approximately equal to $2\pi$, which allows $C_l^{i}$ to be represented by the equation:
-
-$$C_l^{inv} \approx 2\pi(\alpha - \alpha_0)$$
-
-Note that here we default to $2\pi$, but ultimately the slope is set by the user. 
-
 ##### Fully Separated Lift Coefficient
-As was the case with finding the separation point, there are multiple ways to find the fully separated coefficient of lift. In Øye's original paper, he uses quadratic interpolation between $C^{s}_{l}(\alpha_0)$ and $C_l^{s}(\alpha_{sep})$. Additionally it has a derivative constraint at $\alpha_0$. 
-
-Hansen finds this coefficient differently:
+As was the case with finding the separation point, there are multiple ways to find the fully separated coefficient of lift. In Øye's original paper, he uses quadratic interpolation between $C^{s}_{l}(\alpha_0)$ and $C_l^{s}(\alpha_{sep})$, with a derivative constraint at $\alpha_0$. Thus the fully separated lift can be found by:
 
 $$
 \begin{equation}
-C_l^{fs} = \frac{C_l^{st} - f^s C_l^{inv}}{1-f^s}
+ C_l^{fs}(\alpha) = a\alpha^2 + b\alpha + c 
+\end{equation}
+$$
+
+where: 
+
+$$
+\begin{aligned}
+a = & \frac{\frac{\partial C_l}{\partial \alpha}\big|_{\alpha_0}(\alpha_0-\alpha_{sep}) + C_{l_{sep}}}{(\alpha_0-\alpha_{sep})^2} \\
+b = & \frac{-\alpha_0^2\frac{\partial C_l}{\partial \alpha}\big|_{\alpha_0} -2\alpha_0C_{l_{sep}} + \frac{\partial C_l}{\partial \alpha}\big|_{\alpha_0}\alpha_s^2}{(\alpha_0-\alpha_{sep})^2} \\
+c = & \frac{\alpha_0(\alpha_0(C_{l_{sep}}+\frac{\partial C_l}{\partial \alpha}\big|_{\alpha_0}\alpha_s)-\frac{\partial C_l}{\partial \alpha}\big|_{\alpha_0}\alpha_s^2)}{(\alpha_0-\alpha_{sep})^2}
+\end{aligned}
+$$
+
+Note that this approach is only valid between $\alpha_0$ and $\alpha_{sep}$. 
+
+Since Hansen used a different approach to find the static separation point, he utilizes the linear interpolation between the inviscid and static lift coefficients to find the fully separated lift. 
+
+$$
+\begin{equation}
+C_l^{fs}(\alpha) = \frac{C_l^{st} - f^s C_l^{inv}}{1-f^s}
 \end{equation}
 $$
 
 
 
 
-However, both Larsen and Faber utilizes not only the derivative at $\alpha_0$ but also at $\alpha_{sep}$. Faber notes in his paper that an angle of attack of $32 \degree$ is a good assumption of where full separation occurs. They then use Hermite Interpolation to create a polynomial that gives the fully separated lift. Including the extra derivative at $\alpha_{sep}$ in the curve fitting process adds extra robustness to this polar. This is shown here:
+Larsen and Faber use Hermite interpolation on the fully separated lift. Since the fully separated lift is unknown, they assume that the fully separated lift is equal to the static lift at $\alpha_0$ and $\alpha_{sep}$ and there derivatives are: 
 
-- [] I want to combine all of the Hermite interpolation stuff into a single spot, we don't need to go so far into detail. 
+ 
+
+
 
 $$
 \frac{\partial C_l^{fs}}{\partial \alpha}|_{\alpha_0} = \frac{1}{2}(\frac{\partial C_l^{st}}{\partial \alpha}|_{\alpha_0})
@@ -111,29 +151,24 @@ $$
 \frac{\partial C_l^{fs}}{\partial \alpha}|_{\alpha_{sep}} = \frac{1}{12}(\frac{\partial C_l^{st}}{\partial \alpha}|_{\alpha_0})
 $$
 
+Using these derivatives, we find the Hermite interpolation to be:
+
+$$
+\begin{equation}
+C_l^{fs}(\alpha) = t_0\left((\alpha_{sep}-\alpha_0)\frac{1}{2}\frac{\partial C_l^{st}}{\partial \alpha}\bigg|_{\alpha_0}\left(1 + t_0 \left( \frac{7}{6}t_1-1\right) \right)+C_{l_{sep}}^{st}t_0(1-2t_1) \right)
+\end{equation}
+$$
+
+where:
+$$
+\begin{aligned}
+t_0 = \frac{\alpha - \alpha_0}{\alpha_{sep}-\alpha_0} && t_1 = \frac{\alpha - \alpha_{sep}}{\alpha_{sep}-\alpha_0}
+\end{aligned}
+$$
+
+As with Øye's original model, this model is only valid between $\alpha_0$ and $\alpha_{sep}$. For this approach it is traditionally assumed that $\alpha_{sep}=32^\circ$. Note that in our implementation of this function we assume that the fully separated lift converges to the static lift outside of this region.
 
 Just as the separation point has an option of how to solve for it, DynamicStallModels.jl allows the user to toggle which method they want to use to find $C_l^{fs}$.
-
-#### Hermite Interpolation
-
-Hermite Interpolation is used to find the intermediary values of $C_l^{fs}$ between $\alpha_0$ and $\alpha_{sep}$. Faber's paper gives a good description of this process, and a similar format to that paper will be used to describe Hermite Interpolation.
-
-For this interpolation method, the starting point $(x_0,y_0)$ and the ending point $(x_1,y_1)$ must be known. Additionally, $\frac{dy}{dx}|_{0}$ and $\frac{dy}{dx}|_{1}$ must be given. With these values, the interpolation process is as follows:
-
-$$t_0 = \frac{x-x_0}{x_1-x_0} ~~ ~~ \mathrm{and} ~~ ~~ t_1 = \frac{x-x_1}{x_1-x_0}$$
-
-$$y(x) = \frac{dy}{dx}|_{0} ~(x_1-x_0)(t_0 + (t_1-1)t_0^2)~ + ~ \frac{dy}{dx}|_{1} ~ (x_1-x_0)t_0^2t_1 ~ + ~ y_1t_0^2(1-2t_1)$$
-
-The values above can be switched to match what is needed for the Øye method:
-
-$$
-\begin{align}
-1
-\end{align}
-% y(x) = C_l^{fs} ~,~x = \alpha ~,~ x_0 = \alpha_0 ~,~ x_1 = \alpha_{sep} ~,~ y_0 = 0 ~,~ y_1 = C_l^{st}(\alpha_{sep}) ~,~ \frac{dy}{dx}|_{0}=\frac{1}{2}(\frac{\partial C_l^{st}}{\partial \alpha}|_{\alpha_0}) ~,~ \frac{dy}{dx}|_{1} = \frac{1}{12}(\frac{\partial C_l^{st}}{\partial \alpha}|_{\alpha_0})
-$$
-
-The fully separated lift coefficients can now be determined at angle of attack values between $\alpha_0$ and $\alpha_{sep}$.
 
 
 

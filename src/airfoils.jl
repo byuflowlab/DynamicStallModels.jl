@@ -6,6 +6,82 @@ export simpleairfoil, airfoil, Airfoil, update_airfoil
 
 abstract type SeparationPoint end
 
+
+
+
+
+#AeroDyn separation point fit. 
+"""
+    ADSP(ffit::fit, fcfit::fit)
+
+A struct to hold the AeroDyn separation point function. This method is a fit of the separation point function based on the separation as a function of Cl, and the chordwise forces.
+"""
+struct ADSP{fit} <: SeparationPoint 
+    ffit::fit
+    fcfit::fit
+end
+
+#Method to create an ADSP struct. 
+"""
+    ADSP(alpha, cn, cc, alpha0, alphasep, dcndalpha, eta)
+
+A method to create an ADSP struct. This method is a fit of the separation point function based on the separation as a function of Cl, and the chordwise forces.
+"""
+function ADSP(alpha, cn, cc, alpha0, alphasep, dcndalpha, eta) #Todo: Probably needs fixing (compare to OpenFAST)
+
+    fvec, fcvec = reverse_separationpointcalculation_ADO(alpha, cn, cc, dcndalpha, alpha0, alphasep, eta)
+    ffit = Akima(alpha, fvec) 
+    fcfit = Akima(alpha, fcvec)
+    return ADSP(ffit, fcfit)
+end
+
+
+"""
+    ADGSP()
+AeroDyn's separation point function with Gonzalez's modifications. 
+"""
+struct ADGSP <: SeparationPoint #Todo: Do I need a separate struct for this?
+end
+
+#The original Beddoes-Leishman separation point function. Todo: Change the name to match Beddoes-Leishman. 
+"""
+    BLSP(S::Vector{TF})
+
+A struct to hold the original AeroDyn separation point function. This function is a best fit of the separation point function, this is a direct copy of Beddoes Leishman's original implementation.
+
+### Inputs
+- S::Vector{TF} - A vector of floats holding the S constants are best fit constants for the separation point curve.
+""" 
+struct BLSP{TF} <: SeparationPoint 
+    S::Array{TF, 1}
+end
+
+"""
+    LSP()
+Larsen's separation point function from his 2007 paper (and repeated in Oye from Faber 2018).
+"""
+struct LSP <: SeparationPoint
+end
+
+
+"""
+    OSP()
+Øye's separation point function.
+"""
+struct OSP <: SeparationPoint
+end
+
+
+"""
+    RSP()
+Risø's (Hansen) separation point function.
+"""
+struct RSP <: SeparationPoint
+end
+
+
+
+
 """   
     SP(ffit::fit, fcfit::fit)
 The struct to hold Cardoza2024's separation point function.
@@ -41,78 +117,8 @@ function SP(alpha, cn, cc, alpha0, alphasep, dcndalpha, eta)
     return SP(ffit, fcfit)
 end
 
-#The original Beddoes-Leishman separation point function. Todo: Change the name to match Beddoes-Leishman. 
-"""
-    BLSP(S::Vector{TF})
 
-A struct to hold the original AeroDyn separation point function. This function is a best fit of the separation point function, this is a direct copy of Beddoes Leishman's original implementation.
 
-### Inputs
-- S::Vector{TF} - A vector of floats holding the S constants are best fit constants for the separation point curve.
-""" 
-struct BLSP{TF} <: SeparationPoint 
-    S::Array{TF, 1}
-end
-
-#AeroDyn separation point fit. 
-"""
-    ADSP(ffit::fit, fcfit::fit)
-
-A struct to hold the AeroDyn separation point function. This method is a fit of the separation point function based on the separation as a function of Cl, and the chordwise forces.
-"""
-struct ADSP{fit} <: SeparationPoint 
-    ffit::fit
-    fcfit::fit
-end
-
-#Method to create an ADFSP struct. 
-"""
-    ADSP(alpha, cn, cc, alpha0, alphasep, dcndalpha, eta)
-
-A method to create an ADSP struct. This method is a fit of the separation point function based on the separation as a function of Cl, and the chordwise forces.
-"""
-function ADSP(alpha, cn, cc, alpha0, alphasep, dcndalpha, eta) #Todo: Probably needs fixing (compare to OpenFAST)
-
-    fvec, fcvec = reverse_separationpointcalculation_ADO(alpha, cn, cc, dcndalpha, alpha0, alphasep, eta)
-    ffit = Akima(alpha, fvec) 
-    fcfit = Akima(alpha, fcvec)
-    return ADSP(ffit, fcfit)
-end
-
-"""
-    ADGSP()
-AeroDyn's separation point function with Gonzalez's modifications. 
-"""
-struct ADGSP <: SeparationPoint #Todo: Do I need a separate struct for this?
-end
-
-"""
-    RSP()
-Risø's separation point function.
-"""
-struct RSP <: SeparationPoint
-end
-
-"""
-    OSP()
-Øye's separation point function.
-"""
-struct OSP <: SeparationPoint
-end
-
-"""
-    HSP()
-Hansen's separation point function.
-"""
-struct HSP <: SeparationPoint
-end
-
-"""
-    LSP()
-Larsen's separation point function from his 2007 paper (and repeated in Oye from Faber 2018).
-"""
-struct LSP <: SeparationPoint
-end
 
 
 
@@ -554,7 +560,31 @@ function separationpoint(sfun::ADGSP, airfoil::Airfoil, alpha)
 end
 
 
+function separationpoint(sfun::OSP, airfoil::Airfoil, alpha)
+    alpha0 = airfoil.alpha0
+    alphasep = airfoil.alphasep[2]
 
+    if alpha0<=alpha<=alphasep
+        dcldalpha = airfoil.dcldalpha(alpha)
+        Clsep = airfoil.cl(alphasep)
+
+        atop = dcldalpha*(alpha0-alphasep) + Clsep
+        btop = -alpha0*alpha0*dcldalpha - 2*alpha0*Clsep + dcldalpha*alphasep*alphasep
+        ctop = alpha0*(alpha0*(Clsep + dcldalpha*alphasep) - dcldalpha*alphasep*alphasep)
+
+        bot = (alpha0 - alphasep)^2
+
+        a = atop/bot
+        b = btop/bot
+        c = ctop/bot
+
+        return a*(alpha^2) + b*alpha + c
+    elseif alpha>alphasep
+        return 0.0
+    else
+        return 1.0
+    end
+end
 
 
 
@@ -708,6 +738,10 @@ chordwiseseparationpoint(sfun::SP, airfoil::Airfoil, alpha) = sfun.fcfit(alpha)
 chordwiseseparationpoint(sfun::ADSP, airfoil::Airfoil, alpha) = sfun.fcfit(alpha)
 
 function chordwiseseparationpoint(sfun::BLSP, airfoil::Airfoil, alpha)
+    return separationpoint(airfoil, alpha)
+end
+
+function chordwiseseparationpoint(sfun::OSP, airfoil::Airfoil, alpha)
     return separationpoint(airfoil, alpha)
 end
 
