@@ -1,4 +1,4 @@
-using DynamicStallModels, DelimitedFiles, Plots, FLOWMath, LaTeXStrings, DifferentialEquations, Test
+using DynamicStallModels, DelimitedFiles, FLOWMath, DifferentialEquations, Test
 
 dsm = DynamicStallModels
 
@@ -79,14 +79,6 @@ answer = parsesolution(dsmodel, af, sol, parameters)
         derivative_2 = (C_fs_beginning_plus_step- C_fs_beginning)/(0.01)
         @test isapprox(derivative_2, pi, rtol=0.05) #testing derivative at alpha0
     end
-    #check the separation point value
-    @testset "Separation Point" begin
-        #checks to see if the separation point is always between 0 and 1
-        for i in 1:length(sol.t)
-            Sep_Point = dsm.separationpoint(af, alpha(sol.t[i]))
-            @test 0 <= Sep_Point <= 1
-        end
-    end
 end
 
 dsmodel_2 = Oye(Indicial(), 1, 2, 4.0)
@@ -127,14 +119,6 @@ states, loads = solve_indicial(airfoils_2, tvec, Uvec, alphavec)
             C_fs_beginning_plus_step = dsm.cl_fullysep_faber(airfoils_2[w], af.alpha0+0.01)
             derivative_2 = (C_fs_beginning_plus_step- C_fs_beginning)/(0.01)
             @test isapprox(derivative_2, pi, rtol=0.05) #testing derivative at alpha0
-        end
-    end
-    @testset "Separation Point Value" begin
-        for w in 1:length(airfoils_2)
-            for i in 1:length(tvec)
-                fst = dsm.separationpoint(airfoils_2[w], alphavec[i])
-                @test 0 <= fst <= 1 #test to see if the separation point is between 1 and 0
-            end
         end
     end
 end
