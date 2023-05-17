@@ -1,6 +1,7 @@
 using DynamicStallModels, DelimitedFiles
 dsm = DynamicStallModels
-polar_0015 = readdlm("NACA_0015_Faber.csv" , ',')
+file = "../../polars/NACA_0015_Faber.csv"
+polar_0015 = readdlm(file , ',')
 dsmodel = Oye(Indicial(), 1, 2, 4.0)
 
 c = 0.55

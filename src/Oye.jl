@@ -18,7 +18,7 @@ The Øye model struct. It stores airfoil data for every section to be simulated.
 ### Inputs
 - detype - The type of model it is, Functional(), Iterative(), or Indicial().
 - cflag::Int - A flag to apply the separation delay to the coefficient of 1) lift, 2) normal force. 
-- version::Int - A flag to say whether to use 1) Hansen 2008, or 2) Larsen's Hermite interpolation from Faber's 2018's implementation of the model.
+- version::Int - A flag to say whether to use 1) Hansen 2008, 2) Larsen's Hermite interpolation from Faber's 2018's implementation of the model, or 3) Øye's parabola fit.
 - A::Float - Dynamic stall coefficient. 
 """
 struct Oye{TI, TF} <: DSModel
@@ -30,8 +30,8 @@ struct Oye{TI, TF} <: DSModel
     function Oye{TI, TF}(detype::DEType, cflag::TI, version::TI, A::TF) where {TI, TF}
         if cflag>2
             error("Øye: the cflag only accepts flags of 1 or 2.")
-        elseif version>2
-            error("Øye: the version only accepts values of 1 or 2.")
+        elseif version>3
+            error("Øye: the version only accepts values of 1, 2, or 3.")
         end
         return new{TI, TF}(detype, cflag, version, A)
     end
@@ -166,9 +166,13 @@ function get_loads(dsmodel::Oye, airfoil::Airfoil, states, y)
 
     if dsmodel.version==2 #Larsen (Faber) #TODO: I wonder if there is a good way to use multiple dispatch on this. 
         cn_fs = cl_fullysep_faber(airfoil, alpha) #this was originally cl_fullysep_larsen, but it needs to be cl_fullysep_faber
-    else #Hansen
+    elseif dsmodel.version==1 #Hansen
         cn_fs = cl_fullysep_hansen(airfoil, alpha)
+    else #Oye Parabola Fit
+        coefficients = cl_fullysep_oye_coefficients(airfoil)
+        cn_fs = cl_fullysep_oye(airfoil, alpha, coefficients)
     end
+
 
     #Todo: Calculate the Cc, Cl, Cd, and potentially the Cm if possible. 
     if dsmodel.cflag==2 #delay applied to normal and tangential loads
@@ -226,6 +230,37 @@ function cl_fullysep_faber(airfoil, alpha) #Todo: Move to Larsen's file
     end
 end
 
+function cl_fullysep_oye_coefficients(airfoil)
+    
+    a0 = airfoil.alpha0
+    a_sep = airfoil.alphasep[2]
+    Cl_sep = airfoil.cl(a_sep)
+    dclda = airfoil.dcldalpha
+
+
+    matrix = [a0^2 a0 1; a_sep^2 a_sep 1; 2*a0 1 0]
+    column = [0; Cl_sep; dclda*0.5]
+
+    constants = inv(matrix) * column
+
+    return constants
+end
+
+function cl_fullysep_oye(airfoil, alpha, constants)
+    a0 = airfoil.alpha0
+    a_sep = airfoil.alphasep[2]
+    p1, p2, p3 = constants
+
+
+    if a0 <= alpha <= a_sep
+        Cl_fullysep = p1*alpha^2 + p2*alpha + p3
+    else 
+        Cl_fullysep = airfoil.cl(alpha)
+    end
+
+    return Cl_fullysep
+end
+
 
 """
     state_rates!(model::Oye, airfoil::Airfoil, dx, x, y, t)
@@ -262,22 +297,21 @@ end
 export parsesolution
 
 
-function parsesolution(model::Oye, airfoil::Airfoil, sol, y)
-    _, _, alphavec, _ = y
+function parsesolution(model::Oye, airfoils::AbstractVector{<:Airfoil}, sol, y)
     f = Array(sol) 
     tvec = sol.t 
 
 
     #preallocates a matrix to be filled with the dynamic lift and angle of attack values for each airfoil evaluated
-    Lift_aoa_Matrix = zeros(2*1 , length(tvec))  #needs to be changed for a list of airfoils
+    Lift_aoa_Matrix = zeros(2*length(airfoils) , length(tvec))  #needs to be changed for a list of airfoils
 
 
-
-    for w in 1:1 #this needs to be changed to loop through all of the airfoils
+    for w in 1:length(airfoils) #this needs to be changed to loop through all of the airfoils
+        airfoil = airfoils[w]
 
         alpha0 = airfoil.alpha0 
 
-
+        alphavec = y[3+(w-1)*4]
 
         if airfoil.model.cflag == 1 #checks to see if the user chose the coefficient of lift flag
             cl_sep = airfoil.cl(airfoil.alphasep[2])
@@ -285,12 +319,17 @@ function parsesolution(model::Oye, airfoil::Airfoil, sol, y)
             cl_sep = airfoil.cn(airfoil.alphasep[2]) #find the coefficient of normal force at the fully seperated angle of attack 
         end
 
+        if airfoil.model.version == 3
+            coefficients = cl_fullysep_oye_coefficients(airfoil)
+        end
+
+
 
 
         for i in 1:length(tvec) 
 
 
-            Lift_aoa_Matrix[w, i] = alphavec(tvec[i]) 
+            Lift_aoa_Matrix[2*w-1, i] = alphavec(tvec[i]) 
             C_inv = airfoil.dcldalpha*(alphavec(tvec[i]) - alpha0) 
 
 
@@ -307,21 +346,23 @@ function parsesolution(model::Oye, airfoil::Airfoil, sol, y)
             if airfoil.model.version == 1 #checks to see if the Hansen method is chosen for this Oye solve
                 fst = (2*sqrt(abs(cl/C_inv))-1)^2 
                 C_fs = (cl - (C_inv*fst))/(1-fst) #finds the fully separated coefficient of lift value 
-            elseif airfoil.model.version == 2
+            elseif airfoil.model.version == 2 #for the faber method of fully separated lift
                 C_fs = cl_fullysep_faber(airfoil, alphavec(tvec[i])) #finds the fully separated coefficient of lift value for the Faber method
+            else #for the Øye way of finding fully separated lift
+                C_fs = cl_fullysep_oye(airfoil, alphavec(tvec[i]), coefficients)
             end
 
 
 
+            
 
             C_L_dyn = f[w,i]*C_inv+(1-f[w,i])*C_fs 
-            Lift_aoa_Matrix[w+1,i] = C_L_dyn 
+            Lift_aoa_Matrix[2*w,i] = C_L_dyn 
         end
 
     end
 
-    return Lift_aoa_Matrix 
-
+    return Lift_aoa_Matrix
 end
 
 
