@@ -39,32 +39,31 @@ The states I use are:
 =#
 
 
-function getloads_BLAG(dsmodel::BeddoesLeishman, states, p, airfoil)
-    c, a, dcndalpha, alpha0, Cd0, Cm0, A1, A2, A5, b1, b2, b5, Tf0, Tv0, Tp, Tvl, Tsh, Cn1, xcp, zeta, U, _ = p
-    clfit = airfoil.cl #TODO: We might as well do this inside the blag coefficients. 
-    cdfit = airfoil.cd
-    eta = airfoil.eta
-
-    Cn, Cc, Cl, Cd, Cm = BLADG_coefficients(dsmodel::BeddoesLeishman, states, U, c, clfit, cdfit, dcndalpha, alpha0, Cd0, Cm0, A1, A2, A5, b1, b2, b5, Tvl, xcp, eta, a)
-    return [Cn, Cc, Cl, Cd, Cm]
-end
-
-function update_states_ADG(dsmodel::BeddoesLeishman, oldstates, c, a, U, deltat, aoa, dcndalpha, alpha0, A1, A2, A5, b1, b2, b5, Tf0, Tv0, Tp, Tvl, Tsh, Cn1, zeta, afidx)
-    ns = numberofstates(dsmodel)
-    states = zeros(ns) #TODO: Consider putting a function to return this value. 
-
-    update_states_ADG!(dsmodel, states, oldstates, c, a, U, deltat, aoa, dcndalpha, alpha0, A1, A2, A5, b1, b2, b5, Tf0, Tv0, Tp, Tvl, Tsh, Cn1, zeta, afidx)
-
-    return states
-end
-
-
 #AeroDyn original implementation. 
-function update_states_ADG!(dsmodel::BeddoesLeishman, states, oldstates, c, a, U, deltat, aoa, dcndalpha, alpha0, A1, A2, A5, b1, b2, b5, Tf0, Tv0, Tp, Tvl, Tsh, Cn1, zeta, afidx)  #TODO: Ryan seems to think that all of this airfoil information should pass in from the airfoil struct just fine and not affect how derivatives are calculated. 
+function update_states_ADG!(airfoil::Airfoil, oldstates, states, y, deltat)  #TODO: Ryan seems to think that all of this airfoil information should pass in from the airfoil struct just fine and not affect how derivatives are calculated. 
 
-    ### Unpack
-    airfoil = dsmodel.airfoils[afidx]
+    ### Unpack airfoil constants
+    dcndalpha = airfoil.dcndalpha
+    alpha0 = airfoil.alpha0
+    # _, alpha1 = airfoil.alphasep
+    c = airfoil.c
+    # xcp = airfoil.xcp
 
+    ### Unpack model constants
+    model = airfoil.model
+    a = model.a
+    A1, A2, A5 = model.A
+    b1, b2, b5 = model.b
+    Tp, Tf0, Tv0, Tvl, Tsh = model.T
+    zeta = model.zeta
+    Cd0 = model.Cd0
+    Cm0 = model.Cm0
+    Cn1 = model.Cn1
+
+    ### Unpack environmental inputs
+    U, _, aoa, _ = y
+
+    ### Unpack states
     _, alpha_m, q_m, qf_m, Ka_m, Kq_m, Kpa_m, Kpq_m, X1_m, X2_m, X3_m, X4_m, Npot_m, Kppq_m, Kpppq_m, Dp_m, fp_m, fpc_m, fpm_m, Df_m, Dfc_m, Dfm_m, fpp_m, fppc_m, fppm_m, Cv_m, Nv_m, tauv, LESF_m, TESF_m, VRTX_m, firstpass_m = oldstates #The underscore m means that it is the previous time step (m comes before n).
 
     ########### Algorithm ############### (Converted from UA documentation)
@@ -85,6 +84,7 @@ function update_states_ADG!(dsmodel::BeddoesLeishman, states, oldstates, c, a, U
 
     Ka = (alpha - alpha_m)/deltat #EQ 1.7b, an intermediate calculation. The real K_alpha value is calculated below. 
 
+
     states[3] = q = Ka*c/U #EQ 1.8d
     if firstpass_m==1
         q_m = q
@@ -100,6 +100,7 @@ function update_states_ADG!(dsmodel::BeddoesLeishman, states, oldstates, c, a, U
         Kq_m = 0
     end
     states[6] = Kq = Clp*Kq_m + plC*Kq #Equation 1.8f 
+
 
 
 
@@ -216,7 +217,6 @@ function update_states_ADG!(dsmodel::BeddoesLeishman, states, oldstates, c, a, U
 
     Nnoncirc_aq = Nnoncirc_a + Nnoncirc_q #Equation 1.17, Noncirculatory component of normal force via superposition. 
 
-    
 
 
 
@@ -234,11 +234,13 @@ function update_states_ADG!(dsmodel::BeddoesLeishman, states, oldstates, c, a, U
     ### Circulatory component of normal force
     alphae = (alpha - alpha0) - X1 - X2 #EQ 1.14, Effective angle of attack
     dcndalpha_circ = dcndalpha/beta #EQ 1.12, Circulatory component of the normal force coefficient response to step change in alpha. #Checked against OpenFAST v3.3.0
+
+    # @show dcndalpha, beta
+
     Ncirc_aq = dcndalpha_circ*alphae #+ Cc_nq #EQ 1.13, Circulatory component of normal force via lumped approach. #TODO: This appears to be equal to Cpotcn
 
     ### Total normal force under attached conditions
     states[13] = Npot = Ncirc_aq + Nnoncirc_aq #Equation 1.20
-    
 
 
 
@@ -260,22 +262,27 @@ function update_states_ADG!(dsmodel::BeddoesLeishman, states, oldstates, c, a, U
         Npot_m = Npot
     end
     states[16] = Dp = Dp_m*exp(-deltas/Tp) + (Npot - Npot_m)*exp(-deltas/(Tp*2)) #EQ1.35b, deficiency function. 
+
     Cpn = Npot - Dp #EQ 1.35, lagged circulatory normal force 
+
+    # @show Npot, Dp
 
 
     alphaf = Cpn/dcndalpha_circ + alpha0 #EQ 1.34, delayed effective angle of incidence  Note: this is not the filtered angle of attack. 
+
+    # @show alphaf, Cpn, dcndalpha_circ, alpha0
 
     
     #### Separation points
     states[17] = fp = separationpoint(airfoil, alphaf, dcndalpha_circ) #EQ 1.33, modifications from OpenFAST v3.3.0
     states[18] = fpc = chordwiseseparationpoint(airfoil, alphaf, dcndalpha_circ) 
 
-    Cntemp = airfoil.cl(alphaf)*cos(alphaf) + (airfoil.cd(alphaf) - airfoil.cd(airfoil.alpha0))*sin(alphaf) #TODO: Do I want too move this into a function? Like the who thing to get the moment separation point value. 
+    Cntemp = airfoil.cl(alphaf)*cos(alphaf) + (airfoil.cd(alphaf) - Cd0)*sin(alphaf) #TODO: Do I want too move this into a function? Like the who thing to get the moment separation point value. 
 
     if abs(Cntemp)<0.01
         states[19] = fpm = 0 #TODO: Theoretically this makes more sense to be a one, but... whatever this is what OpenFAST v3.3.0 has. 
     else
-        states[19] = fpm = (airfoil.cm(alphaf)-airfoil.cm(airfoil.alpha0))/Cntemp
+        states[19] = fpm = (airfoil.cm(alphaf)-Cm0)/Cntemp
     end
 
     
@@ -373,30 +380,38 @@ function update_states_ADG!(dsmodel::BeddoesLeishman, states, oldstates, c, a, U
     states[32] = firstpass = 0.0
 end
 
-function BLADG_coefficients(dsmodel::BeddoesLeishman, states, U, c, af::Airfoil, a)
-    clfit = af.cl
-    cdfit = af.cd
-    dcndalpha = af.dcndalpha
-    alpha0 = af.alpha0
-    Cd0 = af.cd(alpha0)
-    Cm0 = af.cm(alpha0)
-    A1 = af.A[1]
-    A2 = af.A[2]
-    A5 = af.A[3]
-    b1 = af.b[1]
-    b2 = af.b[2]
-    b5 = af.b[3]
-    Tvl = af.T[4]
 
-    xcp = af.xcp
-    eta = af.eta
 
-    return BLADG_coefficients(dsmodel, states, U, c, clfit, cdfit, dcndalpha, alpha0, Cd0, Cm0, A1, A2, A5, b1, b2, b5, Tvl, xcp, eta, a)
+function BLADG_coefficients!(airfoil::Airfoil, loads, states, y) #Todo: I don't know if I need this function. 
+    loads .= BLADG_coefficients(airfoil, states, y)
 end
 
-function BLADG_coefficients(dsmodel::BeddoesLeishman, states, U, c, clfit, cdfit, dcndalpha, alpha0, Cd0, Cm0, A1, A2, A5, b1, b2, b5, Tvl, xcp, eta, a)
 
-    aoa = states[1]
+function BLADG_coefficients(airfoil::Airfoil, states, y)
+
+    U = y[1]
+
+    c = airfoil.c
+    clfit = airfoil.cl
+    cdfit = airfoil.cd
+    cmfit = airfoil.cm
+    dcndalpha = airfoil.dcndalpha
+    alpha0 = airfoil.alpha0
+    alphacut = airfoil.alphacut[2]
+    cutrad = airfoil.cutrad
+    xcp = airfoil.xcp
+
+    model = airfoil.model
+
+    Cd0 = model.Cd0
+    Cm0 = model.Cm0
+    A1, A2, A5 = model.A
+    b1, b2, b5 = model.b
+    Tvl = model.T[4]
+    eta = model.eta
+    a = model.a
+
+    aoa = states[1] #Todo: Which of these bad boyz should I be using here? 
     alpha = states[2]
 
     qf = states[4]
@@ -462,6 +477,7 @@ function BLADG_coefficients(dsmodel::BeddoesLeishman, states, U, c, clfit, cdfit
     Cfsn = Nnoncirc_aq + Ncirc_q + Ncirc_aq*(fterm^2) #Equation from OpenFAST v3.3.0. From Equations 1.38 & 1.39
 
 
+
     ### Total normal force 
     if tauv>0 #OpenFAST v3.3.0 - UnsteadyAero.f90 line 3230  
         Cn = Cfsn + Cvn #EQ 1.53b
@@ -477,6 +493,10 @@ function BLADG_coefficients(dsmodel::BeddoesLeishman, states, U, c, clfit, cdfit
 
     
     Cfsc = Cpot*eta*(sqrt(fppc)-0.2) #EQ 1.40, Gonzalez modifications 
+
+    if c==2.086
+        # @show Cpot, fppc
+    end
 
     ### Chordwise force 
     Cc = Cfsc #EQ 1.55b
@@ -494,9 +514,9 @@ function BLADG_coefficients(dsmodel::BeddoesLeishman, states, U, c, clfit, cdfit
         Cd = cdfit(aoa)
     end
 
-    ### Add viscoousity back into the normal and tangent coefficients
-    Cn = Cl*cos(aoa) + Cd*sin(aoa) #Cd has friction added back in. 
-    Cc = Cl*sin(aoa) - Cd*cos(aoa)
+    # ### Add viscoousity back into the normal and tangent coefficients
+    # Cn = Cl*cos(aoa) + Cd*sin(aoa) #Cd has friction added back in. 
+    # Cc = Cl*sin(aoa) - Cd*cos(aoa)
 
 
     ### Moment
@@ -515,38 +535,43 @@ function BLADG_coefficients(dsmodel::BeddoesLeishman, states, U, c, clfit, cdfit
 
     Mv = xcp*(1-cos(pi*tauv/Tvl))*Cvn #EQ 1.57
 
+
     if tauv<=0
         Cm = Mfs
     else
         Cm = Mfs + Mv
     end
 
-    return Cn, Cc, Cl, Cd, Cm
+    ### Blend the unsteady coefficients with static with cutouts. 
+    W1 = 1 - blend_cosine(aoa, alphacut-cutrad, alphacut)
+    W2 = blend_cosine(U, 0.0, 1.0)
+    W = W1*W2 
+
+    if W<1
+        # println("blending loads")
+        Cl = Cl*W + (1-W)*clfit(aoa)
+        Cd = Cd*W + (1-W)*cdfit(aoa)
+        Cm = Cm*W + (1-W)*cmfit(aoa)
+    end
+
+    # loads[:] = [Cl, Cd, Cm]
+    # return Cn, Cc, Cl, Cd, Cm
+    return Cl, Cd, Cm
 end
 
-function initialize_ADG(Uvec, aoavec, tvec, airfoil::Airfoil, c, a) 
-    
-    dcndalpha = airfoil.dcndalpha
-    alpha0 = airfoil.alpha0
-    A1, A2, A5 = airfoil.A
-    b1, b2, b5 = airfoil.b
-    Tp, Tf0, Tv0, Tvl, Tsh = airfoil.T
-    _, alpha1 = airfoil.alphasep
-    xcp = airfoil.xcp
-    zeta = airfoil.zeta
+function initialize_ADG(airfoil::Airfoil, tvec, y) 
 
-    Cd0 = airfoil.cd(alpha0)
+    model = airfoil.model
+    Cd0 = model.Cd0
 
-    Cn1 = airfoil.cl(alpha1)*cos(alpha1) + (airfoil.cd(alpha1) - Cd0)*sin(alpha1) #Removing the effect of frictional drag
-    Cm0 = airfoil.cm(alpha0)
+    alpha = y[3] #No delay to begin. 
+    # alphadot = y[4]
 
+    # Cn1 = airfoil.cl(alpha1)*cos(alpha1) + (airfoil.cd(alpha1) - Cd0)*sin(alpha1) #Removing the effect of frictional drag
 
-
-    dt = tvec[2] - tvec[1]
-
-    aoa = aoavec[1]
-    alpha = aoavec[1] #No delay to begin. 
-    aoadot = q = qf = Ka = 0 
+    aoa = alpha
+    # q = qf = alphadot
+    aoadot = q = qf = Ka = 0.0
 
     Kq = 0.0
     X1 = X2 = X3 = X4 = 0.0
@@ -555,7 +580,9 @@ function initialize_ADG(Uvec, aoavec, tvec, airfoil::Airfoil, c, a)
     
     Cpotn = airfoil.cl(alpha) +(airfoil.cd(alpha)-Cd0)*sin(alpha)
     fp = fpp = 1.0
+    # fp = fpp = 0.0
     fpc = fppc = fclimit
+    # fpc = fppc = 0.0
     fpm = fppm = 0.0 #TODO: I'm not sure what to start this as. -> It works as is, so I'll leave it. 
     tauv = 0.0
     Nv = 0.0
@@ -566,23 +593,13 @@ function initialize_ADG(Uvec, aoavec, tvec, airfoil::Airfoil, c, a)
 
     states = [aoa, alpha, q, qf, Ka, Kq,  Kpa, Kpq, X1, X2, X3, X4, Cpotn, Kppq, Kpppq, Dp, fp, fpc, fpm, Df, Dfc, Dfm, fpp, fppc, fppm, Cv, Nv, tauv, LESF, TESF, VRTX, firstpass]
 
-    Cn = airfoil.cn(alpha) 
-    Cc = airfoil.cc(alpha)
 
-    loads = [Cn, Cc, airfoil.cl(aoa), airfoil.cd(aoa), airfoil.cm(aoa)]
+    loads = [airfoil.cl(aoa), airfoil.cd(aoa), airfoil.cm(aoa)]
 
 
-    p = [c, a, dcndalpha, alpha0, Cd0, Cm0, A1, A2, A5, b1, b2, b5, Tf0, Tv0, Tp, Tvl, Tsh, Cn1, xcp, zeta] #20 elements (-> total of 22 elements in p. )
-
-    envvars = [Uvec[1], aoavec[1]]
-
-    return states, loads, vcat(p, envvars)
+    return states, loads
 end
 
-function updateenvironment_ADG(p, U, aoa) 
-    p[21] = U
-    p[22] = aoa
-end
 
 
 
@@ -660,7 +677,8 @@ function extractintermediatestates(states, Uvec, c, airfoil; a=343.0)
     dcndalpha_circ = zeros(n)
 
     for i = 1:n
-        Cfsn[i], Cvn[i], Nnc_aq[i], Nc_q[i], Nc_aq[i], fpp[i], Nnc_a[i], Nnc_q[i], Talpha[i], M[i], k_alpha[i], TI[i], alphae[i], k_q[i], Cpot[i], dcndalpha_circ[i] = getintermediatestates(states[i,:], Uvec[i], a, c, airfoil.dcndalpha, airfoil.A[1], airfoil.A[2], airfoil.b[1], airfoil.b[2], airfoil.alpha0)
+        model = airfoil.model
+        Cfsn[i], Cvn[i], Nnc_aq[i], Nc_q[i], Nc_aq[i], fpp[i], Nnc_a[i], Nnc_q[i], Talpha[i], M[i], k_alpha[i], TI[i], alphae[i], k_q[i], Cpot[i], dcndalpha_circ[i] = getintermediatestates(states[i,:], Uvec[i], a, c, airfoil.dcndalpha, model.A[1], model.A[2], model.b[1], model.b[2], airfoil.alpha0)
     end
 
     return Cfsn, Cvn, Nnc_aq, Nc_q, Nc_aq, Nnc_a, Nnc_q, Talpha, M, k_alpha, TI, alphae, k_q, Cpot, dcndalpha_circ

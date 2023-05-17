@@ -84,7 +84,7 @@ larsensep = dsm.LSP()
 f_larsen = dsm.separationpoint.(Ref(larsensep), Ref(af), alpha)
 
 
-f1plt = plot( xaxis="Angle of Attack (deg)", yaxis="Separation Point f", leg=:topleft, xlims=(-180,10))
+f1plt = plot( xaxis="Angle of Attack (deg)", yaxis="Separation Point f", leg=:topleft, xlims=(-30,30))#xlims=(-180,10))
 # plot!(aoavec, ffitvec_ADO, lab="fit ADO")
 plot!(aoavec, f_present, lab="fit present")
 # plot!(aoavec, f_ADO, lab="f ADO")
@@ -94,7 +94,7 @@ plot!(aoavec, f_riso_risosep, lab="Risø, Riso alphasep", markershape=:x)
 plot!(aoavec, f_larsen, lab="Larsen")
 vline!([af.alphasep].*(180/pi), lab="Alpha sep")
 
-f2plt = plot( xaxis="Angle of Attack (deg)", yaxis="Separation Point f", leg=false, xlims=(-20,180))
+f2plt = plot( xaxis="Angle of Attack (deg)", yaxis="Separation Point f", leg=false, xlims=(-30,30))#xlims=(-20,180))
 # plot!(aoavec, ffitvec_ADO, lab="fit ADO")
 # plot!(aoavec, f_present, lab="fit present")
 # plot!(aoavec, f_ADO, lab="f ADO")
@@ -123,7 +123,7 @@ I think that I realized why fit ADO and fit present are different. The differenc
 
 =#
 
-f3plt = plot( xaxis="Angle of Attack (deg)", yaxis=L"f'_c", leg=:topleft, xlims=(-180,10))
+f3plt = plot( xaxis="Angle of Attack (deg)", yaxis=L"f'_c", leg=:topleft, xlims=(-40,10))#xlims=(-180,10))
 # plot!(aoavec, fcfitvec_ADO, lab="fit ADO")
 plot!(aoavec, fc_present, lab="fit present")
 # plot!(aoavec, f_ADO, lab="f ADO")
@@ -132,7 +132,7 @@ plot!(aoavec, fc_present, lab="fit present")
 # plot!(aoavec, f_riso_risosep, lab="f_riso, Riso alphasep", markershape=:x)
 vline!([af.alphasep].*(180/pi), lab="Alpha sep")
 
-f4plt = plot( xaxis="Angle of Attack (deg)", yaxis=L"f'_c", leg=false, xlims=(-20,180))
+f4plt = plot( xaxis="Angle of Attack (deg)", yaxis=L"f'_c", leg=false, xlims=(-10,40))#xlims=(-20,180))
 # plot!(aoavec, fcfitvec_ADO, lab="fit ADO")
 plot!(aoavec, fc_present, lab="fit present")
 # plot!(aoavec, f_ADO, lab="f ADO")

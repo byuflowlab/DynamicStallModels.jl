@@ -9,8 +9,8 @@ makedocs(
         pages = [
     "Introduction" => "index.md",
     "Getting Started" => "gettingstarted.md",
-    "Examples" => ["riso_example.md", "beddoesleishman_example.md"],
-    "Developers" => ["codeoutline.md", "riso_theory.md", "beddoesleishman_theory.md"],
+    "Examples" => ["Oye_example.md", "riso_example.md", "beddoesleishman_example.md"],
+    "Developers" => ["codeoutline.md", "Oye_theory.md", "riso_theory.md", "beddoesleishman_theory.md"],
     "API Reference" => "apireference.md",
     "References" => "references.md"],
         repo="https://github.com/byuflowlab/DynamicStallModels.jl/blob/{commit}{path}#L{line}",

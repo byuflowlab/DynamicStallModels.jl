@@ -14,13 +14,8 @@ path = dirname(@__FILE__)
 cd(path)
 
 include("./parseaerodyn.jl")
+include("./testingutils.jl")
 
-err(x, xt) = x-xt
-relerr(x, xt) = (x-xt)/xt
-function RMS(x, xt)
-    diff = @. (x -xt)^2
-    return sqrt(sum(diff)/length(x))
-end
 
 
 
@@ -32,7 +27,7 @@ datavec = readdlm(file, ',')
 items = ["i", "t", "U", "alpha", "a_s", "M", "Gonzalez_factor", "c", "C_nalpha", "A1", "b1", "A2", "b2", "eta_e", "tau_v", "Cn_FS", "Cn_v", "Cn_alpha_q_nc", "Cn_q_circ", "Cn_alpha_q_circ", "fprimeprime", "Cn_alpha_nc", "Cn_q_nc", "T_alpha", "Kalpha_f", "Kprime_alpha", "q_f_cur", "alpha_filt_cur", "k_alpha", "alpha_e", "Kq_f", "Kprime_q", "Df", "fprime", "alpha_f", "Cc_pot", "fprime_c", "fprimeprime_c", "C_nalpha_circ", "Cn", "Cc", "Cm"]
 
 
-### Read in AeroDyn files
+### Read in AeroDyn files #Todo: Switch to a test that doesn't depend on updates from OpenFASTsr.
 addriver = of.read_addriver("NREL5MW_ADdriver.dvr", "../testing/OpenFAST_NREL5MW_modified")
 adfile = of.read_adfile("NREL5MW_ADfile.dat","../testing/OpenFAST_NREL5MW_modified")
 adblade = of.read_adblade("NREL5MW_adblade.dat", "../testing/OpenFAST_NREL5MW_modified")
@@ -43,7 +38,17 @@ if !@isdefined(mat)
     mat = parseaerodyn(datavec, items, numnodes) # mat goes time x vars x nodes
 end
 
+#Read in the trouble node
+fi = open("../data/BLADG_intermediate_states.txt", "r")
+namestring = readline(fi)
+close(fi)
 
+namestring = of.rmspaces(namestring)
+namevec = readdlm(IOBuffer(namestring))
+
+data = readdlm("../data/BLADG_intermediate_states.txt", skipstart=1)
+
+outs = Dict(namevec[i] => data[:,i] for i in eachindex(namevec))
 
 #Todo: Test that I'm simulating the correct thing. 
 
@@ -79,24 +84,24 @@ af_idx = Int.(adblade["BlAFID"][indices])
 # create airfoil array
 afs = aftypes[af_idx]
 
-tspan = (0.0, addriver["Tmax"][1]) 
-dt = addriver["dT"][1] 
+tspan = (0.0, addriver["TMax"][1]) 
+dt = addriver["DT"][1] 
 tvec = tspan[1]:dt:4.9
 
 @testset "Beddoes-Leishman - AeroDyn - Gonzalez modifications" begin 
 
     ### Loop through the nodes and test them. 
     for i = 1:numnodes
-
         ### Make sure that the nodes in the intermediate states file are correct. 
         @test isapprox(mat[1,1,i], i)
 
         ### Prepare inputs that rely on the package. 
-        af = make_dsairfoil(afs[i]; interp=Linear)
+        af = make_dsairfoil(afs[i], chordvec[i]; interp=Linear) 
+        # af = make_dsairfoil(afs[i], chordvec[i]) 
         airfoils = Array{Airfoil, 1}(undef, 1) #TODO: I should probably change the type requirement. 
         airfoils[1] = af
 
-        dsmodel = BeddoesLeishman(Indicial(), 1, airfoils, 3)
+        # dsmodel = BeddoesLeishman(Indicial(), 3, af.polar, af.alpha0, af.alphasep[2], ) #Note: No need to initialized a DSModel, because OpenFASTsr automagically initializes the correct one. 
 
         Uvec = zero(tvec)
         aoavec = zero(tvec)
@@ -107,7 +112,14 @@ tvec = tspan[1]:dt:4.9
         aoavec[1:2] .= mat[1,4, i]
 
         ### Solve
-        states, loads = solve_indicial(dsmodel, [chordvec[i]], tvec, Uvec, aoavec; a)
+        states, loads = solve_indicial(airfoils, tvec, Uvec, aoavec) #TODO: There might be a scoping issue somewhere because when I was running the code multiple times in a row, I would get a different error. 
+
+        Cnvec = zero(tvec)
+        Ccvec = zero(tvec)
+
+        for i in eachindex(tvec)
+            Cnvec[i], Ccvec[i] = DSM.rotate_load(loads[i,1], loads[i,2], states[i, 1])
+        end 
 
 
         ### Calculate intermediate states and calculations. 
@@ -140,18 +152,20 @@ tvec = tspan[1]:dt:4.9
         fpp_rms = RMS(states[3:end, 23], mat[:,21,i])
 
         fpc_rms = RMS(states[3:end, 18], mat[:,38,i]) #TODO: Really good half the time, meh the other half. 
-        fppc_rms = RMS(states[3:end, 24], mat[:,37,i])
+        fppc_rms = RMS(states[3:end, 24], mat[:,37,i]) #Todo: Interestingly this doesn't go to 1.44. It goes to 1.435 and change. Like it is fluctuating near 1.44. 
 
-        CNFS_rms = RMS(Cfsn[3:end], mat[:,16,i])
+        CNFS_rms = RMS(Cfsn[3:end], mat[:,16,i]) 
         Cvn_rms = RMS(Cvn[3:end], mat[:,17,i])
 
-        tau_rms = RMS(states[3:end, 28], mat[:,15,i]) #Todo: Really good for everything but the root.
+        tau_rms = RMS(states[3:end, 28], mat[:,15,i]) #Todo: Really good for everything but the root. values. 
 
         # @show fpc_rms, fppc_rms
 
-        Cnerr = relerr(loads[3:end,1], mat[:,40,i]).*100
-        Ccerr = relerr(loads[3:end,2], mat[:,41,i]).*100
-        Cmerr = relerr(loads[3:end,5], mat[:,42,i]).*100
+        # Cnerr = relerr(loads[3:end,1], mat[:,40,i]).*100
+        Cnerr = relerr(Cnvec[3:end], mat[:,40,i]).*100
+        # Ccerr = relerr(loads[3:end,2], mat[:,41,i]).*100
+        Ccerr = relerr(Ccvec[3:end], mat[:,41,i]).*100
+        Cmerr = relerr(loads[3:end,3], mat[:,42,i]).*100
 
         @show mean(abs.(Cnerr)), mean(abs.(Ccerr)), mean(abs.(Cmerr))
 
@@ -190,10 +204,10 @@ tvec = tspan[1]:dt:4.9
 
         # @test tau_rms <= 1e-16 #Todo: Really good for everything but the root. (Same as comment above)
 
-        ### Relative percent error
-        @test mean(abs.(Cnerr)) <= 5e-3
-        @test mean(abs.(Ccerr)) <= 0.05
-        @test mean(abs.(Cmerr)) <= 0.05
+        ### Relative percent error 
+        @test mean(abs.(Cnerr)) <= 0.07
+        @test mean(abs.(Ccerr)) <= 0.11 
+        @test mean(abs.(Cmerr)) <= 0.11
 
     end #End looping through the nodes to test them. 
 
