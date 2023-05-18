@@ -19,7 +19,7 @@ Vrel = M*a #60
 # polar_0015 = readdlm("/Users/adamcardoza/Library/CloudStorage/Box-Box/research/FLOW/learning/exploring/exampledata/NACA0015.dat", '\t'; skipstart=3)
 polar = polar_0015
 
-dsmodel = Oye(Functional(), 1, 3, 4.0)
+dsmodel = Oye(Functional(), 1, 2, 4.0)
 
 #du21_a17 = of.read_airfoilinput("../../data/airfoils/DU40_A17.dat") 
 #af = of.make_dsairfoil(du21_a17, c) 

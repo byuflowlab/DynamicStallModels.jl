@@ -61,7 +61,7 @@ prob = ODEProblem(airfoils, x_initial, tspan, parameters)
 
 sol = DifferentialEquations.solve(prob, reltol=1e-8)
 
-answer = parsesolution(dsmodel, af, sol, parameters)
+answer = parsesolution(dsmodel, airfoils, sol, parameters)
 
 dsmodel_2 = Oye(Indicial(), 1, 2, 4.0)
 

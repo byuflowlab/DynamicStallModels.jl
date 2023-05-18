@@ -52,6 +52,14 @@ function numberofparams(dsmodel::Oye)
     return 2
 end
 
+"""
+    get_cn(airfoil)
+
+Determines whether the aerodynamic coefficient should be with respect to the lift force or normal force based off the user's choice.
+
+**Arguments**
+- airfoil::Airfoil: The airfoil being evaluated.
+"""
 function get_cn(airfoil, alpha)
     if airfoil.model.cflag == 2
         return airfoil.cn(alpha) #Static normal force
@@ -60,6 +68,14 @@ function get_cn(airfoil, alpha)
     end
 end
 
+"""
+    get_dcndalpha(airfoil)
+
+Determines whether the derivative of the aerodynamic coefficient should be with respect to the lift force or normal force based off the user's choice.
+
+**Arguments**
+- airfoil::Airfoil: The airfoil being evaluated.
+"""
 function get_dcndalpha(airfoil)
     if airfoil.model.cflag == 2
         return airfoil.dcndalpha #Static normal force
@@ -92,7 +108,17 @@ end
 #     end
 # end
 
+"""
+    initialize(dsmodel::Oye, airfoil::Airfoil, tvec, y)
 
+Finds the initial state value for an airfoil that will be used in the indicial solve method.
+
+**Arguments**
+- dsmodel::DSModel: The model being used.
+- airfoil::Airfoil: The airfoil being evaluated.
+- tvec::StepRangeLen: The range of time values that are used for calculations.
+- y::Vector{TF}: A vector containing the parameters for an airfoil (such as the angle of attack at a given time).
+"""
 function initialize(dsmodel::Oye, airfoil::Airfoil, tvec, y)
     if isa(dsmodel.detype, Functional)
         @warn("Oye Functional implementation isn't prepared yet. - initialize()")
@@ -132,6 +158,19 @@ end
 #=
 In-place version. 
 =#
+"""
+    update_states!(dsmodel::Oye, airfoil::Airfoil, oldstate, newstate, y, dt)
+
+Finds the new state values for an arifoil at a given time value using the indicial solve method.
+
+**Arguments**
+- dsmodel::DSModel: The model being used.
+- airfoil::Airfoil: The airfoil being evaluated.
+- oldstate::Vector{TF}: The old/previous states for the evaluated airfoil.
+- newstate::Vector{TF}: The new state values that are solved for from this function.
+- y::Vector{TF}: A vector containing the parameters for an airfoil (such as the inflow velocity).
+- dt::TF: The value of the magnitude of the time step for an airfoil.
+"""
 function update_states!(dsmodel::Oye, airfoil::Airfoil, oldstate, newstate, y, dt)
     ### Unpack 
     U, _, alpha, _ = y
@@ -151,6 +190,17 @@ function update_states!(dsmodel::Oye, airfoil::Airfoil, oldstate, newstate, y, d
     newstate[1] = f
 end
 
+"""
+    get_loads(dsmodel::Oye, airfoil::Airfoil, states, y)
+
+Obtains the coefficients of lift, drag, and moments for a given airfoil using the indicial solve method.
+
+**Arguments**
+- dsmodel::DSModel: The model being used.
+- airfoil::Airfoil: The airfoil being evaluated.
+- states::Vector{TF}: The states at a given time value.
+- y::Vector{TF}: A vector containg the parameters for an airfoil (such as its angle of attack).
+"""
 function get_loads(dsmodel::Oye, airfoil::Airfoil, states, y)
     ### Unpack
     f = states[1]
@@ -169,8 +219,7 @@ function get_loads(dsmodel::Oye, airfoil::Airfoil, states, y)
     elseif dsmodel.version==1 #Hansen
         cn_fs = cl_fullysep_hansen(airfoil, alpha)
     else #Oye Parabola Fit
-        coefficients = cl_fullysep_oye_coefficients(airfoil)
-        cn_fs = cl_fullysep_oye(airfoil, alpha, coefficients)
+        cn_fs = cl_fullysep_oye(airfoil, alpha)
     end
 
 
@@ -190,6 +239,15 @@ function get_loads!(dsmodel::Oye, airfoil::Airfoil, states, loads, y)
     loads .= get_loads(dsmodel, airfoil, states, y)
 end
 
+"""
+    cl_fullysep_hansen(airfoil, alpha)
+
+Finds the fully separated coefficient of lift values using the method found in Hansen's papers.
+
+**Arguments**
+- airfoil::Airfoil: The airfoil being evaluated
+- alpha::TF: The angle of attack value being passed in.
+"""
 function cl_fullysep_hansen(airfoil, alpha) #Todo: Move to Hansen's file
     cn = get_cn(airfoil, alpha) #Static lift
     dcndalpha = get_dcndalpha(airfoil)
@@ -206,6 +264,15 @@ end
 #=
 Larsen's fully separated lift coefficient from Faber's 2018 masters thesis. 
 =#
+"""
+    cl_fullysep_faber(airfoil, alpha)
+
+Finds the fully separated coefficient of lift values using the Hermite interpolation method found in Faber's paper.
+
+**Arguments**
+- airfoil::Airfoil: The airfoil being evaluated.
+- alpha::TF: The angle of attack value being passed in.
+"""
 function cl_fullysep_faber(airfoil, alpha) #Todo: Move to Larsen's file
     alpha0 = airfoil.alpha0
     alpha_sep = airfoil.alphasep[2]
@@ -230,26 +297,26 @@ function cl_fullysep_faber(airfoil, alpha) #Todo: Move to Larsen's file
     end
 end
 
-function cl_fullysep_oye_coefficients(airfoil)
+"""
+    cl_fullysep_oye(airfoil, alpha)
+
+Finds the fully separated coefficient of lift values using Øye's orginal method.
+
+**Arguments**
+- airfoil::Airfoil: The airfoil being evaluated.
+- alpha::TF: The angle of attack value being passed in.
+"""
+function cl_fullysep_oye(airfoil, alpha)
     
     a0 = airfoil.alpha0
     a_sep = airfoil.alphasep[2]
     Cl_sep = airfoil.cl(a_sep)
-    dclda = airfoil.dcldalpha
+    dclda = airfoil.dcldalpha * 0.5
 
-
-    matrix = [a0^2 a0 1; a_sep^2 a_sep 1; 2*a0 1 0]
-    column = [0; Cl_sep; dclda*0.5]
-
-    constants = inv(matrix) * column
-
-    return constants
-end
-
-function cl_fullysep_oye(airfoil, alpha, constants)
-    a0 = airfoil.alpha0
-    a_sep = airfoil.alphasep[2]
-    p1, p2, p3 = constants
+    
+    p1 = (a0*dclda + Cl_sep - dclda*a_sep)/((a_sep - a0)^2)
+    p2 = (-dclda*a0^2 + dclda*a_sep^2 - 2*Cl_sep*a0)/((a_sep - a0)^2)
+    p3 = (dclda*a0^2*a_sep - Cl_sep*a0^2 - dclda*a_sep^2*a0 + 2*a0^2*Cl_sep)/((a_sep - a0)^2)
 
 
     if a0 <= alpha <= a_sep
@@ -258,8 +325,11 @@ function cl_fullysep_oye(airfoil, alpha, constants)
         Cl_fullysep = airfoil.cl(alpha)
     end
 
+
     return Cl_fullysep
 end
+
+
 
 
 """
@@ -296,8 +366,21 @@ end
 
 export parsesolution
 
+"""
+    parsesolution(model::Oye, airfoils::AbstractVector{<:Airfoil}, sol, y)
 
-function parsesolution(model::Oye, airfoils::AbstractVector{<:Airfoil}, sol, y)
+Calculates the dynamic lift coefficient values for simulated airfoils and gives their corresponding angle of attacks.
+
+**Arguments**
+- model::DSModel: The model to be used.
+- airfoils::AbstractVector{<:Airfoil}: The vector of airfoils being evaluated.
+- sol::ODESolution: The solutions to the state rate problem found using DifferentialEquations.jl.
+- y::Vector{TF}: The vector containing the parameter values for the ODE problem.
+
+**Outputs**
+- Lift_aoa_Matrix::Matrix{TF}: The matrix containing the dynamic lift coefficient values and the corresponding angle of attacks for each airfoil.
+"""
+function parsesolution(model::Oye, airfoils::AbstractVector{<:Airfoil}, sol::ODESolution, y)
     f = Array(sol) 
     tvec = sol.t 
 
@@ -318,11 +401,6 @@ function parsesolution(model::Oye, airfoils::AbstractVector{<:Airfoil}, sol, y)
         else
             cl_sep = airfoil.cn(airfoil.alphasep[2]) #find the coefficient of normal force at the fully seperated angle of attack 
         end
-
-        if airfoil.model.version == 3
-            coefficients = cl_fullysep_oye_coefficients(airfoil)
-        end
-
 
 
 
@@ -349,7 +427,7 @@ function parsesolution(model::Oye, airfoils::AbstractVector{<:Airfoil}, sol, y)
             elseif airfoil.model.version == 2 #for the faber method of fully separated lift
                 C_fs = cl_fullysep_faber(airfoil, alphavec(tvec[i])) #finds the fully separated coefficient of lift value for the Faber method
             else #for the Øye way of finding fully separated lift
-                C_fs = cl_fullysep_oye(airfoil, alphavec(tvec[i]), coefficients)
+                C_fs = cl_fullysep_oye(airfoil, alphavec(tvec[i]))
             end
 
 
