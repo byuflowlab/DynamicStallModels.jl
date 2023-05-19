@@ -100,7 +100,7 @@ end
 
 A method on the Airfoil struct to either update the states, or the state rates of the dynamic stall model (respective to if the model is indicial, or functional/iterative). 
 
-### Inputs
+**Arguments**
 - state_in::Vector{TF} - A vector of the old states. 
 - state_out::Vector{TF} - A vector of the new states if the model is indicial, and a vector of the new state rates if the model is a state space model (functional/iterative). 
 - y::Vector{TF} - A vector of the environmental inputs. 
@@ -114,6 +114,18 @@ function (airfoil::Airfoil)(state_out, state_in, y, t_aspect)
     end
 end
 
+"""
+    (airfoils::AbstractVector{<:Airfoil})(state_idxs, state_in, y, t_aspect)
+
+A method on the Airfoil vector struct that is used to call the method on the single airfoil struct (allowing for each airfoil to be evaluated individually).
+
+**Arguments**
+- state_idxs::
+- state_in::Vector{TF}: A vector containing the state values for all of the airfoils coming in.
+- y::Vector{TF}: A vector containing parameter values for all of the airfoils (the function will take the corresponding parameters for a specific airfoil)
+- t_aspect::
+
+"""
 function (airfoils::AbstractVector{<:Airfoil})(state_idxs, state_in, y, t_aspect)
     ns = numberofstates_total(airfoils)
     state_out = zeros(ns)

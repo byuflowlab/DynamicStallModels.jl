@@ -4,7 +4,7 @@
 
 ## Functional Solve Example
 
-This version of the Øye method uses the functional solve. The functional solve uses an ODE solver like `DifferentialEquations.jl` to automaticall solve the state rate equations.
+This version of the Øye method uses the functional solve. The functional solve uses an ODE solver like `DifferentialEquations.jl` to automatically solve the state rate equations.
 
 To begin, we prepare for the functional solve. In this example, a NACA 0015 polar from Faber's paper is read in using the package DelimitedFiles. Additionally, the model that we will be using for the solve is set up in this block. The Øye method is chosen for the dynamic stall model; the functional solve is picked; the number `1` indicates that the coefficient of lift is being evaluated; the number `2` shows that the Faber/Larsen use of Hermite interpolation for the fully separated lift is used; and the `4.0` value is the constant used in the time scale parameter.
 ```julia

@@ -65,4 +65,4 @@ sol = DifferentialEquations.solve(prob, reltol=1e-8)
 
 answer= parsesolution(dsmodel, airfoils, sol, parameters)
 
-plot(answer[1,:], answer[2,:])
+plot(answer[1,:].*180/pi, answer[2,:], xlabel = L"\mathrm{Angle~of~Attack~(Degrees)}", ylabel = L"C_L", label = "Oye", linewidth = 2)
