@@ -56,12 +56,6 @@ struct BLSP{TF} <: SeparationPoint
     S::Array{TF, 1}
 end
 
-"""
-    LSP()
-Larsen's separation point function from his 2007 paper (and repeated in Oye from Faber 2018).
-"""
-struct LSP <: SeparationPoint
-end
 
 
 """
@@ -202,7 +196,7 @@ function make_simpleairfoil(polar, dsmodel::DSModel, chord)
     _, minclidx = findmin(clvec) #TODO: I have the find_seperation_alpha function. 
     _, maxclidx = findmax(clvec)
 
-    if isa(sfun, LSP) #this kind of setup is required for hermite interpolation to work properly
+    if isa(sfun, OSP) #this kind of setup is required for hermite interpolation to work properly
         alphasep = [-32*pi/180, 32*pi/180]
     else
         alphasep = [polar[minclidx, 1], polar[maxclidx,1]]
@@ -257,7 +251,7 @@ function make_airfoil(polar, dsmodel::DSModel, chord; xcp=0.2, sfun::Union{Separ
     _, maxclidx = findmax(polar[:,2])
     _, minclidx = findmin(polar[1:maxclidx,2])
 
-    if isa(sfun, LSP) #this kind of setup is required for hermite interpolation to work properly
+    if isa(sfun, OSP) #this kind of setup is required for hermite interpolation to work properly
         alphasep = [-32*pi/180, 32*pi/180]
     else
         alphasep = [polar[minclidx, 1], polar[maxclidx,1]]
@@ -560,32 +554,6 @@ function separationpoint(sfun::ADGSP, airfoil::Airfoil, alpha)
 end
 
 
-function separationpoint(sfun::OSP, airfoil::Airfoil, alpha)
-    alpha0 = airfoil.alpha0
-    alphasep = airfoil.alphasep[2]
-
-    if alpha0<=alpha<=alphasep
-        dcldalpha = airfoil.dcldalpha(alpha)
-        Clsep = airfoil.cl(alphasep)
-
-        atop = dcldalpha*(alpha0-alphasep) + Clsep
-        btop = -alpha0*alpha0*dcldalpha - 2*alpha0*Clsep + dcldalpha*alphasep*alphasep
-        ctop = alpha0*(alpha0*(Clsep + dcldalpha*alphasep) - dcldalpha*alphasep*alphasep)
-
-        bot = (alpha0 - alphasep)^2
-
-        a = atop/bot
-        b = btop/bot
-        c = ctop/bot
-
-        return a*(alpha^2) + b*alpha + c
-    elseif alpha>alphasep
-        return 0.0
-    else
-        return 1.0
-    end
-end
-
 
 
 
@@ -655,8 +623,8 @@ separationpoint(sfun::Function, airfoil::Airfoil, alpha) = sfun(alpha)
 #=
 Larsen's separation point function from his 2007 paper. 
 =#
-function separationpoint(sfun::LSP, airfoil::Airfoil, alpha)
-    #println("using the LSP separation point function. Currently at line 639 in airfoils.jl ")
+function separationpoint(sfun::OSP, airfoil::Airfoil, alpha)
+    #println("using the OSP separation point function. Currently at line 639 in airfoils.jl ")
     if alpha>airfoil.alphasep[2] #? right after stall is fully separated? not partially?
         return 0.0
     elseif alpha<airfoil.alpha0

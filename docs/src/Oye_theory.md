@@ -118,9 +118,9 @@ where:
 
 $$
 \begin{aligned}
-a = & \frac{\frac{\partial C_l}{\partial \alpha}\big|_{\alpha_0}(\alpha_0-\alpha_{sep}) + C_{l_{sep}}}{(\alpha_0-\alpha_{sep})^2} \\
-b = & \frac{-\alpha_0^2\frac{\partial C_l}{\partial \alpha}\big|_{\alpha_0} -2\alpha_0C_{l_{sep}} + \frac{\partial C_l}{\partial \alpha}\big|_{\alpha_0}\alpha_s^2}{(\alpha_0-\alpha_{sep})^2} \\
-c = & \frac{\alpha_0(\alpha_0(C_{l_{sep}}+\frac{\partial C_l}{\partial \alpha}\big|_{\alpha_0}\alpha_s)-\frac{\partial C_l}{\partial \alpha}\big|_{\alpha_0}\alpha_s^2)}{(\alpha_0-\alpha_{sep})^2}
+a = & \frac{\frac{1}{2}\frac{\partial C_l}{\partial \alpha}\big|_{\alpha_0}(\alpha_0-\alpha_{sep}) + C_{l_{sep}}}{(\alpha_{sep}-\alpha_{0})^2} \\
+b = & \frac{\frac{1}{2}\frac{\partial C_l}{\partial \alpha}\big|_{\alpha_0}(\alpha_{sep}^2- \alpha_0^2) - 2C_{l_{sep}}\alpha_0}{(\alpha_{sep}-\alpha_{0})^2} \\
+c = & \frac{\frac{1}{2}\frac{\partial C_l}{\partial \alpha}\big|_{\alpha_0}(\alpha_0^2\alpha_{sep} - \alpha_{sep}^2\alpha_0) + C_{l_{sep}}\alpha_0^2}{(\alpha_{sep}-\alpha_{0})^2}
 \end{aligned}
 $$
 

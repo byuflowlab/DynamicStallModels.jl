@@ -76,7 +76,7 @@ for i in 1:3
                                             #the larsen/faber method of finding fully separated lift, and states that the time constant is 4.0
 
 
-    af_1_Functional = dsm.make_airfoil(polar, dsmodel_1, c; sfun=dsm.LSP()) #this section creates the airfoil structs for three different approaches to separation point.
+    af_1_Functional = dsm.make_airfoil(polar, dsmodel_1, c; sfun=dsm.OSP()) #this section creates the airfoil structs for three different approaches to separation point.
     af_2_Functional = dsm.make_airfoil(polar, dsmodel_1, c; sfun=dsm.ADGSP())
     af_3_Functional = dsm.make_airfoil(polar, dsmodel_1, c; sfun=dsm.RSP())
     af_4_Functional = dsm.make_airfoil(polar, dsmodel_1, c; sfun=dsm.ADSP(1,1), eta=1.0)
@@ -117,7 +117,7 @@ for i in 1:3
     dsmodel_2 = Oye(Indicial(), 1, i, 4.0) #this creates the model that will be used for this indicial solve. It has the same conditions as the functional solve.
 
 
-    af_1_Indicial = dsm.make_airfoil(polar, dsmodel_2, c; sfun=dsm.LSP()) #this block is the same set up as the functional solve.
+    af_1_Indicial = dsm.make_airfoil(polar, dsmodel_2, c; sfun=dsm.OSP()) #this block is the same set up as the functional solve.
     af_2_Indicial = dsm.make_airfoil(polar, dsmodel_2, c; sfun=dsm.ADGSP())
     af_3_Indicial = dsm.make_airfoil(polar, dsmodel_2, c; sfun=dsm.RSP())
     af_4_Indicial = dsm.make_airfoil(polar, dsmodel_2, c; sfun=dsm.ADSP(1,1), eta=1.0)
@@ -168,11 +168,13 @@ end
 
 ##########################################
 
-plot(Functional_Time_Matrix[:,1].*180/pi, Functional_Matrix[:, 9],  xlabel = L"\alpha" , ylabel = L"C_L", label = "LSP (Øye)", linewidth = 1.5, legend=:topleft)
-plot!(Functional_Time_Matrix[:,1].*180/pi, Functional_Matrix[:, 10], label = "ADGSP (Øye)", linewidth = 1.5)
-plot!(Functional_Time_Matrix[:,1].*180/pi, Functional_Matrix[:, 11], label = "RSP (Øye)", linewidth = 1.5)
-plot!(Functional_Time_Matrix[:,1].*180/pi, Functional_Matrix[:, 12], label = "ADSP (Øye)", linewidth = 1.5)
-scatter!(Faber_Top[:,1], Faber_Top[:,2], color=:black, label = "Faber's Øye Results")
-scatter!(Faber_Bottom[:,1], Faber_Bottom[:,2], color=:black, label = false)
+############Functional Plots##############
+#plot(Functional_Time_Matrix[:,1].*180/pi, Functional_Matrix[:, 9],  xlabel = L"\alpha" , ylabel = L"C_L", label = "LSP (Øye)", linewidth = 1.5, legend=:topleft)
+#plot!(Functional_Time_Matrix[:,1].*180/pi, Functional_Matrix[:, 10], label = "ADGSP (Øye)", linewidth = 1.5)
+#plot!(Functional_Time_Matrix[:,1].*180/pi, Functional_Matrix[:, 11], label = "RSP (Øye)", linewidth = 1.5)
+#plot!(Functional_Time_Matrix[:,1].*180/pi, Functional_Matrix[:, 12], label = "ADSP (Øye)", linewidth = 1.5)
+#scatter!(Faber_Top[:,1], Faber_Top[:,2], color=:black, label = "Faber's Øye Results")
+#scatter!(Faber_Bottom[:,1], Faber_Bottom[:,2], color=:black, label = false)
 
-savefig("Functional_Oye_Oye_Faber")
+#savefig("Functional_Oye_Oye_Faber")
+##########################################

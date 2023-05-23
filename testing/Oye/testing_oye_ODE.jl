@@ -19,7 +19,7 @@ Vrel = M*a
 
 
 dsmodel = Oye(Functional(), 1, 2, 4.0) #this uses the Oye model with the functional solve. The flags inside, can be found in the Oye.jl file.
-af = dsm.make_airfoil(polar, dsmodel, c; sfun=dsm.LSP()) #the airfoil is created and will use the larsen/faber separation point function.
+af = dsm.make_airfoil(polar, dsmodel, c; sfun=dsm.OSP()) #the airfoil is created and will use the larsen/faber separation point function.
 
 
 airfoils = Array{Airfoil, 1}(undef, 1) #a vector for the airfoils is created, and the single airfoil that we are evaluating is pushed in.
@@ -59,5 +59,5 @@ sol = DifferentialEquations.solve(prob, reltol=1e-8)
 answer= parsesolution(dsmodel, airfoils, sol, parameters) #parsesolution allows us to change the state values to the dynamic lift coefficients that we desire.
                                                           #parsesolution also gives the corresponding angle of attack values for the lift coefficients.
 
-                                                          
+
 plot(answer[1,:].*180/pi, answer[2,:], xlabel = L"\mathrm{Angle~of~Attack~(Degrees)}", ylabel = L"C_L", label = "Oye", linewidth = 2)

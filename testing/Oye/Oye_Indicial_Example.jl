@@ -18,7 +18,7 @@ a = 343.0
 Vrel = M*a 
 
 
-af = dsm.make_airfoil(polar_0015, dsmodel, c; sfun=dsm.LSP()) #the airfoil struct is created here and specifically calls for the larsen/faber separation point method.
+af = dsm.make_airfoil(polar_0015, dsmodel, c; sfun=dsm.OSP()) #the airfoil struct is created here and specifically calls for the larsen/faber separation point method.
 airfoils = Array{Airfoil, 1}(undef, 1) #the cevtor for the airfoils is created, and the single airfoil struct is pushed into this vector.
 airfoils[1] = af
 

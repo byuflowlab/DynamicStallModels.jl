@@ -22,7 +22,7 @@ polar = readdlm(file , ',') #reads in Faber's static lift polar for the NACA_001
 Polar_Top_Half = readdlm(file_2, ',') #reads in the dynamic lift values from Faber's NACA 0015 (top half)
 Lift_Top_Half = Akima(Polar_Top_Half[:,1].*pi/180, Polar_Top_Half[:,2])
 
-Polar_Bottom_Half = readdlm(file_3, ',') #reads in the dynamic lift values from Faaber's NACA 0015 (bottom half)
+Polar_Bottom_Half = readdlm(file_3, ',') #reads in the dynamic lift values from Faber's NACA 0015 (bottom half)
 Lift_Bottom_Half = Akima(Polar_Bottom_Half[:,1].*pi/180, Polar_Bottom_Half[:,2])
 
 dsmodel = Oye(Functional(), 1, 2, 4.0)
