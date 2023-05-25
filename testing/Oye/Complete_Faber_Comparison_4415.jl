@@ -8,7 +8,9 @@ path = dirname(@__FILE__)
 cd(path)
 
 file = "../../polars/NACA_4415_Faber.csv"
+file_2 = "../../polars/NACA_4415_Faber_Oye_Results.csv"
 polar = readdlm(file, ',')
+Faber_Results = readdlm(file_2, ',')
 
 c = 0.457
 M = 0.13
@@ -55,8 +57,8 @@ x_initial = [0.9, 0.9, 0.9, 0.9] #this is the initial state value for the state 
 
 
 Indicial_Matrix = zeros(1000, 12) 
-Functional_Matrix = zeros(247, 12)
-Functional_Time_Matrix = zeros(247, 3)
+Functional_Matrix = zeros(223, 12)
+Functional_Time_Matrix = zeros(223, 3)
 
 
 for i in 1:3
@@ -70,6 +72,7 @@ for i in 1:3
     af_3_Functional = dsm.make_airfoil(polar, dsmodel_1, c; sfun=dsm.RSP())
     af_4_Functional = dsm.make_airfoil(polar, dsmodel_1, c; sfun=dsm.ADSP(1,1), eta=1.0)
     #af_5_Functional = dsm.make_airfoil(polar, dsmodel_1, c; sfun=dsm.BLSP())
+
 
 
     airfoils_1 = Array{Airfoil, 1}(undef, 4) #this block of code creates the airfoil vector and pushes the airfoil structs into this vector
@@ -133,18 +136,26 @@ Hansen_Full_Sep = plot(aoa.*180/pi , Indicial_Matrix[: , 1] , xlabel = L"\alpha"
 #plot!(aoa , Indicial_Matrix[: , 2] , label = "ADGSP (Hansen")
 plot!(aoa.*180/pi , Indicial_Matrix[: , 3] , label = "RSP (Hansen)", linewidth = 1.5)
 plot!(aoa.*180/pi , Indicial_Matrix[: , 4] , label = "ADSP (Hansen)", linewidth = 1.5)
+plot!(Faber_Results[:,1], Faber_Results[:,2], color=:black, label = "Faber's Øye Results", linestyle=:dash, linewidth = 2)
+scatter!(polar[:,1].*180/pi, polar[:,2], label = "Static")
 
 
 Hermite_Full_Sep = plot(aoa.*180/pi , Indicial_Matrix[: , 5] , label = "OSP (Hermite)", linewidth = 1.5, xlabel = L"\alpha" , ylabel = L"C_L", legend=:topleft)
 plot!(aoa.*180/pi , Indicial_Matrix[: , 6] , label = "ADGSP (Hermite)", linewidth = 1.5)
 plot!(aoa.*180/pi , Indicial_Matrix[: , 7] , label = "RSP (Hermite)", linewidth = 1.5)
 plot!(aoa.*180/pi, Indicial_Matrix[: , 8] , label = "ADSP (Hermite)", linewidth = 1.5)
+plot!(Faber_Results[:,1], Faber_Results[:,2], color=:black, label = "Faber's Øye Results", linestyle=:dash, linewidth = 2)
+scatter!(polar[:,1].*180/pi, polar[:,2], label = "Static")
+
 
 
 Oye_Full_Sep = plot(aoa.*180/pi , Indicial_Matrix[: , 9] , label = "OSP (Øye)", linewidth = 1.5, xlabel = L"\alpha" , ylabel = L"C_L", legend=:topleft)
 plot!(aoa.*180/pi , Indicial_Matrix[: , 10] , label = "ADGSP (Øye)", linewidth = 1.5)
 plot!(aoa.*180/pi , Indicial_Matrix[: , 11] , label = "RSP (Øye)", linewidth = 1.5)
 plot!(aoa.*180/pi , Indicial_Matrix[: , 12] , label = "ADSP (Øye)", linewidth = 1.5)
+plot!(Faber_Results[:,1], Faber_Results[:,2], color=:black, label = "Faber's Øye Results", linestyle=:dash, linewidth = 2)
+scatter!(polar[:,1].*180/pi, polar[:,2], label = "Static")
+
 
 
 ################################
@@ -154,17 +165,26 @@ Hansen_Full_Sep_2 = plot(Functional_Time_Matrix[:,1].*180/pi, Functional_Matrix[
 plot!(Functional_Time_Matrix[:,1].*180/pi, Functional_Matrix[:, 2], label = "ADGSP (Hansen)", linewidth = 1.5)
 plot!(Functional_Time_Matrix[:,1].*180/pi, Functional_Matrix[:, 3], label = "RSP (Hansen)", linewidth = 1.5)
 plot!(Functional_Time_Matrix[:,1].*180/pi, Functional_Matrix[:, 4], label = "ADSP (Hansen)", linewidth = 1.5)
+plot!(Faber_Results[:,1], Faber_Results[:,2], color=:black, label = "Faber's Øye Results", linestyle=:dash, linewidth = 2)
+scatter!(polar[:,1].*180/pi, polar[:,2], label = "Static")
+
 
 
 Hermite_Full_Sep_2 = plot(Functional_Time_Matrix[:,1].*180/pi, Functional_Matrix[:, 5],  xlabel = L"\alpha" , ylabel = L"C_L", label = "LSP (Hermite)", linewidth = 1.5, legend=:topleft)
 plot!(Functional_Time_Matrix[:,1].*180/pi, Functional_Matrix[:, 6], label = "ADGSP (Hermite)", linewidth = 1.5)
 plot!(Functional_Time_Matrix[:,1].*180/pi, Functional_Matrix[:, 7], label = "RSP (Hermite)", linewidth = 1.5)
 plot!(Functional_Time_Matrix[:,1].*180/pi, Functional_Matrix[:, 8], label = "ADSP (Hermite)", linewidth = 1.5)
+plot!(Faber_Results[:,1], Faber_Results[:,2], color=:black, label = "Faber's Øye Results", linestyle=:dash, linewidth = 2)
+scatter!(polar[:,1].*180/pi, polar[:,2], label = "Static")
+
 
 
 Oye_Full_Sep_2 = plot(Functional_Time_Matrix[:,1].*180/pi, Functional_Matrix[:, 9],  xlabel = L"\alpha" , ylabel = L"C_L", label = "LSP (Øye)", linewidth = 1.5, legend=:topleft)
 plot!(Functional_Time_Matrix[:,1].*180/pi, Functional_Matrix[:, 10], label = "ADGSP (Øye)", linewidth = 1.5)
 plot!(Functional_Time_Matrix[:,1].*180/pi, Functional_Matrix[:, 11], label = "RSP (Øye)", linewidth = 1.5)
 plot!(Functional_Time_Matrix[:,1].*180/pi, Functional_Matrix[:, 12], label = "ADSP (Øye)", linewidth = 1.5)
+plot!(Faber_Results[:,1], Faber_Results[:,2], color=:black, label = "Faber's Øye Results", linestyle=:dash, linewidth = 2)
+scatter!(polar[:,1].*180/pi, polar[:,2], label = "Static")
+
 
 #########################################
