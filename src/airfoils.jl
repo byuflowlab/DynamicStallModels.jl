@@ -576,10 +576,19 @@ function separationpoint(sfun::RSP, airfoil::Airfoil, alpha)
         println("Riso sep function called. ")
     end
 
-    afm, afp = airfoil.alphasep
+
+
+    afm, _ = airfoil.alphasep
     clfit = airfoil.cl
     dcldalpha = airfoil.dcldalpha
     alpha0 = airfoil.alpha0
+
+    f(x) = clfit(x) - dcldalpha*(x - alpha0)/4
+
+    afp , _ = brent(f , 0.17 , 0.8726)
+
+
+    #println(afp)
     #TODO: I'm not really sure that using the minimum of these two is really the way to avoid the problem of this blowing up to infinity. (When alpha=alpha0) (This check happens in the if statement.)
 
     #TODO: I'm not sure that using the absolute value here is the correct way to dodge the problem of crossing the x axis at different times.
@@ -607,12 +616,17 @@ function separationpoint(sfun::RSP, airfoil::Airfoil, alpha)
     f = (2*sqrt(abs(cl_static/cl_linear))-1)^2
     # println(f)  
 
+   
+
+    
     if f>1 #Question: What if I don't return this? I might get Inf.... or possibly NaN... but I will less likely get 1.0... which is my problem child in the seperated coefficient of lift function. -> I fixed the fully seperated coefficient of lift function... I just plugged this function inside the other and simplified. 
-        return typeof(alpha)(1)
+        return typeof(alpha)(1.0)
     elseif isnan(f)
         # println("f return NaN")
-        return typeof(alpha)(1)
+        return typeof(alpha)(1.0)
     end
+    
+
 
     #Todo. Hansen must have some sort of switch that stops this function from reattaching when the aoa gets really high. -> like the one where you automatically set f=0 when you're outside the bounds of afm, afp
     return f
