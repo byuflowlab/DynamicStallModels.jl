@@ -46,14 +46,14 @@ function state_rates!(model::Riso , airfoil::Airfoil , dx, x, y, t)
     A2 = model.A[2]
     b1 = model.b[1]
     b2 = model.b[2]
-    Tp = model.T[1]
-    Tf = model.T[2]
 
 
     c = airfoil.c
     dcldalpha = airfoil.dcldalpha
     alpha0 = airfoil.alpha0
     Tu = c/(2*U)
+    Tp = Tu*model.T[1]
+    Tf = Tu*model.T[2]
 
     ae = alpha*(1-A1-A2) + x[1] + x[2]
 
@@ -70,13 +70,11 @@ function hansen_fully_sep(airfoil , alpha)
     CL_st = airfoil.cl(alpha)
     dcldalpha = airfoil.dcldalpha
     alpha0 = airfoil.alpha0
-    fst = separationpoint(airfoil, alpha)
+    delta_alpha = (alpha-alpha0)
 
-    if fst == 1.0
-        CL_fs = CL_st*0.5
-    else
-        CL_fs = ((CL_st - dcldalpha*(alpha-alpha0)*fst)/(1-fst))
-    end
+    fst = (2*sqrt(CL_st/(dcldalpha*(delta_alpha))) - 1)^2
+
+    CL_fs = (CL_st - dcldalpha*delta_alpha*fst)/(1-fst)
 
     return CL_fs
 end
@@ -91,7 +89,7 @@ function parsesolution(model::Riso, airfoils::AbstractVector{<:Airfoil}, sol::OD
     coefficient_matrix = zeros(4*length(airfoils) , length(tvec))
     fs_matrix = zeros(1,length(tvec))
     Cl_matrix = zeros(1,length(tvec))
-    linear_matrix = zeros(1,length(tvec))
+    sp_matrix = zeros(1,length(tvec))
 
     for w in 1:length(airfoils)
 
@@ -134,9 +132,9 @@ function parsesolution(model::Riso, airfoils::AbstractVector{<:Airfoil}, sol::OD
             coefficient_matrix[4+(w-1)*4 , i] = CM_Dyn
             fs_matrix[1,i] = hansen_fully_sep(airfoil, alpha(tvec[i]))
             Cl_matrix[1,i] = airfoil.cl(alpha(tvec[i]))
-            linear_matrix[1,i] = dcldalpha*(alpha(tvec[i])-alpha0)
+            sp_matrix[1,i] = separationpoint(airfoil, alpha(tvec[i]))
         end
     end
 
-    return coefficient_matrix, fs_matrix, Cl_matrix, linear_matrix
+    return coefficient_matrix, fs_matrix, Cl_matrix, sp_matrix
 end

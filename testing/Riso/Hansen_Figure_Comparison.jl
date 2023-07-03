@@ -6,7 +6,7 @@ dsm = DynamicStallModels
 path = dirname(@__FILE__)
 cd(path)
 
-file = "../../polars/Extended_NACA_0030.csv"
+file = "../../polars/Hansen_Figure3.csv"
 
 polar = readdlm(file , ',')
 
@@ -21,7 +21,7 @@ af = dsm.make_airfoil(polar, dsmodel, c; sfun=dsm.RSP())
 airfoils = Array{Airfoil, 1}(undef, 1)
 airfoils[1] = af
 
-tspan = (0.0, 2.0)
+tspan = (0.0, 0.224)
 
 function Uvector(t)
     return 0.11*343
@@ -31,8 +31,8 @@ function alphavec(t)
     c = 0.55
     M = 0.11
     a = 343.0
-    shift = 10.0
-    amp = 10.0
+    shift = -3.0
+    amp = 46.0
     k = 0.051
 
     v = M*a
@@ -46,8 +46,8 @@ function alphavecdot(t)
     c = 0.55
     M = 0.11
     a = 343.0
-    shift = 10.0
-    amp = 10.0
+    shift = -3.0
+    amp = 46.0
     k = 0.051
 
     v = M*a
@@ -65,13 +65,18 @@ sol = DifferentialEquations.solve(prob, reltol=1e-8)
 
 answer, extra, stuff, more = parsesolution(dsmodel, airfoils, sol, parameters)
 
-plot(answer[1,:].*180/pi, extra[1,:], xlabel = "Angle of Attack (Degrees)", ylabel = "Coefficient of Lift", linewidth=2, label = "Fully Separated")
-plot!(answer[1,:].*180/pi, stuff[1,:], linewidth = 2, label="Static")
-plot!(answer[1,:].*180/pi , answer[2,:], linewidth=2, label="DSM's Riso")
+plot(answer[1,:].*180/pi, stuff[1,:], linewidth = 2, label = "Static", xlabel = "Angle of Attack (Degrees)", legend =:right)
+plot!(answer[1,:].*180/pi, more[1,:], linewidth = 2, label = "Separation Point (DSM)")
+plot!(answer[1,:].*180/pi, extra[1,:], linewidth=2, label = "Fully Separated Lift (DSM)")
 
-file2 = "../../polars/Faber_Riso_NACA_0030.csv"
-Faber_Riso = readdlm(file2, ',')
+file2 = "../../polars/Hansen_Fig3_FullSep.csv"
+Hansen_Full_Sep = readdlm(file2, ',')
 
-plot!(Faber_Riso[:,1], Faber_Riso[:,2], linestyle=:dash, linewidth=2, label="Faber's Riso")
+plot!(Hansen_Full_Sep[:,1], Hansen_Full_Sep[:,2], linewidth =2, linestyle=:dash, label = "Fully Separated Lift (Hansen)")
 
-#savefig("Faber_Riso_0030")
+file3 = "../../polars/Hansen_Fig3_SepPoint.csv"
+Hansen_SepPoint = readdlm(file3, ',')
+
+plot!(Hansen_SepPoint[:,1], Hansen_SepPoint[:,2], linewidth =2, linestyle=:dash, label = "Separation Point (Hansen)")
+
+savefig("Hansen_Figure_Comparison")
