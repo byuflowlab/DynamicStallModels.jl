@@ -56,8 +56,7 @@ end
 
 
 function update_states!(model::Riso, airfoil::Airfoil, oldstate, newstate, y, dt)
-    U_new, Udot_new, alpha_new, alphadot_new = y
-    #find out a way to get the previous parameter values
+    U_new, Udot_new, alpha_new, alphadot_new, U_old, Udot_old, alpha_old, alphadot_old = y
     x1_old , x2_old, x3_old, x4_old = oldstate
 
 
@@ -70,9 +69,12 @@ function update_states!(model::Riso, airfoil::Airfoil, oldstate, newstate, y, dt
     c = airfoil.c
     dcldalpha = airfoil.dcldalpha
     alpha0 = airfoil.alpha0
-    Tu = c/(2*U)
+    Tu = c/(2*U_new)
     Tp = Tu*model.T[1]
     Tf = Tu*model.T[2]
+
+
+    ae_old = alpha_old*(1-A1-A2) + x1_old + x2_old
 
 
     P1 = b1*(U_new + U_old)/c + (Udot_new + Udot_old)/(U_new + U_old)
@@ -80,18 +82,28 @@ function update_states!(model::Riso, airfoil::Airfoil, oldstate, newstate, y, dt
     P3 = 1/Tp
     P4 = 1/Tf
 
+
     Q1 = (U_old*alpha_old + U_new*alpha_new)*(b1*A1)/(c)
-    Q1 = (U_old*alpha_old + U_new*alpha_new)*(b2*A2)/(c)
-    Q3 = (0.5/Tp)*(dcldalpha*(ae_old + ae_new - 2*alpha0) + (pi*c*0.5)*((alphadot_old/U_old + alphadot_new/U_new)))
+    Q2 = (U_old*alpha_old + U_new*alpha_new)*(b2*A2)/(c)
+
 
     x1_new = exp(-1*P1*dt)*x1_old + (Q1/P1)*(1 - exp(-1*P1*dt))
     x2_new = exp(-1*P2*dt)*x2_old + (Q2/P2)*(1 - exp(-1*P2*dt))
+
+
+    ae_new = alpha_new*(1-A1-A2) + x1_new + x2_new
+
+
+    Q3 = (0.5/Tp)*(dcldalpha*(ae_old + ae_new - 2*alpha0) + (pi*c*0.5)*((alphadot_old/U_old + alphadot_new/U_new)))
     x3_new = exp(-1*P3*dt)*x3_old + (Q3/P3)*(1 - exp(-1*P3*dt))
+
 
     Q4 = (0.5/Tf)*(separationpoint(airfoil, x3_old/(dcldalpha+alpha0)) + separationpoint(airfoil, x3_new/(dcldalpha+alpha0)))
 
+
     x4_new = exp(-1*P4*dt)*x4_old + (Q4/P4)*(1 - exp(-1*P4*dt))
 
+    
     newstate[1] = x1_new
     newstate[2] = x2_new
     newstate[3] = x3_new
@@ -102,7 +114,7 @@ end
 function get_loads(model::Riso, airfoil::Airfoil, states, y)
     x1, x2, x3, x4 = states
 
-    U, _, alpha, alphadot = y
+    U, _, alpha, alphadot, _, _, _, _ = y
 
     alpha0 = airfoil.alpha0
     c = airfoil.c
@@ -119,7 +131,7 @@ function get_loads(model::Riso, airfoil::Airfoil, states, y)
     CL_fs = hansen_fully_sep(airfoil , ae)
     CD_st = airfoil.cd(ae)
     CM_st = airfoil.cm(ae)
-    ast_1 = (airfoil.cm(x4 - CM0)/airfoil.cl(x4) 
+    ast_1 = (airfoil.cm(x4 - CM0)/airfoil.cl(x4)) 
     ast_2 = (airfoil.cm(separationpoint(airfoil, ae)) - CM0)/airfoil.cl(separationpoint(airfoil, ae)) 
 
     CL_Dyn = dcldalpha*(ae - alpha0)*x4 + CL_fs*(1 - x4) + pi*Tu*alphadot

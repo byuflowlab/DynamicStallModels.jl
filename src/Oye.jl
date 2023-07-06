@@ -126,7 +126,7 @@ function initialize(dsmodel::Oye, airfoil::Airfoil, tvec, y)
         @warn("Oye Iterative implementation isn't prepared yet. - initialize()")
     else #Model is indicial
 
-        _, _, alpha, _ = y
+        _, _, alpha, _, _, _, _, _ = y
 
         fst = separationpoint(airfoil, alpha)
 
@@ -173,7 +173,7 @@ Finds the new state values for an arifoil at a given time value using the indici
 """
 function update_states!(dsmodel::Oye, airfoil::Airfoil, oldstate, newstate, y, dt)
     ### Unpack 
-    U, _, alpha, _ = y
+    U, _, alpha, _, _, _, _, _ = y
     fold = oldstate[1]
 
 
@@ -205,7 +205,7 @@ function get_loads(dsmodel::Oye, airfoil::Airfoil, states, y)
     ### Unpack
     f = states[1]
 
-    _, _, alpha, _ = y # U, alpha = y
+    _, _, alpha, _, _, _, _, _ = y # U, alpha = y
 
 
     dcndalpha = get_dcndalpha(airfoil)
