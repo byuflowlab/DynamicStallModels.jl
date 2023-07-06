@@ -36,6 +36,104 @@ function get_dcndalpha(airfoil)
     end
 end
 
+function initialize(dsmodel::Riso, airfoil::Airfoil, tvec, y)
+    if isa(dsmodel.detype, Indicial)
+        states = [0.0, 0.0, 0.0, 0.0]
+
+        loads = zeros(3)
+        get_loads!(dsmodel::Riso, airfoil::Airfoil, states, loads, y)
+
+        return states, loads, y
+    end
+end
+
+
+function update_states(model::Riso, airfoil::Airfoil, oldstate, y, dt)
+    newstate = zero(oldstate)
+    update_states!(model::Riso, airfoil::Airfoil, oldstate, newstate, y, dt)
+    return newstate
+end
+
+
+function update_states!(model::Riso, airfoil::Airfoil, oldstate, newstate, y, dt)
+    U_new, Udot_new, alpha_new, alphadot_new = y
+    #find out a way to get the previous parameter values
+    x1_old , x2_old, x3_old, x4_old = oldstate
+
+
+    A1 = model.A[1]
+    A2 = model.A[2]
+    b1 = model.b[1]
+    b2 = model.b[2]
+
+
+    c = airfoil.c
+    dcldalpha = airfoil.dcldalpha
+    alpha0 = airfoil.alpha0
+    Tu = c/(2*U)
+    Tp = Tu*model.T[1]
+    Tf = Tu*model.T[2]
+
+
+    P1 = b1*(U_new + U_old)/c + (Udot_new + Udot_old)/(U_new + U_old)
+    P2 = b2*(U_new + U_old)/c + (Udot_new + Udot_old)/(U_new + U_old)
+    P3 = 1/Tp
+    P4 = 1/Tf
+
+    Q1 = (U_old*alpha_old + U_new*alpha_new)*(b1*A1)/(c)
+    Q1 = (U_old*alpha_old + U_new*alpha_new)*(b2*A2)/(c)
+    Q3 = (0.5/Tp)*(dcldalpha*(ae_old + ae_new - 2*alpha0) + (pi*c*0.5)*((alphadot_old/U_old + alphadot_new/U_new)))
+
+    x1_new = exp(-1*P1*dt)*x1_old + (Q1/P1)*(1 - exp(-1*P1*dt))
+    x2_new = exp(-1*P2*dt)*x2_old + (Q2/P2)*(1 - exp(-1*P2*dt))
+    x3_new = exp(-1*P3*dt)*x3_old + (Q3/P3)*(1 - exp(-1*P3*dt))
+
+    Q4 = (0.5/Tf)*(separationpoint(airfoil, x3_old/(dcldalpha+alpha0)) + separationpoint(airfoil, x3_new/(dcldalpha+alpha0)))
+
+    x4_new = exp(-1*P4*dt)*x4_old + (Q4/P4)*(1 - exp(-1*P4*dt))
+
+    newstate[1] = x1_new
+    newstate[2] = x2_new
+    newstate[3] = x3_new
+    newstate[4] = x4_new
+end
+
+
+function get_loads(model::Riso, airfoil::Airfoil, states, y)
+    x1, x2, x3, x4 = states
+
+    U, _, alpha, alphadot = y
+
+    alpha0 = airfoil.alpha0
+    c = airfoil.c
+    dcldalpha = airfoil.dcldalpha
+    CD0 = airfoil.cd(alpha0)
+    CM0 = airfoil.cm(alpha0)
+
+    A1 = model.A[1]
+    A2 = model.A[2]
+
+
+    ae = alpha*(1 - A1 - A2) + x1 + x2
+    Tu = c/(U*2)
+    CL_fs = hansen_fully_sep(airfoil , ae)
+    CD_st = airfoil.cd(ae)
+    CM_st = airfoil.cm(ae)
+    ast_1 = (airfoil.cm(x4 - CM0)/airfoil.cl(x4) 
+    ast_2 = (airfoil.cm(separationpoint(airfoil, ae)) - CM0)/airfoil.cl(separationpoint(airfoil, ae)) 
+
+    CL_Dyn = dcldalpha*(ae - alpha0)*x4 + CL_fs*(1 - x4) + pi*Tu*alphadot
+    CD_Dyn = CD_st + (alpha - ae)*CL_Dyn + (CD_st - CD0)*((sqrt(separationpoint(airfoil, ae)) - sqrt(x4))/2 - (separationpoint(airfoil,ae) - x4)/4)
+    CM_Dyn = CM_st + CL_Dyn*(ast_1 - ast_2) - (pi/2)*Tu*alphadot
+
+    return CL_Dyn, CD_Dyn, CM_Dyn
+
+end
+
+function get_loads!(model::Riso, airfoil::Airfoil, states, loads, y)
+    loads .= get_loads(model::Riso, airfoil::Airfoil, states, y)
+end
+
 
 function state_rates!(model::Riso , airfoil::Airfoil , dx, x, y, t)
     

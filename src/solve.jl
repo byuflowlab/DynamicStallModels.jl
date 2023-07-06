@@ -164,11 +164,14 @@ function (airfoils::AbstractVector{<:Airfoil})(state_out, state_in, state_idxs, 
     end
 end
 
-function update_environment!(y, U, Udot, alpha, alphadot)
+function update_environment!(y, U, Udot, alpha, alphadot, U_old, Udot_old, alpha_old, alphadot_old)
     y[1] = U
     y[2] = Udot
     y[3] = alpha
     y[4] = alphadot
+    y[5] = U_old
+    y[6] = Udot_old
+    
 end
 
 function state_indices(dsmodel::DSModel, startidx)
@@ -225,7 +228,7 @@ function solve_indicial(airfoils::Array{Airfoil, 1}, tvec, Uvec, alphavec; verbo
             idxs = 3*(j-1)+1:3j
             loads_j = view(loads, i+1, idxs)
 
-            update_environment!(ys, Uvec[i+1], Udotvec[i+1], alphavec[i+1], alphadotvec[i+1]) #TODO: Figure out how to make this work for varying stations. 
+            update_environment!(ys, Uvec[i+1], Udotvec[i+1], alphavec[i+1], alphadotvec[i+1], Uvec[i], Udotvec[i], alphavec[i], alphadotvec[i]) #TODO: Figure out how to make this work for varying stations. 
             
             airfoils[j](xsi, xs1, ys, dt) #Todo: I had xsi, xs1... 
 
