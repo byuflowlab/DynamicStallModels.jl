@@ -43,8 +43,8 @@ function initialize(airfoil, tvec, y)  #Todo: Why do I have tvec as one of the e
     return initialize(airfoil.model, airfoil, tvec, y) 
 end
 
-function initialize_environment(U, udot, alpha, alphadot, U_old, udot_old, alpha_old, alphadot_old, n)
-    return repeat([U, udot, alpha, alphadot, U_old, udot_old, alpha_old, alphadot_old], outer=n)
+function initialize_environment(U, udot, alpha, alphadot, n)
+    return repeat([U, udot, alpha, alphadot], outer=n)
 end
 
 #=
@@ -164,15 +164,11 @@ function (airfoils::AbstractVector{<:Airfoil})(state_out, state_in, state_idxs, 
     end
 end
 
-function update_environment!(y, U, Udot, alpha, alphadot, U_old, Udot_old, alpha_old, alphadot_old)
+function update_environment!(y, U, Udot, alpha, alphadot)
     y[1] = U
     y[2] = Udot
     y[3] = alpha
     y[4] = alphadot
-    y[5] = U_old
-    y[6] = Udot_old
-    y[7] = alpha_old
-    y[8] = alphadot_old
 end
 
 function state_indices(dsmodel::DSModel, startidx)
@@ -190,7 +186,7 @@ function solve_indicial(airfoils::Array{Airfoil, 1}, tvec, Uvec, alphavec; verbo
     # np = numberofparams_total(airfoils)
 
     states = Array{eltype(Uvec), 2}(undef, nt, ns)
-    y = initialize_environment(Uvec[1], Udotvec[1], alphavec[1], alphadotvec[1], Uvec[1], Udotvec[1], alphavec[1], alphadotvec[1], n) #TODO: 
+    y = initialize_environment(Uvec[1], Udotvec[1], alphavec[1], alphadotvec[1], n) #TODO: 
     stateidx = Vector{Int}(undef, n)
     loads = Array{eltype(Uvec), 2}(undef, nt, 3n) 
 
@@ -200,7 +196,7 @@ function solve_indicial(airfoils::Array{Airfoil, 1}, tvec, Uvec, alphavec; verbo
         stateidx[i] = tempx
         nsi1, nsi2 = state_indices(airfoils[i].model, stateidx[i])
         loadidx = 3*(i-1)+1:3i
-        paramidx = 8*(i-1)+1:8*i #Todo: This needs to be updated to work with any number of input parameters -> I think I'm going to make the parameters be a constant length (the same for all DS models)
+        paramidx = 4*(i-1)+1:4*i #Todo: This needs to be updated to work with any number of input parameters -> I think I'm going to make the parameters be a constant length (the same for all DS models)
         ys = view(y, paramidx)
         states[1,nsi1:nsi2], loads[1,loadidx] = initialize(airfoils[i], tvec, ys) #Todo: make this function inplace. 
         tempx += numberofstates(airfoils[i].model)
@@ -223,13 +219,13 @@ function solve_indicial(airfoils::Array{Airfoil, 1}, tvec, Uvec, alphavec; verbo
             nsi1, nsi2 = state_indices(airfoils[j].model, stateidx[j])
             xsi = view(states, i, nsi1:nsi2)
             xs1 = view(states, i+1, nsi1:nsi2)
-            ys = view(y, 8*(j-1)+1:8*j)
+            ys = view(y, 4*(j-1)+1:4*j)
          
             # idxs = 1:3 #Todo: What the heck is going on here? 
             idxs = 3*(j-1)+1:3*j
             loads_j = view(loads, i+1, idxs)
 
-            update_environment!(ys, Uvec[i+1], Udotvec[i+1], alphavec[i+1], alphadotvec[i+1], Uvec[i], Udotvec[i], alphavec[i], alphadotvec[i]) #TODO: Figure out how to make this work for varying stations. 
+            update_environment!(ys, Uvec[i+1], Udotvec[i+1], alphavec[i+1], alphadotvec[i+1]) #TODO: Figure out how to make this work for varying stations. 
             
             airfoils[j](xsi, xs1, ys, dt) #Todo: I had xsi, xs1... 
 
