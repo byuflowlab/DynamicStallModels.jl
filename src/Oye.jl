@@ -68,29 +68,6 @@ function get_dcndalpha(airfoil)
     end
 end
 
-# function (dsmodel::Oye)(x, p, t, dt)
-#     if isa(dsmodel.detype, Functional)
-#         error("The state space Oye model is not setup yet.")
-#     elseif isa(dsmodel.detype, Iterative)
-#         error("The iterative Oye model is not set up yet.")
-#     else #The model is indicial
-#         nst = numberofstates_total(dsmodel)
-#         ns = numberofstates(dsmodel)
-#         np = numberofparams(dsmodel)
-#         newstates = Array{eltype(p), 1}(undef, nst)
-#         for i = 1:dsmodel.n
-#             ps = view(p, np*(i-1)+1:np*i)
-        
-#             c, dcndalpha, alpha0, alphasep, A, U, aoa = ps #Inputs 
-            
-#             xs = view(x, ns*(i-1)+1:ns*i) #Nodal states. 
-            
-#             idx = ns*(i-1)+1:ns*i
-#             newstates[idx] = update_states(dsmodel, xs, U, aoa, dt, c, dcndalpha, alpha0, alphasep, A, i)
-#         end
-#         return newstates
-#     end
-# end
 
 
 function initialize(dsmodel::Oye, airfoil::Airfoil, tvec, y)
@@ -126,7 +103,6 @@ end
 function update_states(dsmodel::Oye, airfoil::Airfoil, oldstate, y, dt)
     newstate = zero(oldstate)
     update_states!(dsmodel, airfoil, oldstate, newstate, y, dt)
-    return newstate
 end
 
 #=
@@ -244,6 +220,7 @@ function state_rates!(model::Oye, airfoil::Airfoil, dx, x, y, t)
     
     ### Evaluate environmental functions
     U, _, alpha, _ = evaluate_environment(y, t)
+    f = x[1]
     
 
     ### Prepare time constant
@@ -253,10 +230,9 @@ function state_rates!(model::Oye, airfoil::Airfoil, dx, x, y, t)
 
     ### Fetch static separation point
     fst = separationpoint(airfoil, alpha)
-    # @show fst
 
     ### Calculate state rate
-    dx[1] = -T_f*(x[1]-fst) 
+    dx[1] = -T_f*(f-fst) 
 end
 
 export parsesolution

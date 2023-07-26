@@ -172,11 +172,12 @@ function solve_indicial(airfoils::Array{Airfoil, 1}, tvec, Uvec, alphavec; verbo
     ### Initialize the states
     ns = numberofstates_total(airfoils)
     # np = numberofparams_total(airfoils)
+    inittype = find_inittype(airfoils[1].c, Uvec[1], alphavec[1])
 
-    states = Array{eltype(Uvec), 2}(undef, nt, ns)
+    states = Array{inittype, 2}(undef, nt, ns)
     y = initialize_environment(Uvec[1], Udotvec[1], alphavec[1], alphadotvec[1], n) #TODO: 
     stateidx = Vector{Int}(undef, n)
-    loads = Array{eltype(Uvec), 2}(undef, nt, 3n) 
+    loads = Array{inittype, 2}(undef, nt, 3n) 
 
     tempx = 1
     # idxs = ns*(j-1)+1:j*ns 
@@ -209,13 +210,13 @@ function solve_indicial(airfoils::Array{Airfoil, 1}, tvec, Uvec, alphavec; verbo
             xs1 = view(states, i+1, nsi1:nsi2)
             ys = view(y, 4*(j-1)+1:4*j)
          
-            # idxs = 1:3 #Todo: What the heck is going on here? 
+            
             idxs = 3*(j-1)+1:3j
             loads_j = view(loads, i+1, idxs)
 
-            update_environment!(ys, Uvec[i+1], Udotvec[i+1], alphavec[i+1], alphadotvec[i+1]) #TODO: Figure out how to make this work for varying stations. 
+            update_environment!(ys, Uvec[i+1], Udotvec[i+1], alphavec[i+1], alphadotvec[i+1]) #TODO: Figure out how to make this work for varying stations. -> I don't know what I meant by that. 
             
-            airfoils[j](xsi, xs1, ys, dt) #Todo: I had xsi, xs1... 
+            airfoils[j](xsi, xs1, ys, dt) 
 
             get_loads!(airfoils[j].model, airfoils[j], xs1, loads_j, ys) 
         end

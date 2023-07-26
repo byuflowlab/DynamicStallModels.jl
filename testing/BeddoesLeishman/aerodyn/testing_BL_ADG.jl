@@ -65,7 +65,7 @@ S = [S1, S2, S3, S4]
 xcp = 0.2
 
 # af = Airfoil(polar, clfit, cdfit, cmfit, dcndalpha, alpha0, alphasep, A, b, T, S, xcp)
-af = of.make_dsairfoil(du21_a17)
+af = of.make_dsairfoil(du21_a17, c)
 airfoils = Array{Airfoil, 1}(undef, 1)
 airfoils[1] = af
 
@@ -79,7 +79,7 @@ airfoils[1] = af
 # Tsh = du21_a17.st_sh #Strouhal Frequency
 # eta = du21_a17.eta_e #Recovery factor
 # constants = [zeta, A5, b5, Tsh, eta]
-dsmodel = BeddoesLeishman(Indicial(), 1, airfoils, 3)
+# dsmodel = BeddoesLeishman(Indicial(), 1, airfoils, 3)
 
 
 ### Create simulation data
@@ -108,9 +108,16 @@ errfun(x, xt) = (x-xt)/xt
 # aoavec = aoavec[1].*ones(length(tvec))
 
 ### Solve
-states, loads = solve_indicial(dsmodel, [c], tvec, Uvec, aoavec; a=335.0)
+states, loads = solve_indicial(airfoils, tvec, Uvec, aoavec)
 
-Cn = loads[:,1]
+Cn = zero(tvec)
+Cc = zero(tvec)
+
+for i in eachindex(tvec)
+    Cn[i], Cc[i] = DSM.rotate_load(loads[i,1], loads[i,2], states[i, 1])
+end 
+
+
 
 
 cnplt = plot(xaxis="time (s)", yaxis="Cn", right_margin=20mm, leg=:bottomright)
@@ -125,7 +132,6 @@ plot!(mat[:,2, idx], mat[:,40, idx], lab="OpenFAST intermediate", linestyle=:das
 #-> Now there is less than half a percent error. Which.... I'm quite happy with. Like.... it could/should be better... but... it seems good enough. Their output seems heavily rounded. Like there is no oscillation. Which means that my solver should account for more fatique? or just more noise... one of the two. -> When comparing to the intermediate step (the easily accessed output is rounded down), the max percent relative error is 0.183%. Which... is pretty good methinks. I don't know what is causing the difference? 
 
 
-Cc = loads[:,2]
 Cd0 = af.cd(af.alpha0)
 
 ccplt = plot(xaxis="Time (s)", yaxis=L"C_c", right_margin=20mm, leg=:bottomright)
@@ -147,7 +153,7 @@ Max error is 0.8%, which is pretty good, but not as low as I'd like. I'd like to
 Well.. that brought it down to 0.71%. Still not quite as close as I'd like. I really wonder what the difference is. -> I was rotating the final time by alpha instead of aoa.. which decreased error to 0.65%. 
 =#
 
-Cm = loads[:,5]
+Cm = loads[:,3]
 
 cmplt = plot(xaxis="Time (s)", yaxis=L"C_m", right_margin=20mm, leg=:bottomright)
 plot!(tvec[3:end], Cm[3:end], lab="DSM") 
@@ -356,10 +362,6 @@ The angles of attack that are getting passed to my solver and the ones getting p
 
 
 
-Cn = loads[:,1]
-Cc = loads[:,2]
-Cd0 = af.cd(af.alpha0)
-Cm = loads[:,5]
 
 loadsplt = plot(xaxis="time (s)", yaxis="Cn", right_margin=20mm, leg=:outerright)
 plot!(tvec, Cn, lab=L"DSM $C_n$")

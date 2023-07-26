@@ -1,6 +1,6 @@
 module DynamicStallModels
 
-using FLOWMath, StaticArrays, Roots, CurveFit, SciMLBase
+using FLOWMath, StaticArrays, Roots, CurveFit, SciMLBase, ForwardDiff
 
 
 export Functional, Iterative, Indicial
@@ -10,7 +10,7 @@ abstract type DEType end #Is the model designed to be solved in one go, or itera
 struct Functional <: DEType
 end
 
-struct Iterative <: DEType
+struct Iterative <: DEType #Todo: Get rid of this. I don't think that I need it now that I figured out how to evaulate functions or iteratives within a functional. 
 end
 
 struct Indicial <: DEType
@@ -18,9 +18,7 @@ end
 
 
 abstract type DSModel end
-# export DSModel
 
-abstract type State end
 
 include("./utils.jl")
 include("./airfoils.jl")

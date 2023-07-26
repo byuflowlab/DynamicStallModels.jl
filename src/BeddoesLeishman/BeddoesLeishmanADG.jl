@@ -189,6 +189,12 @@ function update_states_ADG!(airfoil::Airfoil, oldstates, states, y, deltat)  #TO
 
     ### More constants
     M = U/a # Mach number
+
+    if M>1
+        states .= oldstates
+        return 
+    end
+
     beta = sqrt(1 - M^2) #Prandtl-Glauert compressibility correction factor #TODO: Need something to cap if M>1. Or at least some sort of diversion behavior. 
 
     bot = (1-M) + dcndalpha*(M^2)*beta*(A1*b1 + A2*b2)/2 #TODO: Calculated solely at first time step.... Maybe we pull this out and pass it in as a function argument. ... Or just calculate it every time as it isn't super costly. 
@@ -235,7 +241,6 @@ function update_states_ADG!(airfoil::Airfoil, oldstates, states, y, deltat)  #TO
     alphae = (alpha - alpha0) - X1 - X2 #EQ 1.14, Effective angle of attack
     dcndalpha_circ = dcndalpha/beta #EQ 1.12, Circulatory component of the normal force coefficient response to step change in alpha. #Checked against OpenFAST v3.3.0
 
-    # @show dcndalpha, beta
 
     Ncirc_aq = dcndalpha_circ*alphae #+ Cc_nq #EQ 1.13, Circulatory component of normal force via lumped approach. #TODO: This appears to be equal to Cpotcn
 
@@ -265,12 +270,7 @@ function update_states_ADG!(airfoil::Airfoil, oldstates, states, y, deltat)  #TO
 
     Cpn = Npot - Dp #EQ 1.35, lagged circulatory normal force 
 
-    # @show Npot, Dp
-
-
     alphaf = Cpn/dcndalpha_circ + alpha0 #EQ 1.34, delayed effective angle of incidence  Note: this is not the filtered angle of attack. 
-
-    # @show alphaf, Cpn, dcndalpha_circ, alpha0
 
     
     #### Separation points
@@ -494,9 +494,6 @@ function BLADG_coefficients(airfoil::Airfoil, states, y)
     
     Cfsc = Cpot*eta*(sqrt(fppc)-0.2) #EQ 1.40, Gonzalez modifications 
 
-    if c==2.086
-        # @show Cpot, fppc
-    end
 
     ### Chordwise force 
     Cc = Cfsc #EQ 1.55b

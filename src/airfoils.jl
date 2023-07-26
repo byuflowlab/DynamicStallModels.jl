@@ -142,7 +142,7 @@ A struct to hold all of the airfoil polars, fits, and dynamic coefficients.
 - s - A fit of the the separation point curve. 
 - xcp - The distance from the quarter chord to the center of pressure? 
 """
-struct Airfoil{TF, Tfit, Fun}
+struct Airfoil{TF, Tfit, Fun} #Todo: I feel like there should be a good way to type this whole struct. 
     model::DSModel
     polar::Array{TF, 2} #Airfoil polar - alpha (radians), cl, cd, cm
     cl::Tfit #Fit of the coefficient of lift
@@ -151,13 +151,13 @@ struct Airfoil{TF, Tfit, Fun}
     cn::Tfit #Fit of the normal force coefficient
     cc::Tfit #Fit of the chordwise force coefficient
     dcldalpha::TF #Lift curve slope at alpha0
-    dcndalpha::TF #Normal curve slope at alpha0
+    dcndalpha::TF #Normal curve slope at alpha0 #Todo: I might consider getting rid of this field... Does dcldalpha==dcndalpha? No, but it's really close. 
     alpha0::TF #The zero lift angle of attack
-    alphasep #::TFV #The separation angles of attack #Todo: Figure out how to put this as a vector or an array. 
+    alphasep #::TFV #The separation angles of attack #Todo: Figure out how to put this as a vector or an array. -> AbstractArray?
     alphacut
     cutrad::TF
     sfun::Fun #The separation point function
-    c::TF #Chord length
+    c::Union{ForwardDiff.Dual, TF} #Chord length
     xcp::TF #The center of pressure
 end
 
@@ -225,15 +225,13 @@ end
 
 A slightly more complex version of simpleairfoil. Takes a polar and numerically finds some characteristics. 
 
-### Inputs
+**Arguments**
 - polar - A matrix of floats describing the airfoil polar. This includes the angle of attack (radians), and coefficients of lift, drag, and moment.
 - A - A vector of floats holding the A dynamic constants for the airfoil. 
 - b - A vector of floats holding the b dynamic constants for the airfoil. 
 - T - A vector of floats holding the time constants for the airfoil. 
 - separationpointfit - An integer telling which fit function to use. 1 -> AeroDyn Cn separation point function, 
 
-### Outputs
-- Airfoil
 """
 function make_airfoil(polar, dsmodel::DSModel, chord; xcp=0.2, sfun::Union{SeparationPoint, Function}=ADSP(1, 1), alphacut = 45*pi/180, cutrad = 5*pi/180) 
     #TODO: Need some sort of behavior when the provided polar is too small. 
@@ -292,19 +290,30 @@ function make_airfoil(polar, dsmodel::DSModel, chord; xcp=0.2, sfun::Union{Separ
 end
 
 
+"""
+    update_airfoil(airfoil::Airfoil; dsmodel::DSModel=nothing, polar=nothing, dcldalpha=nothing, dcndalpha=nothing, alpha0=nothing, alphasep=nothing, alphacut=nothing, cutrad=nothing, sfun=nothing, chord=nothing, xcp=nothing)
 
+Create a new airfoil object based on the input airfoil object. Any option argument that is input will replace the previous input. 
+
+**Arguments**
+- airfoil::Airfoil - The airfoil to be copied. 
+- dsmodel::DSModel - The replacement dynamic stall model. 
+- polar::Array{Float, 2}(n, 3) - The replacement airfoil polar (aoa in radians)
+- dcldalpha::Float - The replacement lift curve slope evaluated at alpha0. 
+- dcndalpha::Float - The replacement normal curve slope evaluated at alpha0. 
+"""
 function update_airfoil(airfoil::Airfoil; dsmodel::DSModel=nothing, polar=nothing, dcldalpha=nothing, dcndalpha=nothing, alpha0=nothing, alphasep=nothing, alphacut=nothing, cutrad=nothing, sfun=nothing, chord=nothing, xcp=nothing)
 
-    if !(dsmodel == nothing)
-        newdsmodel = dsmodel
-    else
+    if isnothing(dsmodel)
         newdsmodel = airfoil.model
+    else
+        newdsmodel = dsmodel
     end
 
-    if !(polar == nothing)
-        newpolar = polar
-    else
+    if isnothing(polar)
         newpolar = airfoil.polar
+    else
+        newpolar = polar
     end
     newcl = Akima(newpolar[:,1], newpolar[:,2])
     newcd = Akima(newpolar[:,1], newpolar[:,3])
@@ -316,58 +325,58 @@ function update_airfoil(airfoil::Airfoil; dsmodel::DSModel=nothing, polar=nothin
     newcn = Akima(newpolar[:,1], cnvec)
     newcc = Akima(newpolar[:,1], ccvec)
 
-    if !(dcldalpha==nothing)
-        newslope = dcldalpha
-    else
+    if isnothing(dcldalpha)
         newslope = airfoil.dcldalpha
+    else
+        newslope = dcldalpha
     end
 
-    if !(dcndalpha==nothing)
-        newdcndalpha = dcndalpha
-    else
+    if isnothing(dcndalpha)
         newdcndalpha = airfoil.dcndalpha
+    else
+        newdcndalpha = dcndalpha
     end
 
-    if !(alpha0==nothing)
-        newalpha0 = alpha0
-    else
+    if isnothing(alpha0)
         newalpha0 = airfoil.alpha0
+    else
+        newalpha0 = alpha0
     end
 
-    if !(alphasep==nothing)
-        newalphasep = alphasep
-    else
+    if isnothing(alphasep)
         newalphasep = airfoil.alphasep
+    else
+        newalphasep = alphasep
     end
 
-    if !(alphacut==nothing)
-        newalphacut = alphacut
-    else
+    if isnothing(alphacut)
         newalphacut = airfoil.alphacut
+    else
+        newalphacut = alphacut
     end
 
-    if !(cutrad==nothing)
-        newcutrad = cutrad
-    else
+    if isnothing(cutrad)
         newcutrad = airfoil.cutrad
+    else
+        newcutrad = cutrad
     end
 
-    if !(sfun==nothing)
-        newsfun = sfun
-    else
+    if isnothing(sfun)
         newsfun = airfoil.sfun
+    else
+        newsfun = sfun
     end
 
-    if !(chord==nothing)
-        newchord = chord
-    else
+    if isnothing(chord)
         newchord = airfoil.c
+    else
+        newchord = chord
     end
 
-    if !(xcp==nothing)
-        newxcp = xcp
-    else
+    if isnothing(xcp)
         newxcp = airfoil.xcp
+    else
+        newxcp = xcp
     end
 
 

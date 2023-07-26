@@ -55,6 +55,10 @@ function dirac(x; w=0.1)
     return L/(pi*(x^2 + L^2))
 end
 
+function find_inittype(vars...) #Todo: I'm going to guess that this function needs improvement. 
+    return eltype(vars)
+end
+
 
 
 export Linear #Todo: Add to FLOWMath? 
