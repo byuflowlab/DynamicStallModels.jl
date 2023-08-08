@@ -23,9 +23,7 @@ tspan = (0.0, 2.0)
 answer = zeros(25, 2)
 Error = zeros(1, length(Hansen_Data[:,1]))
 
-
-dsmodel = Riso(Functional(), [0.274, 0.054] , [0.112, 0.4523], [0.8173, 3.671]) 
-
+dsmodel = Riso(Functional(), [0.294, 0.331] , [0.1, 0.3], [1.5, 6.0]) 
 
 airfoils = Array{Airfoil, 1}(undef, 1)
 
@@ -34,35 +32,6 @@ function Uvector(t)
     return 343*0.1
 end
 
-function alphavec(t)
-    c = 0.55
-    M = 0.1
-    a = 343.0
-    shift = 12.0
-    amp = 4.0
-    k = 0.1
-
-    v = M*a
-    omega = k*2*v/c
-
-    alf = shift + amp*sin(omega*t)
-    return alf*(pi/180)
-end
-
-function alphavecdot(t)
-    c = 0.55
-    M = 0.1
-    a = 343.0
-    shift = 12.0
-    amp = 4.0
-    k = 0.1
-
-    v = M*a
-    omega = k*2*v/c
-
-    alf = amp*omega*cos(omega*t)
-    return alf*(pi/180)
-end
 
 parameters = [Uvector, 0.0, alphavec, alphavecdot]
 
@@ -71,7 +40,7 @@ x_initial = [0.0, 0.0, 0.0, 0.0]
 
 function objective(g, x)
 
-    x1, x2, x3, x4, x5, x6 = x
+    x1, x2, x3, x4, x5, x6, x7 = x
 
 
     
@@ -81,15 +50,43 @@ function objective(g, x)
     dsmodel.b[2] = x4
     dsmodel.T[1] = x5
     dsmodel.T[2] = x6
-    
 
-    
 
 
     af = dsm.make_airfoil(polar, dsmodel, c; sfun=dsm.RSP())
 
 
     airfoils[1] = af
+
+    function alphavec(t)
+        c = x7
+        M = 0.1
+        a = 343.0
+        shift = 12.0
+        amp = 4.0
+        k = 0.1
+    
+        v = M*a
+        omega = k*2*v/c
+    
+        alf = shift + amp*sin(omega*t)
+        return alf*(pi/180)
+    end
+    
+    function alphavecdot(t)
+        c = x7
+        M = 0.1
+        a = 343.0
+        shift = 12.0
+        amp = 4.0
+        k = 0.1
+    
+        v = M*a
+        omega = k*2*v/c
+    
+        alf = amp*omega*cos(omega*t)
+        return alf*(pi/180)
+    end
 
 
     prob = ODEProblem(airfoils, x_initial, tspan, parameters)

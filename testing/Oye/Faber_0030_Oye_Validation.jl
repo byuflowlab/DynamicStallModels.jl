@@ -7,9 +7,9 @@ path = dirname(@__FILE__)
 cd(path)
 
 
-file = "../../polars/NACA_0015_Faber.csv" #this airfoil is from Faber's paper in the moderate stall section (NACA 0015)
-polar_0015 = readdlm(file, ',')
-polar = polar_0015
+file = "../../polars/Extended_NACA_0030.csv" #this airfoil is from Faber's paper in the moderate stall section (NACA 0015)
+polar_0030 = readdlm(file, ',')
+polar = polar_0030
 
 
 c = 0.55 #this block contains the chord length, mach number, and speed of sound
@@ -36,9 +36,9 @@ function alpha(t)
     c = 0.55
     M = 0.11
     a = 343.0
-    shift = 9.7
-    amp = 10.0
-    k = 0.051
+    shift = 10.305
+    amp = 9.325
+    k = 0.153
 
     v = M*a
     omega = k*2*v/c
@@ -60,13 +60,15 @@ answer= parsesolution(dsmodel, airfoils, sol, parameters) #parsesolution allows 
                                                           #parsesolution also gives the corresponding angle of attack values for the lift coefficients.
 
 
-file2 = "../../polars/Faber_0015_0.051_Results.csv"
-Faber_Results = readdlm(file2, ',')
 
-plot(polar[55:130, 1]*180/pi, polar[55:130,2], linestyle=:dashdot, linewidth=3, color=:black)
+
+plot(polar[60:83, 1].*180/pi, polar[60:83,2], linewidth = 3, linestyle=:dashdot, color=:black)
 
 plot!(answer[1,30:end].*180/pi, answer[2,30:end], xlabel = L"\mathrm{Angle~of~Attack~(Degrees)}", ylabel = L"C_L", label = "DSM", linewidth = 3, color=:blue)
 
-plot!(Faber_Results[:,1], Faber_Results[:,2], linestyle=:dash, color=:orange, linewidth=3, label= "Faber")
+file2 = "../../polars/Faber_0030_0.153_Results.csv"
+Faber_Result = readdlm(file2, ',')
 
-savefig("Oye_Faber_0015_Comparison")
+plot!(Faber_Result[:,1], Faber_Result[:,2], linewidth = 3, linestyle=:dash, color=:orange, label = "Faber")
+
+savefig("Oye_Faber_0030_Comparison")

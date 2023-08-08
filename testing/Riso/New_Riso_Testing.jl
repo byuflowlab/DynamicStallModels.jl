@@ -15,7 +15,7 @@ M = 0.11
 v = 343
 Vrel = M*v
 
-dsmodel = Riso(Functional(), [0.294, 0.331] , [0.0664, 0.3266], [1.5, 6]) 
+dsmodel = Riso(Functional(), [0.11901046494134122, 0.2964635220443628] , [0.03833505254532422, 1.0129092704149298], [1.2267722555383287, 6.257533490189598]) 
 af = dsm.make_airfoil(polar, dsmodel, c; sfun=dsm.RSP())
 
 airfoils = Array{Airfoil, 1}(undef, 1)
@@ -32,7 +32,7 @@ function alphavec(t)
     M = 0.11
     a = 343.0
     shift = 10.0
-    amp = 10.0
+    amp = 10.64
     k = 0.051
 
     v = M*a
@@ -47,7 +47,7 @@ function alphavecdot(t)
     M = 0.11
     a = 343.0
     shift = 10.0
-    amp = 10.0
+    amp = 10.64
     k = 0.051
 
     v = M*a
@@ -65,17 +65,12 @@ sol = DifferentialEquations.solve(prob, reltol=1e-8)
 
 answer = parsesolution(dsmodel, airfoils, sol, parameters)
 
-"""
-plot(answer[1,:].*180/pi, extra[1,:], xlabel = "Angle of Attack (Degrees)", ylabel = "Coefficient of Lift", linewidth=2, label = "Fully Separated")
-plot!(answer[1,:].*180/pi, stuff[1,:], linewidth = 2, label="Static")
-plot!(answer[1,:].*180/pi , answer[2,:], linewidth=2, label="DSM's Riso")
+plot(polar[52:85,1].*180/pi, polar[52:85,2], linestyle=:dashdot, linewidth=3, label = "Static (NACA 0030)", color=:black)
+
+plot!(answer[1,:].*180/pi, answer[2,:], xlabel = "Angle of Attack (Degrees)", ylabel = "Cl", linewidth=3, label = "DSM", color=:blue)
 
 file2 = "../../polars/Faber_Riso_NACA_0030.csv"
 Faber_Riso = readdlm(file2, ',')
 
-plot!(Faber_Riso[:,1], Faber_Riso[:,2], linestyle=:dash, linewidth=2, label="Faber's Riso")
-
-#savefig("Faber_Riso_0030")
-"""
-
-#plot(answer[1,:], answer[2,:])
+plot!(Faber_Riso[:,1], Faber_Riso[:,2], linestyle=:dash, linewidth=3, label="Faber", color=:orange)
+savefig("Faber_Riso_Matching_0030")
