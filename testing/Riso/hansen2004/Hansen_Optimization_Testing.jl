@@ -6,12 +6,12 @@ dsm = DynamicStallModels
 
 
 
-file2 = "../../polars/Hansen_6315_Top_Half_Blue.csv"
+file2 = "../../../polars/Hansen_6315_Top_Half_Blue.csv"
 Hansen_Data = readdlm(file2, ',')
 #Hansen_Data[:,1] = Hansen_Data[:,1].*pi/180
 
 
-file = "../../polars/Hansen_6315.csv"
+file = "../../../polars/Hansen_6315.csv"
 polar = readdlm(file , ',')
 
 
@@ -135,4 +135,4 @@ end
 
 run()
 
-savefig("Variable_Tp")
+#savefig("Variable_Tp")

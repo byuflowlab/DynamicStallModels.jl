@@ -11,6 +11,8 @@ of = OpenFASTsr
     include("./beddoesleishmanADG_tests.jl")
     include("./Oye_Test.jl")
     include("./Larsen_Separation_Point_Test.jl")
+    include("Riso_Separation_Point_Tests.jl")
+    include("riso_full_sep_tests.jl")
 # include("./risotests.jl")
 # include("./beddoesleishmantests.jl")
 end

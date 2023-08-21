@@ -88,16 +88,25 @@ hansen_separated = readdlm(file2, ',')
 sep_fit = Akima(hansen_separated[:,1], hansen_separated[:,2])
 error = zeros(1, 53)
 
-@testset "Riso" begin
-    @testset "Fully Separated Lift" begin
+@testset "Riso Fully Separated Lift" begin
+    @testset "Comparison to Hansen Fully Separated" begin
         for i in 0:52
             error[1, i+1] = abs(sep_fit((i/100)*180/pi) - hansen_fully_sep(af, i/100))
         end
-        
+    
         @test sum(error)/length(error) <= 0.02
-
-        for i in 0:52
-            @test hansen_fully_sep(af, i/100) <= af.cl(i/100)
+    end
+    
+    @testset "Comparison to Static Lift" begin
+        @testset "Linear Region" begin
+            for i in 0:5
+                @test isapprox(hansen_fully_sep(af, i/100),  af.cl(i/100)/2, rtol=0.05)
+            end
+        end
+        @testset "Linear and Post Stall Region" begin
+            for i in 0:52
+                @test hansen_fully_sep(af, i/100) <= af.cl(i/100)
+            end
         end
     end
 end

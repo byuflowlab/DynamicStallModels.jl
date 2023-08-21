@@ -6,7 +6,7 @@ dsm = DynamicStallModels
 path = dirname(@__FILE__)
 cd(path)
 
-file = "../../polars/Hansen_Figure3.csv"
+file = "../../../polars/Hansen_Figure3.csv"
 
 polar = readdlm(file , ',')
 
@@ -69,12 +69,12 @@ plot(answer[1,:].*180/pi, stuff[1,:], linewidth = 2, label = "Static", xlabel = 
 plot!(answer[1,:].*180/pi, more[1,:], linewidth = 2, label = "Separation Point (DSM)")
 plot!(answer[1,:].*180/pi, extra[1,:], linewidth=2, label = "Fully Separated Lift (DSM)")
 
-file2 = "../../polars/Hansen_Fig3_FullSep.csv"
+file2 = "../../../polars/Hansen_Fig3_FullSep.csv"
 Hansen_Full_Sep = readdlm(file2, ',')
 
 plot!(Hansen_Full_Sep[:,1], Hansen_Full_Sep[:,2], linewidth =2, linestyle=:dash, label = "Fully Separated Lift (Hansen)")
 
-file3 = "../../polars/Hansen_Fig3_SepPoint.csv"
+file3 = "../../../polars/Hansen_Fig3_SepPoint.csv"
 Hansen_SepPoint = readdlm(file3, ',')
 
 plot!(Hansen_SepPoint[:,1], Hansen_SepPoint[:,2], linewidth =2, linestyle=:dash, label = "Separation Point (Hansen)")

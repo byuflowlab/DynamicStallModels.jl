@@ -6,7 +6,7 @@ dsm = DynamicStallModels
 path = dirname(@__FILE__)
 cd(path)
 
-file = "../../polars/Hansen_6315.csv"
+file = "../../../polars/Hansen_6315.csv"
 
 polar = readdlm(file , ',')
 
@@ -143,7 +143,7 @@ answer3 = parsesolution(dsmodel, airfoils, sol3, parameters3)
 plot(answer[1,50:end].*180/pi, answer[2,50:end], linewidth = 3, xlabel = "Angle of Attack (Degrees)", ylabel = "Cl", label = "DSM", legend=:bottomright,
  color=:blue, tickfontsize=10)
 
-file2 = "../../polars/Hansen_6315_Blue_Full.csv"
+file2 = "../../../polars/Hansen_6315_Blue_Full.csv"
 
 Hansen = readdlm(file2, ',')
 
@@ -151,7 +151,7 @@ plot!(Hansen[:,1], Hansen[:,2], linewidth = 3, linestyle=:dash, label = "Hansen"
 
 plot!(polar[55:90,1].*180/pi, polar[55:90,2], label = "Static", linestyle=:dashdot, linewidth =3)
 
-file3 = "../../polars/Hansen_6315_Green.csv"
+file3 = "../../../polars/Hansen_6315_Green.csv"
 
 Hansen_Green = readdlm(file3, ',')
 
@@ -159,7 +159,7 @@ plot!(answer2[1,70:end].*180/pi, answer2[2,70:end], linewidth=3, label=:false, c
 plot!(Hansen_Green[:,1], Hansen_Green[:,2], linestyle=:dash, linewidth=3, label=:false, color=:orange)
 
 
-file4 = "../../polars/Hansen_6315_Black.csv"
+file4 = "../../../polars/Hansen_6315_Black.csv"
 Hansen_Black = readdlm(file4, ',')
 
 plot!(answer3[1,50:end].*180/pi, answer3[2,50:end], linewidth=3, label=:false, color=:blue)

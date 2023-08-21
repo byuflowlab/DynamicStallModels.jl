@@ -4,7 +4,7 @@
 
 ## Functional Solve Example
 
-This version of the Risø method uses the functional solve. The functional solve uses an ODE solver like `DifferentialEquations.jl` to automaticall solve the state rate equations.
+This version of the Risø method uses the functional solve. The functional solve uses an ODE solver like `DifferentialEquations.jl` to automatically solve the state rate equations.
 
 To begin, we prepare for a functional solve. In this example, we will be using the NACA 0030 polar from Faber's paper. This is a polar that was created using `webplotdigitizer.com` and was extended using extrapolation with `CCblade.jl`. `DelimitedFiles.jl` is then used to read in this file.
 
@@ -26,7 +26,7 @@ Vrel = M*v
 
 The model can now be generated. We set `Riso` as the dynamic stall model; `Functional()` as the solve method; and fill the vectors with the airfoil specific constants $A1$, $A2$, $b1$, $b2$, $T_p$, and $T_f$, respective from left to right.
 
-Then the airfoil can be created by using the `dsm.make_airfoil` function and by passing is the polar, the model, and choosing the Risø separation function `dsm.RSP()`.
+Then the airfoil can be created by using the `dsm.make_airfoil` function and by passing in the polar, the model, and choosing the Risø separation function `dsm.RSP()`.
 
 ``` julia
 dsmodel = Riso(Functional(), [0.11901046494134122, 0.2964635220443628] , [0.03833505254532422, 1.0129092704149298], [1.2267722555383287, 6.257533490189598]) 
@@ -84,9 +84,9 @@ function alphavecdot(t)
 end
 ```
 
-The parameters can now be passed into a vector that will be used for the solve. The order for the vector must always be inflow velocity, rate of change of inflow velocity, angle of attack, and rate of change of the angle of attack (in that order). If multiple airfoils are be evaluated, the this pattern will just continue on: making the vector larger and larger. For this specific solve, the rate of change of the inflow velocity is zero, so `0.0` is passed into its position in the vector.
+The parameters can now be passed into a vector that will be used for the solve. The order for the vector must always be inflow velocity, rate of change of inflow velocity, angle of attack, and rate of change of the angle of attack (in that order). If multiple airfoils are be evaluated, this pattern will just continue on: making the vector larger and larger. For this specific solve, the rate of change of the inflow velocity is zero, so `0.0` is passed into its position in the vector.
 
-For the initial conditions, the order is $x_1$, $x_2$, $x_3$, and $x_4$. Passing in `0.0` for the initial conditions is perfectly fine, since the solution will converge to solutions anyways. Also, just like the parameter vector, if multiple airfoils are being evaluated, then the order just continues in this vector.
+For the initial conditions, the order is $x_1$, $x_2$, $x_3$, and $x_4$. Passing in `0.0` for the initial conditions is perfectly fine, since the solution will converge to a solution anyways. Also, just like the parameter vector, if multiple airfoils are being evaluated, then the order just continues in this vector.
  
 ``` julia
 parameters = [Uvector, 0.0, alphavec, alphavecdot]
@@ -117,6 +117,8 @@ answer = parsesolution(dsmodel, airfoils, sol, parameters)
 using Plots
 plot(answer[1,:].*180/pi, answer[2,:], xlabel = "Angle of Attack (Degrees)", ylabel = "Cl", linewidth=3, label = "DSM (Risø)", color=:blue)
 ```
+
+![Riso Figure](../../figures/riso/Faber/Simple_Riso_0030_Plot.png)
 
 ---
 
@@ -202,3 +204,5 @@ states, loads = solve_indicial(airfoils, tvec, uvec, avec; alphadotvec = avecdot
 using Plots
 plot(avec.*180/pi, loads[:,1], linewidth=3, xlabel = "Angle of Attack (Degrees)", ylabel = "Cl", label = "DSM (Risø)", color=:blue)
 ```
+
+![Riso Figure](../../figures/riso/Faber/Simple_Riso_0030_Plot.png)

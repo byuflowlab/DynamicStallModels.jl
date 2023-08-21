@@ -69,6 +69,8 @@ plot(polar[52:85,1].*180/pi, polar[52:85,2], linestyle=:dashdot, linewidth=3, la
 
 plot!(answer[1,:].*180/pi, answer[2,:], xlabel = "Angle of Attack (Degrees)", ylabel = "Cl", linewidth=3, label = "DSM", color=:blue)
 
+
+
 file2 = "../../polars/Faber_Riso_NACA_0030.csv"
 Faber_Riso = readdlm(file2, ',')
 

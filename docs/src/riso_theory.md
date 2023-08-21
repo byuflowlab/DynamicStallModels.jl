@@ -58,7 +58,7 @@ $$
 T_f = \tau_f T_u
 $$
 
-where $T_u$ is the first time constant, and $\tau_f$ has the same role as $\tau_p$ in the second time constant equation. However, Faber states that $\tau_f$ is defaulted to be $6.0$, but just as before, this value will generally vary from airfoil to airfoil. This constant is used to represent that lag in the boundary layer.
+where $T_u$ is the first time constant, and $\tau_f$ has the same role as $\tau_p$ in the second time constant equation. However, Faber states that $\tau_f$ is defaulted to be $6.0$, but just as before, this value will generally vary from airfoil to airfoil. This constant is used to represent the lag in the boundary layer.
 
 ### Lift Curve Slope
 
