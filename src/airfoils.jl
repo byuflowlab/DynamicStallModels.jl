@@ -302,7 +302,7 @@ Create a new airfoil object based on the input airfoil object. Any option argume
 - dcldalpha::Float - The replacement lift curve slope evaluated at alpha0. 
 - dcndalpha::Float - The replacement normal curve slope evaluated at alpha0. 
 """
-function update_airfoil(airfoil::Airfoil; dsmodel::DSModel=nothing, polar=nothing, dcldalpha=nothing, dcndalpha=nothing, alpha0=nothing, alphasep=nothing, alphacut=nothing, cutrad=nothing, sfun=nothing, chord=nothing, xcp=nothing)
+function update_airfoil(airfoil::Airfoil; dsmodel::Union{DSModel, Nothing}=nothing, polar=nothing, dcldalpha=nothing, dcndalpha=nothing, alpha0=nothing, alphasep=nothing, alphacut=nothing, cutrad=nothing, sfun=nothing, chord=nothing, xcp=nothing)
 
     if isnothing(dsmodel)
         newdsmodel = airfoil.model
