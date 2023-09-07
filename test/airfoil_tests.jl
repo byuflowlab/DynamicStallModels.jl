@@ -1,8 +1,8 @@
-using DynamicStallModels, DelimitedFiles, DifferentialEquations, OpenFASTsr, FLOWMath, Statistics
+using DynamicStallModels, DelimitedFiles, DifferentialEquations, OpenFASTTools, FLOWMath, Statistics
 using Test
 
 dsm = DynamicStallModels
-of = OpenFASTsr
+of = OpenFASTTools
 
 path = dirname(@__FILE__)
 cd(path)
@@ -28,7 +28,7 @@ include("./testingutils.jl")
 
             du21_a17 = of.read_airfoilinput("../data/airfoils/DU40_A17.dat") 
             af = of.make_dsairfoil(du21_a17, c) 
-            af = update_airfoil(af; dsmodel, sfun=dsm.LSP(), alphasep=af.alphasep.*4.5)
+            af = update_airfoil(af; dsmodel, sfun=dsm.OSP(), alphasep=af.alphasep.*4.5)
 
             airfoils = Array{Airfoil, 1}(undef, 1)
             airfoils[1] = af
@@ -62,7 +62,7 @@ include("./testingutils.jl")
         end
 
         let ### Test vectors of airfoils functionalities
-            ## Read in AeroDyn files #Todo: Switch to a test that doesn't depend on updates from OpenFASTsr.
+            ## Read in AeroDyn files #Todo: Switch to a test that doesn't depend on updates from OpenFASTTools.
             addriver = of.read_addriver("NREL5MW_ADdriver.dvr", "../testing/OpenFAST_NREL5MW_modified")
             adfile = of.read_adfile("NREL5MW_ADfile.dat","../testing/OpenFAST_NREL5MW_modified")
             adblade = of.read_adblade("NREL5MW_adblade.dat", "../testing/OpenFAST_NREL5MW_modified")

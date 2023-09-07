@@ -27,7 +27,7 @@ Lift_Bottom_Half = Akima(Polar_Bottom_Half[:,1].*pi/180, Polar_Bottom_Half[:,2])
 
 dsmodel = Oye(Functional(), 1, 2, 4.0)
 
-af = dsm.make_airfoil(polar, dsmodel, c; sfun=dsm.LSP())
+af = dsm.make_airfoil(polar, dsmodel, c; sfun=dsm.OSP())
 
 airfoils = Array{Airfoil, 1}(undef, 1)
 airfoils[1] = af
@@ -65,7 +65,7 @@ answer = parsesolution(dsmodel, airfoils, sol, parameters)
 
 dsmodel_2 = Oye(Indicial(), 1, 2, 4.0)
 
-af_2 = dsm.make_airfoil(polar, dsmodel_2, c; sfun=dsm.LSP())
+af_2 = dsm.make_airfoil(polar, dsmodel_2, c; sfun=dsm.OSP())
 
 airfoils_2 = Array{Airfoil, 1}(undef, 1)
 airfoils_2[1] = af_2

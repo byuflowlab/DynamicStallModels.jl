@@ -17,7 +17,7 @@ polar = readdlm(file , ',')
 
 dsmodel = Oye(Functional(), 1, 2, 4.0)
 
-af = dsm.make_airfoil(polar, dsmodel, c; sfun=dsm.LSP())
+af = dsm.make_airfoil(polar, dsmodel, c; sfun=dsm.OSP())
 
 airfoils = Array{Airfoil, 1}(undef, 1)
 airfoils[1] = af

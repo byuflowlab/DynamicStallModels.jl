@@ -1,4 +1,4 @@
-using DynamicStallModels, OpenFASTsr, FLOWMath, Plots, Plots.PlotMeasures, DelimitedFiles, LaTeXStrings
+using DynamicStallModels, OpenFASTTools, FLOWMath, Plots, Plots.PlotMeasures, DelimitedFiles, LaTeXStrings
 
 #=
 Test the separation point functions. (Starting with the AeroDyn original separation point fit (Equation 1.32 inversed.))
@@ -8,7 +8,7 @@ Adam present 9/27/22
 Chordwise separation point functions added. - Adam 11/28/22
 =#
 
-of = OpenFASTsr
+of = OpenFASTTools
 dsm = DynamicStallModels
 
 path = dirname(@__FILE__)

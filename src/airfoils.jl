@@ -635,13 +635,8 @@ separationpoint(sfun::Function, airfoil::Airfoil, alpha) = sfun(alpha)
 #=
 Larsen's separation point function from his 2007 paper. 
 =#
-<<<<<<< HEAD
 function separationpoint(sfun::OSP, airfoil::Airfoil, alpha)
     #println("using the OSP separation point function. Currently at line 639 in airfoils.jl ")
-=======
-function separationpoint(sfun::LSP, airfoil::Airfoil, alpha)
-    #println("using the LSP separation point function. Currently at line 639 in airfoils.jl ")
->>>>>>> master
     if alpha>airfoil.alphasep[2] #? right after stall is fully separated? not partially?
         return 0.0
     elseif alpha<airfoil.alpha0

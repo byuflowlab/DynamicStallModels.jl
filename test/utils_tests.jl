@@ -1,11 +1,11 @@
 #=
 Tests for all the utilities. 
 =# 
-using DynamicStallModels, DelimitedFiles, OpenFASTsr
+using DynamicStallModels, DelimitedFiles, OpenFASTTools
 using Test
 
 DSM = DynamicStallModels
-of = OpenFASTsr
+of = OpenFASTTools
 
 path = dirname(@__FILE__)
 cd(path)

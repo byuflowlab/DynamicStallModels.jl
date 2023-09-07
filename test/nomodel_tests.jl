@@ -3,10 +3,10 @@ Testing NoModel.
 =#
 
 using Test
-using DynamicStallModels, DelimitedFiles, OpenFASTsr, Statistics
+using DynamicStallModels, DelimitedFiles, OpenFASTTools, Statistics
 
 DSM = DynamicStallModels
-of = OpenFASTsr
+of = OpenFASTTools
 
 path = dirname(@__FILE__)
 cd(path)
@@ -15,7 +15,7 @@ include("./testingutils.jl")
 
 
 @testset "NoModel" begin
-    ### Read in AeroDyn files #Todo: Switch to a test that doesn't depend on updates from OpenFASTsr.
+    ### Read in AeroDyn files #Todo: Switch to a test that doesn't depend on updates from OpenFASTTools.
     #Todo: I might have changed the input files... which would be a bummer. 
     addriver = of.read_addriver("NREL5MW_ADdriver.dvr", "../testing/OpenFAST_NREL5MW_modified")
     adfile = of.read_adfile("NREL5MW_ADfile.dat","../testing/OpenFAST_NREL5MW_modified")
