@@ -1,0 +1,86 @@
+using DynamicStallModels, DelimitedFiles, Plots, FLOWMath, OpenFASTsr, LaTeXStrings
+
+dsm = DynamicStallModels
+of = OpenFASTsr
+
+path = dirname(@__FILE__)
+cd(path)
+
+c = 0.55
+
+M = 0.11
+a = 343.0
+Vrel = M*a #60
+
+# polar = readdlm("/Users/adamcardoza/Library/CloudStorage/Box-Box/research/FLOW/learning/exploring/exampledata/NACA4412.dat", '\t'; skipstart=3) 
+# af = airfoil(polar) #Todo: This constructor is broken.
+
+dsmodel = Oye(Indicial(), 1, 2, 4.0)
+
+#du21_a17 = of.read_airfoilinput("../../data/airfoils/DU40_A17.dat") 
+#af = of.make_dsairfoil(du21_a17, c) 
+
+af = dsm.make_airfoil(polar_0015, dsmodel, c; sfun=dsm.LSP())
+
+airfoils = Array{Airfoil, 1}(undef, 1)
+airfoils[1] = af
+
+
+
+#Note: alphasep is much higher for Faber's implemenation of the dsmodel. -> It might need more tuning... but it's something. 
+
+
+tvec = range(0, 1.0, 1000) #0:0.001:0.05
+Uvec = Vrel.*ones(length(tvec))
+
+function alpha(t)
+    c = 0.55
+    M = 0.11
+    a = 343.0
+    shift = 10.0
+    amp = 10.0
+    k = 0.051
+
+    v = M*a
+    omega = k*2*v/c
+
+    alf = shift + amp*sin(omega*t)
+    return alf*(pi/180)
+end
+
+alphavec = alpha.(tvec)
+
+# states, loads = solve_indicial(dsmodel, [c], tvec, Uvec, alphavec)
+states, loads = solve_indicial(airfoils, tvec, Uvec, alphavec)
+
+
+stateplt = plot(tvec, states[:,1], leg=false, xaxis="time (s)", yaxis="f")
+# display(stateplt)
+
+
+cn = loads[:,1]
+if dsmodel.cflag == 2
+    cn_static = af.cn.(alphavec)
+else
+    cn_static = af.cl.(alphavec)
+end
+
+cnplt = plot( xaxis="time (s)", yaxis=L"C_n", leg=:topright)
+plot!(tvec, cn, lab="DSM")
+plot!(tvec, cn_static, lab="Static")
+# display(cnplt) 
+
+
+cyclecnplt = plot(xaxis="Angle of Attack (deg)", yaxis=L"C_n", leg=:bottomright)
+plot!(alphavec.*(180/pi), cn, lab="DSM")
+plot!(alphavec.*(180/pi), cn_static, lab="Static")
+# vline!([af.alphasep[2]*(180/pi)], lab=L"\alpha_s")
+display(cyclecnplt) 
+# savefig("/Users/adamcardoza/Desktop/fabermethod.png")
+
+#=
+I think that I have the models matching, the difference is that I'm using Cn in this model and Cl in the other. 
+=#
+
+
+nothing

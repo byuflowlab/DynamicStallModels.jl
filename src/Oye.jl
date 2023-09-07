@@ -18,7 +18,11 @@ The Øye model struct. It stores airfoil data for every section to be simulated.
 ### Inputs
 - detype - The type of model it is, Functional(), Iterative(), or Indicial().
 - cflag::Int - A flag to apply the separation delay to the coefficient of 1) lift, 2) normal force. 
+<<<<<<< HEAD
 - version::Int - A flag to say whether to use 1) Hansen 2008, 2) Larsen's Hermite interpolation from Faber's 2018's implementation of the model, or 3) Øye's parabola fit.
+=======
+- version::Int - A flag to say whether to use 1) Hansen 2008, or 2) Larsen's Hermite interpolation from Faber's 2018's implementation of the model.
+>>>>>>> master
 - A::Float - Dynamic stall coefficient. 
 """
 struct Oye{TI, TF} <: DSModel
@@ -30,8 +34,13 @@ struct Oye{TI, TF} <: DSModel
     function Oye{TI, TF}(detype::DEType, cflag::TI, version::TI, A::TF) where {TI, TF}
         if cflag>2
             error("Øye: the cflag only accepts flags of 1 or 2.")
+<<<<<<< HEAD
         elseif version>3
             error("Øye: the version only accepts values of 1, 2, or 3.")
+=======
+        elseif version>2
+            error("Øye: the version only accepts values of 1 or 2.")
+>>>>>>> master
         end
         return new{TI, TF}(detype, cflag, version, A)
     end
@@ -52,6 +61,7 @@ function numberofparams(dsmodel::Oye)
     return 2
 end
 
+<<<<<<< HEAD
 """
     get_cn(airfoil, alpha)
 
@@ -61,6 +71,8 @@ Determines whether the aerodynamic coefficient should be with respect to the lif
 - airfoil::Airfoil: The airfoil being evaluated.
 - alpha: The corresponding angle of attack.
 """
+=======
+>>>>>>> master
 function get_cn(airfoil, alpha)
     if airfoil.model.cflag == 2
         return airfoil.cn(alpha) #Static normal force
@@ -69,6 +81,7 @@ function get_cn(airfoil, alpha)
     end
 end
 
+<<<<<<< HEAD
 """
     get_dcndalpha(airfoil)
 
@@ -77,6 +90,8 @@ Determines whether the derivative of the aerodynamic coefficient should be with 
 **Arguments**
 - airfoil::Airfoil: The airfoil being evaluated.
 """
+=======
+>>>>>>> master
 function get_dcndalpha(airfoil)
     if airfoil.model.cflag == 2
         return airfoil.dcndalpha #Static normal force
@@ -109,6 +124,7 @@ end
 #     end
 # end
 
+<<<<<<< HEAD
 """
     initialize(dsmodel::Oye, airfoil::Airfoil, tvec, y)
 
@@ -120,6 +136,9 @@ Finds the initial state value for an airfoil that will be used in the indicial s
 - tvec::StepRangeLen: The range of time values that are used for calculations.
 - y::Vector{TF}: A vector containing the parameters for an airfoil (such as the angle of attack at a given time).
 """
+=======
+
+>>>>>>> master
 function initialize(dsmodel::Oye, airfoil::Airfoil, tvec, y)
     if isa(dsmodel.detype, Functional)
         @warn("Oye Functional implementation isn't prepared yet. - initialize()")
@@ -127,7 +146,11 @@ function initialize(dsmodel::Oye, airfoil::Airfoil, tvec, y)
         @warn("Oye Iterative implementation isn't prepared yet. - initialize()")
     else #Model is indicial
 
+<<<<<<< HEAD
         _, _, alpha, _= y
+=======
+        _, _, alpha, _ = y
+>>>>>>> master
 
         fst = separationpoint(airfoil, alpha)
 
@@ -159,6 +182,7 @@ end
 #=
 In-place version. 
 =#
+<<<<<<< HEAD
 """
     update_states!(dsmodel::Oye, airfoil::Airfoil, oldstate, newstate, y, dt)
 
@@ -180,6 +204,16 @@ function update_states!(dsmodel::Oye, airfoil::Airfoil, oldstate, newstate, y, d
 
     fst = separationpoint(airfoil, alpha) #Current static degree of attachment (separation point)  
 
+=======
+function update_states!(dsmodel::Oye, airfoil::Airfoil, oldstate, newstate, y, dt)
+    ### Unpack 
+    U, _, alpha, _ = y
+    fold = oldstate[1]
+
+
+    fst = separationpoint(airfoil, alpha) #Current static degree of attachment (separation point)  
+
+>>>>>>> master
     tau = dsmodel.A*airfoil.c/U #Time constant - From Hansen's 2008 paper (all other constants will need to be converted to Hansen's format)
 
     f = fst + (fold - fst)*exp(-dt/tau) #Delay on separation point 
@@ -191,6 +225,7 @@ function update_states!(dsmodel::Oye, airfoil::Airfoil, oldstate, newstate, y, d
     newstate[1] = f
 end
 
+<<<<<<< HEAD
 """
     get_loads(dsmodel::Oye, airfoil::Airfoil, states, y)
 
@@ -202,11 +237,17 @@ Obtains the coefficients of lift, drag, and moments for a given airfoil using th
 - states::Vector{TF}: The states at a given time value.
 - y::Vector{TF}: A vector containg the parameters for an airfoil (such as its angle of attack).
 """
+=======
+>>>>>>> master
 function get_loads(dsmodel::Oye, airfoil::Airfoil, states, y)
     ### Unpack
     f = states[1]
 
+<<<<<<< HEAD
     _, _, alpha, _= y # U, alpha = y
+=======
+    _, _, alpha, _ = y # U, alpha = y
+>>>>>>> master
 
 
     dcndalpha = get_dcndalpha(airfoil)

@@ -151,7 +151,6 @@ end
 
 
 function (airfoils::AbstractVector{<:Airfoil})(state_out, state_in, state_idxs, y, t_aspect)
-
     for i in eachindex(airfoils)
         nsi1, nsi2 = state_indices(airfoils[i].model, state_idxs[i])
         xsi = view(state_in, nsi1:nsi2)
