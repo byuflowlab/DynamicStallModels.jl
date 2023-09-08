@@ -56,12 +56,6 @@ struct BLSP{TF} <: SeparationPoint
     S::Array{TF, 1}
 end
 
-"""
-    LSP()
-Larsen's separation point function from his 2007 paper (and repeated in Oye from Faber 2018).
-"""
-struct LSP <: SeparationPoint
-end
 
 
 """
@@ -202,7 +196,7 @@ function make_simpleairfoil(polar, dsmodel::DSModel, chord)
     _, minclidx = findmin(clvec) #TODO: I have the find_seperation_alpha function. 
     _, maxclidx = findmax(clvec)
 
-    if isa(sfun, LSP) #this kind of setup is required for hermite interpolation to work properly
+    if isa(sfun, OSP) #this kind of setup is required for hermite interpolation to work properly
         alphasep = [-32*pi/180, 32*pi/180]
     else
         alphasep = [polar[minclidx, 1], polar[maxclidx,1]]
@@ -235,7 +229,7 @@ A slightly more complex version of simpleairfoil. Takes a polar and numerically 
 ### Outputs
 - Airfoil
 """
-function make_airfoil(polar, dsmodel::DSModel, chord; xcp=0.2, sfun::Union{SeparationPoint, Function}=ADSP(1, 1), alphacut = 45*pi/180, cutrad = 5*pi/180) 
+function make_airfoil(polar, dsmodel::DSModel, chord; xcp=0.2, sfun::Union{SeparationPoint, Function}=ADSP(1, 1), alphacut = 45*pi/180, cutrad = 5*pi/180, eta = 1.0) 
     #TODO: Need some sort of behavior when the provided polar is too small. 
 
     alphavec = polar[:,1]
@@ -257,7 +251,7 @@ function make_airfoil(polar, dsmodel::DSModel, chord; xcp=0.2, sfun::Union{Separ
     _, maxclidx = findmax(polar[:,2])
     _, minclidx = findmin(polar[1:maxclidx,2])
 
-    if isa(sfun, LSP) #this kind of setup is required for hermite interpolation to work properly
+    if isa(sfun, OSP) #this kind of setup is required for hermite interpolation to work properly
         alphasep = [-32*pi/180, 32*pi/180]
     else
         alphasep = [polar[minclidx, 1], polar[maxclidx,1]]
@@ -293,7 +287,7 @@ end
 
 
 
-function update_airfoil(airfoil::Airfoil; dsmodel::DSModel=nothing, polar=nothing, dcldalpha=nothing, dcndalpha=nothing, alpha0=nothing, alphasep=nothing, alphacut=nothing, cutrad=nothing, sfun=nothing, chord=nothing, xcp=nothing)
+function update_airfoil(airfoil::Airfoil; dsmodel::Union{DSModel, Nothing}=nothing, polar=nothing, dcldalpha=nothing, dcndalpha=nothing, alpha0=nothing, alphasep=nothing, alphacut=nothing, cutrad=nothing, sfun=nothing, chord=nothing, xcp=nothing)
 
     if !(dsmodel == nothing)
         newdsmodel = dsmodel
@@ -560,34 +554,6 @@ function separationpoint(sfun::ADGSP, airfoil::Airfoil, alpha)
 end
 
 
-function separationpoint(sfun::OSP, airfoil::Airfoil, alpha)
-    alpha0 = airfoil.alpha0
-    alphasep = airfoil.alphasep[2]
-
-    if alpha0<=alpha<=alphasep
-        dcldalpha = airfoil.dcldalpha(alpha)
-        Clsep = airfoil.cl(alphasep)
-
-        atop = dcldalpha*(alpha0-alphasep) + Clsep
-        btop = -alpha0*alpha0*dcldalpha - 2*alpha0*Clsep + dcldalpha*alphasep*alphasep
-        ctop = alpha0*(alpha0*(Clsep + dcldalpha*alphasep) - dcldalpha*alphasep*alphasep)
-
-        bot = (alpha0 - alphasep)^2
-
-        a = atop/bot
-        b = btop/bot
-        c = ctop/bot
-
-        return a*(alpha^2) + b*alpha + c
-    elseif alpha>alphasep
-        return 0.0
-    else
-        return 1.0
-    end
-end
-
-
-
 
 # function fst_riso(alpha, liftfit, dcldalpha, alpha0)
     
@@ -608,10 +574,19 @@ function separationpoint(sfun::RSP, airfoil::Airfoil, alpha)
         println("Riso sep function called. ")
     end
 
-    afm, afp = airfoil.alphasep
+
+
+    afm, _ = airfoil.alphasep
     clfit = airfoil.cl
     dcldalpha = airfoil.dcldalpha
     alpha0 = airfoil.alpha0
+
+    f(x) = clfit(x) - dcldalpha*(x - alpha0)/4
+
+    afp , _ = brent(f , 0.17 , 0.8726)
+
+
+    #println(afp)
     #TODO: I'm not really sure that using the minimum of these two is really the way to avoid the problem of this blowing up to infinity. (When alpha=alpha0) (This check happens in the if statement.)
 
     #TODO: I'm not sure that using the absolute value here is the correct way to dodge the problem of crossing the x axis at different times.
@@ -639,12 +614,17 @@ function separationpoint(sfun::RSP, airfoil::Airfoil, alpha)
     f = (2*sqrt(abs(cl_static/cl_linear))-1)^2
     # println(f)  
 
+   
+
+    
     if f>1 #Question: What if I don't return this? I might get Inf.... or possibly NaN... but I will less likely get 1.0... which is my problem child in the seperated coefficient of lift function. -> I fixed the fully seperated coefficient of lift function... I just plugged this function inside the other and simplified. 
-        return typeof(alpha)(1)
+        return typeof(alpha)(1.0)
     elseif isnan(f)
         # println("f return NaN")
-        return typeof(alpha)(1)
+        return typeof(alpha)(1.0)
     end
+    
+
 
     #Todo. Hansen must have some sort of switch that stops this function from reattaching when the aoa gets really high. -> like the one where you automatically set f=0 when you're outside the bounds of afm, afp
     return f
@@ -655,8 +635,8 @@ separationpoint(sfun::Function, airfoil::Airfoil, alpha) = sfun(alpha)
 #=
 Larsen's separation point function from his 2007 paper. 
 =#
-function separationpoint(sfun::LSP, airfoil::Airfoil, alpha)
-    #println("using the LSP separation point function. Currently at line 639 in airfoils.jl ")
+function separationpoint(sfun::OSP, airfoil::Airfoil, alpha)
+    #println("using the OSP separation point function. Currently at line 639 in airfoils.jl ")
     if alpha>airfoil.alphasep[2] #? right after stall is fully separated? not partially?
         return 0.0
     elseif alpha<airfoil.alpha0

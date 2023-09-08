@@ -2,9 +2,9 @@ using Plots
 using DelimitedFiles
 using FLOWMath
 using Polynomials
-using OpenFASTsr
+using OpenFASTTools
 
-of = OpenFASTsr
+of = OpenFASTTools
 
 path = dirname(@__FILE__)
 cd(path)

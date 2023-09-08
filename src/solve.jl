@@ -100,7 +100,7 @@ end
 
 A method on the Airfoil struct to either update the states, or the state rates of the dynamic stall model (respective to if the model is indicial, or functional/iterative). 
 
-### Inputs
+**Arguments**
 - state_in::Vector{TF} - A vector of the old states. 
 - state_out::Vector{TF} - A vector of the new states if the model is indicial, and a vector of the new state rates if the model is a state space model (functional/iterative). 
 - y::Vector{TF} - A vector of the environmental inputs. 
@@ -114,6 +114,18 @@ function (airfoil::Airfoil)(state_out, state_in, y, t_aspect)
     end
 end
 
+"""
+    (airfoils::AbstractVector{<:Airfoil})(state_idxs, state_in, y, t_aspect)
+
+A method on the Airfoil vector struct that is used to call the method on the single airfoil struct (allowing for each airfoil to be evaluated individually).
+
+**Arguments**
+- state_idxs::
+- state_in::Vector{TF}: A vector containing the state values for all of the airfoils coming in.
+- y::Vector{TF}: A vector containing parameter values for all of the airfoils (the function will take the corresponding parameters for a specific airfoil)
+- t_aspect::
+
+"""
 function (airfoils::AbstractVector{<:Airfoil})(state_idxs, state_in, y, t_aspect)
     ns = numberofstates_total(airfoils)
     state_out = zeros(ns)
@@ -139,7 +151,6 @@ end
 
 
 function (airfoils::AbstractVector{<:Airfoil})(state_out, state_in, state_idxs, y, t_aspect)
-    
     for i in eachindex(airfoils)
         nsi1, nsi2 = state_indices(airfoils[i].model, state_idxs[i])
         xsi = view(state_in, nsi1:nsi2)
@@ -210,7 +221,7 @@ function solve_indicial(airfoils::Array{Airfoil, 1}, tvec, Uvec, alphavec; verbo
             ys = view(y, 4*(j-1)+1:4*j)
          
             # idxs = 1:3 #Todo: What the heck is going on here? 
-            idxs = 3*(j-1)+1:3j
+            idxs = 3*(j-1)+1:3*j
             loads_j = view(loads, i+1, idxs)
 
             update_environment!(ys, Uvec[i+1], Udotvec[i+1], alphavec[i+1], alphadotvec[i+1]) #TODO: Figure out how to make this work for varying stations. 
