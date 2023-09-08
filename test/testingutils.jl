@@ -8,3 +8,7 @@ function RMS(x, xt)
     diff = @. (x -xt)^2
     return sqrt(sum(diff)/length(x))
 end
+
+function not(x::Bool)
+    return !x
+end

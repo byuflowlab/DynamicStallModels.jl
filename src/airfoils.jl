@@ -287,7 +287,7 @@ end
 
 
 
-function update_airfoil(airfoil::Airfoil; dsmodel::DSModel=nothing, polar=nothing, dcldalpha=nothing, dcndalpha=nothing, alpha0=nothing, alphasep=nothing, alphacut=nothing, cutrad=nothing, sfun=nothing, chord=nothing, xcp=nothing)
+function update_airfoil(airfoil::Airfoil; dsmodel::Union{DSModel, Nothing}=nothing, polar=nothing, dcldalpha=nothing, dcndalpha=nothing, alpha0=nothing, alphasep=nothing, alphacut=nothing, cutrad=nothing, sfun=nothing, chord=nothing, xcp=nothing)
 
     if !(dsmodel == nothing)
         newdsmodel = dsmodel

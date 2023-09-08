@@ -32,40 +32,6 @@ function numberofparams(dsmodel::Riso)
 end
 
 
-"""
-    get_cn(airfoil, alpha)
-
-Determines whether the aerodynamic coefficient should be with respect to the lift force or normal force based off the user's choice.
-
-**Arguments**
-- airfoil::Airfoil: The airfoil being evaluated.
-- alpha: The corresponding angle of attack.
-"""
-function get_cn(airfoil, alpha) #I dont think that this function is needed for this method since Riso only seems to apply for a lift orientation
-    if airfoil.model.cflag == 2
-        return airfoil.cn(alpha) #Static normal force
-    else
-        return airfoil.cl(alpha)
-    end
-end
-
-
-"""
-    get_dcndalpha(airfoil)
-
-Determines whether the derivative of the aerodynamic coefficient should be with respect to the lift force or normal force based off the user's choice.
-
-**Arguments**
-- airfoil::Airfoil: The airfoil being evaluated.
-"""
-function get_dcndalpha(airfoil) #Like get_cn(), this function probably isn't super useful
-    if airfoil.model.cflag == 2
-        return airfoil.dcndalpha #Static normal force
-    else
-        return airfoil.dcldalpha
-    end
-end
-
 
 """
     initialize(dsmodel::Riso, airfoil::Airfoil, tvec, y)
