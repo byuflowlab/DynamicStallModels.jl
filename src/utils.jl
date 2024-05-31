@@ -118,6 +118,44 @@ function (interp::Linear)(x; verbose::Bool=true)
     return top/bot
 end
 
+function linear(xnew, x, y; verbose::Bool=true)
+
+    if xnew<x[1]
+        if verbose
+            @warn("Linear(): Outside of linear interpolation domain.")
+        end
+        return y[1]
+    elseif xnew>x[end]
+        if verbose
+            @warn("Linear(): Outside of linear interpolation domain.")
+        end
+        return y[end]
+
+    elseif xnew==x[1]
+        return y[1]
+    elseif xnew==x[end]
+        return y[end]
+
+    end
+
+    # @show x, x[1], x[end]
+    #Todo: I should probably figure out a behavior if the function gets passed a NaN 
+
+    idx = findfirst(i -> xnew<i, x)
+
+    # @show idx
+
+    x0 = x[idx-1]
+    x1 = x[idx]
+    y0 = y[idx-1]
+    y1 = y[idx]
+
+    top = y0*(x1-xnew) + y1*(xnew-x0)
+    bot = x1-x0
+
+    return top/bot
+end
+
 
 function rotate_load(Cl, Cd, aoa)
     calpha = cos(aoa)

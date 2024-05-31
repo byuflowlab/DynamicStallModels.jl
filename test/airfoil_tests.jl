@@ -1,8 +1,8 @@
-using DynamicStallModels, DelimitedFiles, DifferentialEquations, OpenFASTsr, FLOWMath, Statistics
+using DynamicStallModels, DelimitedFiles, DifferentialEquations, OpenFASTTools, FLOWMath, Statistics
 using Test
 
 dsm = DynamicStallModels
-of = OpenFASTsr
+of = OpenFASTTools
 
 path = dirname(@__FILE__)
 cd(path)
@@ -62,7 +62,7 @@ include("./testingutils.jl")
         end
 
         let ### Test vectors of airfoils functionalities
-            ## Read in AeroDyn files #Todo: Switch to a test that doesn't depend on updates from OpenFASTsr.
+            ## Read in AeroDyn files #Todo: Switch to a test that doesn't depend on updates from OpenFASTTools.
             addriver = of.read_addriver("NREL5MW_ADdriver.dvr", "../testing/OpenFAST_NREL5MW_modified")
             adfile = of.read_adfile("NREL5MW_ADfile.dat","../testing/OpenFAST_NREL5MW_modified")
             adblade = of.read_adblade("NREL5MW_adblade.dat", "../testing/OpenFAST_NREL5MW_modified")

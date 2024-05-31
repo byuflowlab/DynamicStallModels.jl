@@ -1,4 +1,4 @@
-import OpenFASTsr
+import OpenFASTTools
 using Plots, FLOWMath, Statistics, DelimitedFiles, CCBlade
 
 #=
@@ -12,7 +12,7 @@ function getfieldnames(obj)
     return fieldnames(typeof(obj))
 end
 
-of = OpenFASTsr
+of = OpenFASTTools
 fm = FLOWMath
 
 path = dirname(@__FILE__)

@@ -1,4 +1,9 @@
+#=
+The state space form of the Beddoes-Leishman model. Including several different implementations. 
 
+
+Adam Cardoza 8/24/22
+=#
 
 
 

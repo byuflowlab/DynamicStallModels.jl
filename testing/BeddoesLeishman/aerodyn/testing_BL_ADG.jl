@@ -1,4 +1,4 @@
-using DynamicStallModels, OpenFASTsr, FLOWMath, Plots, Plots.PlotMeasures, DelimitedFiles, LaTeXStrings, Revise, Statistics
+using DynamicStallModels, OpenFASTTools, FLOWMath, Plots, Plots.PlotMeasures, DelimitedFiles, LaTeXStrings, Revise, Statistics
 
 #=
 Test the Beddoes-Leishman model as given in the documentation. I had to make some minor modifications as not all of the equations were given. 
@@ -8,7 +8,7 @@ Adam Cardoza 10/3/22
 
 #Todo: alpha (generic function with 5 methods). I'm not sure that there should be 5 methods. 
 
-of = OpenFASTsr
+of = OpenFASTTools
 DSM = DynamicStallModels
 
 path = dirname(@__FILE__)

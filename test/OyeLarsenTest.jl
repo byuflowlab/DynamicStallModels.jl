@@ -8,10 +8,10 @@ point functions and the Oye method overall
 =#
 
 #Packages to use
-using Revise, Test, DynamicStallModels, DelimitedFiles, OpenFASTsr, Plots, CCBlade, FLOWMath, Revise 
+using Revise, Test, DynamicStallModels, DelimitedFiles, OpenFASTTools, Plots, CCBlade, FLOWMath, Revise 
 
 dsm = DynamicStallModels
-of = OpenFASTsr
+of = OpenFASTTools
 
 #Come back to here 
 path = dirname(@__FILE__)

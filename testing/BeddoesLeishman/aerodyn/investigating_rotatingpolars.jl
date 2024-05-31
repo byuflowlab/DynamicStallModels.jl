@@ -1,4 +1,4 @@
-using OpenFASTsr, FLOWMath, Plots
+using OpenFASTTools, FLOWMath, Plots
 
 du21_a17 = of.read_airfoilinput("../../../data/DU21_A17.dat")
 

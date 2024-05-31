@@ -1,4 +1,4 @@
-using DynamicStallModels, OpenFASTsr, FLOWMath, Plots, Plots.PlotMeasures, DelimitedFiles, LaTeXStrings, Revise, Statistics
+using DynamicStallModels, OpenFASTTools, FLOWMath, Plots, Plots.PlotMeasures, DelimitedFiles, LaTeXStrings, Revise, Statistics
 
 #=
 Testing to see if I can't pass derivativess through the dynamic stall models. 
@@ -8,7 +8,7 @@ Adam Cardoza 7/17/23
 
 
 
-of = OpenFASTsr
+of = OpenFASTTools
 DSM = DynamicStallModels
 
 path = dirname(@__FILE__)

@@ -8,11 +8,11 @@ These implementations are still under construction.
 
 This model is also indicial form, so it will behave similarly to all the other indicial implementations. There are some key differences in this implementation from the original implementation, and they are noted in the theory tab. 
 
-Since this same model is implemented in AeroDyn, we use OpenFASTsr.jl and some AeroDyn inputs and outputs to compare against. First we'll read in information about the airfoil. 
+Since this same model is implemented in AeroDyn, we use OpenFASTTools.jl and some AeroDyn inputs and outputs to compare against. First we'll read in information about the airfoil. 
 
 ```julia
-using DynamicStallModels, OpenFASTsr
-of = OpenFASTsr
+using DynamicStallModels, OpenFASTTools
+of = OpenFASTTools
 du21_a17 = of.read_airfoilinput("../../../data/DU21_A17.dat")
 af = of.make_dsairfoil(du21_a17)
 ```

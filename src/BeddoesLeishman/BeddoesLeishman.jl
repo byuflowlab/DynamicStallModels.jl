@@ -1,9 +1,4 @@
-#=
-The state space form of the Beddoes-Leishman model. Including several different implementations. 
 
-
-Adam Cardoza 8/24/22
-=#
 
 export BeddoesLeishman
 
@@ -18,12 +13,12 @@ The Beddoes-Leishman model struct. It stores airfoil data for every section to b
 - airfoils - A vector of Airfoil structs, one corresponding to each section to be simulated. 
 - version - Which version of the indicial implementation. 1) original. 2) AeroDyn original. 3) AeroDyn Gonzalez. 4) AeroDyn Minema
 """
-struct BeddoesLeishman{TI, TF} <: DSModel
+struct BeddoesLeishman{TI, TF, TFV} <: DSModel
     detype::DEType 
     version::TI #Which version of the indicial implementation.  
-    A #::TFV #The dynamic pressure response coefficients
-    b #::TFV #The secondary dynamic pressure coefficients
-    T #::TFV #The time constants
+    A::TFV #The dynamic pressure response coefficients #Todo: I didn't write down why I changed these from TFV. 
+    b::TFV #The secondary dynamic pressure coefficients
+    T::TFV #The time constants
     Cn1::TF #Separation normal force coefficient
     Cd0::TF #Zero lift drag (Viscous drag)
     Cm0::TF #Zero lift moment
@@ -31,14 +26,14 @@ struct BeddoesLeishman{TI, TF} <: DSModel
     zeta::TF #I forget which efficiency this is. 
     a::TF # Speed of sound
 
-    function BeddoesLeishman{TI, TF}(detype::DEType, version::TI, A, b, T, Cn1::TF, Cd0::TF, Cm0::TF, eta::TF, zeta::TF, a::TF) where {TI, TF}
+    function BeddoesLeishman{TI, TF, TFV}(detype::DEType, version::TI, A::TFV, b::TFV, T::TFV, Cn1::TF, Cd0::TF, Cm0::TF, eta::TF, zeta::TF, a::TF) where {TI, TF, TFV}
         if version>4
             error("BeddoesLeishamn: the version only accepts whole integers between 1-4.")
         end
-        return new{TI, TF}(detype, version, A, b, T, Cn1, Cd0, Cm0, eta, zeta, a)
+        return new{TI, TF, TFV}(detype, version, A, b, T, Cn1, Cd0, Cm0, eta, zeta, a)
     end
 
-    BeddoesLeishman(detype::DEType, version::TI, A, b, T, Cn1::TF, Cd0::TF, Cm0::TF, eta::TF, zeta::TF, a::TF) where {TI, TF} = BeddoesLeishman{TI, TF}(detype, version, A, b, T, Cn1, Cd0, Cm0, eta, zeta, a)
+    BeddoesLeishman(detype::DEType, version::TI, A::TFV, b::TFV, T::TFV, Cn1::TF, Cd0::TF, Cm0::TF, eta::TF, zeta::TF, a::TF) where {TI, TF, TFV} = BeddoesLeishman{TI, TF, TFV}(detype, version, A, b, T, Cn1, Cd0, Cm0, eta, zeta, a)
 end
 
 function BeddoesLeishman(detype::DEType, version::Int, polar, alpha0, alpha1, A, b, T; eta=1.0, zeta=0.5, a=335.0, interp=Akima)
@@ -87,6 +82,10 @@ function get_loads(dsmodel::BeddoesLeishman, airfoil::Airfoil, states, y)
             return BLADG_coefficients(airfoil::Airfoil, states, y)
         elseif dsmodel.version==4
             @warn("AeroDyn Beddoe-Leishman with Minema's modifications not prepared for use yet.")
+        else
+            dsv = dsmodel.version
+            error("$dsv isn't a valid version model number for the Beddoes-Leishman models.")
+            return nothing
         end
     end
 end
@@ -103,6 +102,10 @@ function numberofstates(dsmodel::BeddoesLeishman) #TODO: This probably need to b
     elseif dsmodel.version==4
         @warn("The Minema Beddoes-Leishman model is not yet prepared.")
         return 22
+    else
+        dsv = dsmodel.version
+        error("$dsv isn't a valid version model number for the Beddoes-Leishman models.")
+        return 0
     end
 end
 
@@ -118,6 +121,10 @@ function numberofloads(dsmodel::BeddoesLeishman) #TODO: This probably need to be
     elseif dsmodel.version==4
         @warn("The Minema Beddoes-Leishman model is not yet prepared.")
         return 5
+    else
+        dsv = dsmodel.version
+        error("$dsv isn't a valid version model number for the Beddoes-Leishman models.")
+        return 0
     end
 end
 

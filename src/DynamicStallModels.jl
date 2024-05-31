@@ -7,13 +7,13 @@ export Functional, Iterative, Indicial
 
 abstract type DEType end #Is the model designed to be solved in one go, or iteratively, updating p ever iteration. 
 
-struct Functional <: DEType
+struct Functional <: DEType #Todo: Rename to Continuous or something like that. 
 end
 
 struct Iterative <: DEType #Todo: Get rid of this. I don't think that I need it now that I figured out how to evaulate functions or iteratives within a functional. 
 end
 
-struct Indicial <: DEType
+struct Indicial <: DEType #Todo: Rename to Discrete. 
 end
 
 

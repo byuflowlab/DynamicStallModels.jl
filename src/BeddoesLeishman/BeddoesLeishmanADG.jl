@@ -377,12 +377,12 @@ function update_states_ADG!(airfoil::Airfoil, oldstates, states, y, deltat)  #TO
     states[29] = LESF
     states[30] = TESF
     states[31] = VRTX
-    states[32] = firstpass = 0.0
+    states[32] = firstpass = 0.0 #todo: Should these values be 0 or 0.0? 
 end
 
 
 
-function BLADG_coefficients!(airfoil::Airfoil, loads, states, y) #Todo: I don't know if I need this function. 
+function BLADG_coefficients!(airfoil::Airfoil, loads, states, y) #TODO: I don't know if I need this function. 
     loads .= BLADG_coefficients(airfoil, states, y)
 end
 
@@ -502,8 +502,11 @@ function BLADG_coefficients(airfoil::Airfoil, states, y)
 
 
     ### Lift and Drag
-    Cl = Cn*cos(aoa) + Cc*sin(aoa)
+    Cl = Cn*cos(aoa) + Cc*sin(aoa) #TODO: Use the sincos function? 
     Cd = Cn*sin(aoa) - Cc*cos(aoa) + Cd0 #Adding frictional drag back in. 
+
+    # @show Cl
+    # error("")
 
     
     if firstpass==1.0
@@ -556,7 +559,7 @@ function BLADG_coefficients(airfoil::Airfoil, states, y)
     return Cl, Cd, Cm
 end
 
-function initialize_ADG(airfoil::Airfoil, tvec, y) 
+function initialize_ADG(airfoil::Airfoil, tvec, y) #Todo: I should probably swap tvec for t0.
 
     model = airfoil.model
     Cd0 = model.Cd0
@@ -575,7 +578,7 @@ function initialize_ADG(airfoil::Airfoil, tvec, y)
     Kpa = Kpq = Kppq = Kpppq = 0.0
     Dp = Df = Dfc = Dfm = 0.0
     
-    Cpotn = airfoil.cl(alpha) +(airfoil.cd(alpha)-Cd0)*sin(alpha)
+    Cpotn = airfoil.cl(alpha) + (airfoil.cd(alpha)-Cd0)*sin(alpha) #todo: dynamic dispatch to akima
     fp = fpp = 1.0
     # fp = fpp = 0.0
     fpc = fppc = fclimit

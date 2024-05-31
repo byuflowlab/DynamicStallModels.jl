@@ -1,7 +1,7 @@
-using DynamicStallModels, DelimitedFiles, Plots, FLOWMath, OpenFASTsr, LaTeXStrings
+using DynamicStallModels, DelimitedFiles, Plots, FLOWMath, OpenFASTTools, LaTeXStrings
 
 dsm = DynamicStallModels
-of = OpenFASTsr
+of = OpenFASTTools
 
 path = dirname(@__FILE__)
 cd(path)

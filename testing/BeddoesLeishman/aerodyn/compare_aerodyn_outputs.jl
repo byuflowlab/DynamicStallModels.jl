@@ -1,4 +1,4 @@
-using DynamicStallModels, OpenFASTsr, FLOWMath, Plots, Plots.PlotMeasures, DelimitedFiles
+using DynamicStallModels, OpenFASTTools, FLOWMath, Plots, Plots.PlotMeasures, DelimitedFiles
 
 #=
 Test the Beddoes-Leishman model as given in the documentation. I had to make some minor modifications as not all of the equations were given. 
@@ -6,7 +6,7 @@ Test the Beddoes-Leishman model as given in the documentation. I had to make som
 Adam Cardoza 8/22/22
 =#
 
-of = OpenFASTsr
+of = OpenFASTTools
 
 path = dirname(@__FILE__)
 cd(path)

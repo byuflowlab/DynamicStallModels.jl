@@ -1,7 +1,7 @@
-import OpenFASTsr
+import OpenFASTTools
 using Plots, FLOWMath, Statistics, DelimitedFiles
 
-of = OpenFASTsr
+of = OpenFASTTools
 fm = FLOWMath
 
 path = dirname(@__FILE__)
