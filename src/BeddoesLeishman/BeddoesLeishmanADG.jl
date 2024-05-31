@@ -46,7 +46,7 @@ function update_states_ADG!(airfoil::Airfoil, oldstates, states, y, deltat)  #TO
     dcndalpha = airfoil.dcndalpha
     alpha0 = airfoil.alpha0
     # _, alpha1 = airfoil.alphasep
-    c = airfoil.c
+    # c = airfoil.c
     # xcp = airfoil.xcp
 
     ### Unpack model constants
@@ -61,7 +61,7 @@ function update_states_ADG!(airfoil::Airfoil, oldstates, states, y, deltat)  #TO
     Cn1 = model.Cn1
 
     ### Unpack environmental inputs
-    U, _, aoa, _ = y
+    U, _, aoa, _, c = y #Todo: I began pulling the chord out of the airfoil struct, but it just seems like the best place to put it for this model. But then it makes the airfoil struct less useful for other models in an optimization setting. I dunno. It's there, I suppose I need to sit down and reconsider all of the data structures. And all of the functionality of all the different packages. 
 
     ### Unpack states
     _, alpha_m, q_m, qf_m, Ka_m, Kq_m, Kpa_m, Kpq_m, X1_m, X2_m, X3_m, X4_m, Npot_m, Kppq_m, Kpppq_m, Dp_m, fp_m, fpc_m, fpm_m, Df_m, Dfc_m, Dfm_m, fpp_m, fppc_m, fppm_m, Cv_m, Nv_m, tauv, LESF_m, TESF_m, VRTX_m, firstpass_m = oldstates #The underscore m means that it is the previous time step (m comes before n).

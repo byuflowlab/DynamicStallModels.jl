@@ -67,7 +67,7 @@ function states!(du, u, p, t)
     #alphav - separation angle
     #alpha - Input function
     #alphadot - Input function
-    CL0, CL0dot, alpha, alphadot, alphav, w = p
+    CL0, CL0dot, alpha, alphadot, alphav, w = p #Todo: I think I changed p to be just environmental variables. So CL0 and CL0dot would.... oh, they're functions, that should really just be calculated as part of what's going on. So I think this whole model needs a rework. 
     
     du[1] = -w[1]*u[1] + A[1]*CL0dot(t) #C1
     du[2] = -w[2]*u[2] + A[2]*CL0dot(t) #C2

@@ -19,6 +19,8 @@ end
 
 abstract type DSModel end
 
+const ny = 5
+
 
 include("./utils.jl")
 include("./airfoils.jl")
