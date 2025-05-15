@@ -40,13 +40,13 @@ The states I use are:
 
 
 #AeroDyn original implementation. 
-function update_states_ADG!(airfoil::Airfoil, oldstates, states, y, deltat)  #TODO: Ryan seems to think that all of this airfoil information should pass in from the airfoil struct just fine and not affect how derivatives are calculated. 
+function update_states_ADG!(airfoil::Airfoil, oldstates, states, y, p, deltat)  #TODO: Ryan seems to think that all of this airfoil information should pass in from the airfoil struct just fine and not affect how derivatives are calculated. 
 
     ### Unpack airfoil constants
     dcndalpha = airfoil.dcndalpha
     alpha0 = airfoil.alpha0
     # _, alpha1 = airfoil.alphasep
-    c = airfoil.c
+    c = p[1]
     # xcp = airfoil.xcp
 
     ### Unpack model constants
@@ -382,16 +382,18 @@ end
 
 
 
-function BLADG_coefficients!(airfoil::Airfoil, loads, states, y) #TODO: I don't know if I need this function. 
-    loads .= BLADG_coefficients(airfoil, states, y)
+function BLADG_coefficients!(airfoil::Airfoil, loads, states, y, p) #TODO: I don't know if I need this function. 
+    loads .= BLADG_coefficients(airfoil, states, y, p)
 end
 
 
-function BLADG_coefficients(airfoil::Airfoil, states, y)
+function BLADG_coefficients(airfoil::Airfoil, states, y, p)
 
     U = y[1]
 
-    c = airfoil.c
+    c = p[1]
+    xcp = p[2]
+
     clfit = airfoil.cl
     cdfit = airfoil.cd
     cmfit = airfoil.cm
@@ -399,7 +401,7 @@ function BLADG_coefficients(airfoil::Airfoil, states, y)
     alpha0 = airfoil.alpha0
     alphacut = airfoil.alphacut[2]
     cutrad = airfoil.cutrad
-    xcp = airfoil.xcp
+    # xcp = airfoil.xcp
 
     model = airfoil.model
 
@@ -559,7 +561,7 @@ function BLADG_coefficients(airfoil::Airfoil, states, y)
     return Cl, Cd, Cm
 end
 
-function initialize_ADG(airfoil::Airfoil, tvec, y) #Todo: I should probably swap tvec for t0.
+function initialize_ADG(airfoil::Airfoil, tvec, y, p) #Todo: I should probably swap tvec for t0.
 
     model = airfoil.model
     Cd0 = model.Cd0

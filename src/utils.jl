@@ -118,7 +118,7 @@ function (interp::Linear)(x; verbose::Bool=true)
     return top/bot
 end
 
-function linear(xnew, x, y; verbose::Bool=true)
+function linear(xnew, x, y; verbose::Bool=false) #Todo: this should probably be left true. 
 
     if xnew<x[1]
         if verbose

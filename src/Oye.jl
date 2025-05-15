@@ -16,7 +16,7 @@ export Oye
 The Øye model struct. It stores airfoil data for every section to be simulated. It can be used as a method to return updated states or state rates depending on it's DEType. 
 
 ### Inputs
-- detype - The type of model it is, Functional(), Iterative(), or Indicial().
+- detype - The type of model it is, Continuous() or Discrete().
 - cflag::Int - A flag to apply the separation delay to the coefficient of 1) lift, 2) normal force. 
 - version::Int - A flag to say whether to use 1) Hansen 2008, or 2) Larsen's Hermite interpolation from Faber's 2018's implementation of the model.
 - A::Float - Dynamic stall coefficient. 
@@ -70,14 +70,13 @@ end
 
 
 
-function initialize(dsmodel::Oye, airfoil::Airfoil, tvec, y)
-    if isa(dsmodel.detype, Functional)
-        @warn("Oye Functional implementation isn't prepared yet. - initialize()")
-    elseif isa(dsmodel.detype, Iterative)
-        @warn("Oye Iterative implementation isn't prepared yet. - initialize()")
-    else #Model is indicial
+function initialize(dsmodel::Oye, airfoil::Airfoil, tvec, y, p)
+    if isa(dsmodel.detype, Continuous)
+        @warn("Oye Continuous implementation isn't prepared yet. - initialize()")
+    else #Model is Discrete
 
-        _, _, alpha, _ = y
+        # _, _, alpha, _, _ = y
+        alpha = y[3]
 
         fst = separationpoint(airfoil, alpha)
 
@@ -88,7 +87,7 @@ function initialize(dsmodel::Oye, airfoil::Airfoil, tvec, y)
         states = [fst]
 
         loads = zeros(3)
-        get_loads!(dsmodel::Oye, airfoil, states, loads, y)
+        get_loads!(dsmodel::Oye, airfoil, states, loads, y, p)
         
         return states, loads, y
     end
@@ -100,23 +99,24 @@ end
 
 
 ######## Indicial code
-function update_states(dsmodel::Oye, airfoil::Airfoil, oldstate, y, dt)
+function update_states(dsmodel::Oye, airfoil::Airfoil, oldstate, y, p, dt)
     newstate = zero(oldstate)
-    update_states!(dsmodel, airfoil, oldstate, newstate, y, dt)
+    update_states!(dsmodel, airfoil, oldstate, newstate, y, p, dt)
 end
 
 #=
 In-place version. 
 =#
-function update_states!(dsmodel::Oye, airfoil::Airfoil, oldstate, newstate, y, dt)
+function update_states!(dsmodel::Oye, airfoil::Airfoil, oldstate, newstate, y, p, dt)
     ### Unpack 
     U, _, alpha, _ = y
+    c = p[1] #Extract the chord length from the parameters
     fold = oldstate[1]
 
 
     fst = separationpoint(airfoil, alpha) #Current static degree of attachment (separation point)  
 
-    tau = dsmodel.A*airfoil.c/U #Time constant - From Hansen's 2008 paper (all other constants will need to be converted to Hansen's format)
+    tau = dsmodel.A*c/U #Time constant - From Hansen's 2008 paper (all other constants will need to be converted to Hansen's format)
 
     f = fst + (fold - fst)*exp(-dt/tau) #Delay on separation point 
 
@@ -127,11 +127,12 @@ function update_states!(dsmodel::Oye, airfoil::Airfoil, oldstate, newstate, y, d
     newstate[1] = f
 end
 
-function get_loads(dsmodel::Oye, airfoil::Airfoil, states, y)
+function get_loads(dsmodel::Oye, airfoil::Airfoil, states, y, p)
     ### Unpack
     f = states[1]
 
-    _, _, alpha, _ = y # U, alpha = y
+    # _, _, alpha, _ = y # U, alpha = y
+    alpha = y[3]
 
 
     dcndalpha = get_dcndalpha(airfoil)
@@ -158,8 +159,8 @@ function get_loads(dsmodel::Oye, airfoil::Airfoil, states, y)
     return Cl, Cd, Cm
 end
 
-function get_loads!(dsmodel::Oye, airfoil::Airfoil, states, loads, y)
-    loads .= get_loads(dsmodel, airfoil, states, y)
+function get_loads!(dsmodel::Oye, airfoil::Airfoil, states, loads, y, p)
+    loads .= get_loads(dsmodel, airfoil, states, y, p)
 end
 
 function cl_fullysep_hansen(airfoil, alpha) #Todo: Move to Hansen's file
@@ -216,16 +217,16 @@ Calculate the state rates of the Øye model.
 - y::Vector: The current input.
 - t::Float64: The current time.
 """
-function state_rates!(model::Oye, airfoil::Airfoil, dx, x, y, t)
+function state_rates!(model::Oye, airfoil::Airfoil, dx, x, y, p, t)
     
     ### Evaluate environmental functions
     U, _, alpha, _ = evaluate_environment(y, t)
-    f = x[1]
-    
 
+    c = p[1] #Extract the chord length from the parameters
+    f = x[1] #Current state (degree of attachment)
+    
     ### Prepare time constant
     A = model.A
-    c = airfoil.c
     T_f = U/(A*c)
 
     ### Fetch static separation point
@@ -238,7 +239,7 @@ end
 export parsesolution
 
 
-function parsesolution(model::Oye, airfoil::Airfoil, sol, y)
+function parsesolution(model::Oye, airfoil::Airfoil, sol, y, p)
     _, _, alphavec, _ = y
     f = Array(sol) 
     tvec = sol.t 
@@ -263,7 +264,7 @@ function parsesolution(model::Oye, airfoil::Airfoil, sol, y)
 
 
 
-        for i in 1:length(tvec) 
+        for i in eachindex(tvec) 
 
 
             Lift_aoa_Matrix[w, i] = alphavec(tvec[i]) 

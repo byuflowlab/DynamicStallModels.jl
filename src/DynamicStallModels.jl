@@ -3,17 +3,14 @@ module DynamicStallModels
 using FLOWMath, StaticArrays, Roots, CurveFit, SciMLBase, ForwardDiff
 
 
-export Functional, Iterative, Indicial
+export Continuous, Discrete
 
 abstract type DEType end #Is the model designed to be solved in one go, or iteratively, updating p ever iteration. 
 
-struct Functional <: DEType #Todo: Rename to Continuous or something like that. 
+struct Continuous <: DEType 
 end
 
-struct Iterative <: DEType #Todo: Get rid of this. I don't think that I need it now that I figured out how to evaulate functions or iteratives within a functional. 
-end
-
-struct Indicial <: DEType #Todo: Rename to Discrete. 
+struct Discrete <: DEType
 end
 
 

@@ -140,9 +140,8 @@ A struct to hold all of the airfoil polars, fits, and dynamic coefficients.
 - T - A vector of floats holding the time constants for the airfoil. 
 - S - A vector of floats holding the S constants are best fit constants for the separation point curve. 
 - s - A fit of the the separation point curve. 
-- xcp - The distance from the quarter chord to the center of pressure? 
 """
-struct Airfoil{TF, TF2, Tfit, TFun, TFV, TDSM<:DSModel} #Todo: I feel like there should be a good way to type this whole struct. 
+struct Airfoil{TF, Tfit, TFun, TFV, TDSM<:DSModel} #Todo: I feel like there should be a good way to type this whole struct. 
     model::TDSM
     polar::Array{TF, 2} #Airfoil polar - alpha (radians), cl, cd, cm
     cl::Tfit #Fit of the coefficient of lift
@@ -157,8 +156,6 @@ struct Airfoil{TF, TF2, Tfit, TFun, TFV, TDSM<:DSModel} #Todo: I feel like there
     alphacut::TFV
     cutrad::TF
     sfun::TFun #The separation point function
-    c::TF2 #Chord length
-    xcp::TF #The center of pressure
 end
 
 #################################################################
@@ -177,7 +174,7 @@ A function that takes a simple airfoil polar to make a dynamic airfoil. The func
 - Airfoil
 
 """
-function make_simpleairfoil(polar, dsmodel::DSModel, chord)
+function make_simpleairfoil(polar, dsmodel::DSModel)
     alphavec = polar[:,1]
     clvec = polar[:,2]
     cdvec = polar[:,3]
@@ -213,8 +210,7 @@ function make_simpleairfoil(polar, dsmodel::DSModel, chord)
     alphacut = [-45, 45].*pi/180
     cutrad = 5*pi/180
 
-    xcp = 0.2
-    return Airfoil(dsmodel, polar, cl, cd, cm, cn, cc, dcldalpha, dcldalpha, alpha0, alphasep, alphacut, cutrad, sfun, chord, xcp)
+    return Airfoil(dsmodel, polar, cl, cd, cm, cn, cc, dcldalpha, dcldalpha, alpha0, alphasep, alphacut, cutrad, sfun)
 end
 
 
@@ -233,7 +229,7 @@ A slightly more complex version of simpleairfoil. Takes a polar and numerically 
 - separationpointfit - An integer telling which fit function to use. 1 -> AeroDyn Cn separation point function, 
 
 """
-function make_airfoil(polar, dsmodel::DSModel, chord; xcp=0.2, sfun::Union{SeparationPoint, Function}=ADSP(1, 1), alphacut = [-45, 45].*pi/180, cutrad = 5*pi/180, verbose=false, radians=true) 
+function make_airfoil(polar, dsmodel::DSModel; sfun::Union{SeparationPoint, Function}=ADSP(1, 1), alphacut = [-45, 45].*pi/180, cutrad = 5*pi/180, verbose=false, radians=true) 
     #TODO: Need some sort of behavior when the provided polar is too small. 
 
     alphavec = polar[:,1]
@@ -289,7 +285,7 @@ function make_airfoil(polar, dsmodel::DSModel, chord; xcp=0.2, sfun::Union{Separ
         sfun = ADSP(alphavec, cnvec, ccvec, alpha0, alphasep, dcldalpha, eta)
     end
 
-    return Airfoil(dsmodel, polar, cl, cd, cm, cn, cc, dcldalpha, dcldalpha, alpha0, alphasep, alphacut, cutrad, sfun, chord, xcp)
+    return Airfoil(dsmodel, polar, cl, cd, cm, cn, cc, dcldalpha, dcldalpha, alpha0, alphasep, alphacut, cutrad, sfun)
 end
 
 
@@ -305,7 +301,7 @@ Create a new airfoil object based on the input airfoil object. Any option argume
 - dcldalpha::Float - The replacement lift curve slope evaluated at alpha0. 
 - dcndalpha::Float - The replacement normal curve slope evaluated at alpha0. 
 """
-function update_airfoil(airfoil::Airfoil; dsmodel::Union{DSModel, Nothing}=nothing, polar=nothing, dcldalpha=nothing, dcndalpha=nothing, alpha0=nothing, alphasep=nothing, alphacut=nothing, cutrad=nothing, sfun=nothing, chord=nothing, xcp=nothing, fit=Akima)
+function update_airfoil(airfoil::Airfoil; dsmodel::Union{DSModel, Nothing}=nothing, polar=nothing, dcldalpha=nothing, dcndalpha=nothing, alpha0=nothing, alphasep=nothing, alphacut=nothing, cutrad=nothing, sfun=nothing, fit=Akima)
 
     if isnothing(dsmodel)
         newdsmodel = airfoil.model
@@ -370,20 +366,8 @@ function update_airfoil(airfoil::Airfoil; dsmodel::Union{DSModel, Nothing}=nothi
         newsfun = sfun
     end
 
-    if isnothing(chord)
-        newchord = airfoil.c
-    else
-        newchord = chord
-    end
 
-    if isnothing(xcp)
-        newxcp = airfoil.xcp
-    else
-        newxcp = xcp
-    end
-
-
-    return Airfoil(newdsmodel, newpolar, newcl, newcd, newcm, newcn, newcc, newslope, newdcndalpha, newalpha0, newalphasep, newalphacut, newcutrad, newsfun, newchord, newxcp)
+    return Airfoil(newdsmodel, newpolar, newcl, newcd, newcm, newcn, newcc, newslope, newdcndalpha, newalpha0, newalphasep, newalphacut, newcutrad, newsfun)
 end
 
 function Base.getproperty(obj::AbstractVector{<:Airfoil}, sym::Symbol)
