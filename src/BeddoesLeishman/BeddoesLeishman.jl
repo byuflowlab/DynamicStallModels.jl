@@ -71,8 +71,8 @@ function get_loads!(dsmodel::BeddoesLeishman, airfoil::Airfoil, states, loads, y
 end
 
 function get_loads(dsmodel::BeddoesLeishman, airfoil::Airfoil, states, y, p)
-    if isa(dsmodel.detype, Functional)
-        @warn("Functional implementation not yet prepared.")
+    if isa(dsmodel.detype, Continuous)
+        @warn("Continuous implementation not yet prepared.")
     elseif isa(dsmodel.detype, Discrete)
         if dsmodel.version==1
             @warn("Original Discrete Beddoe-Leishman not prepared for use yet.")
@@ -92,7 +92,7 @@ function get_loads(dsmodel::BeddoesLeishman, airfoil::Airfoil, states, y, p)
     end
 end
 
-function numberofstates(dsmodel::BeddoesLeishman) #TODO: This probably need to be augmented to check if the model is a functional, an Discrete, or an Discrete. 
+function numberofstates(dsmodel::BeddoesLeishman) #TODO: This probably need to be augmented to check if the model is a Continuous, an Discrete, or an Discrete. 
     if dsmodel.version==1 #Todo: This function should be changed to reflect the number of states for a single 2D airfoil, not the total number of states.... or I should have two different functions. 
         @warn("The orginal Beddoes-Leishman model is not yet prepared.")
         return 0
@@ -111,7 +111,7 @@ function numberofstates(dsmodel::BeddoesLeishman) #TODO: This probably need to b
     end
 end
 
-function numberofloads(dsmodel::BeddoesLeishman) #TODO: This probably need to be augmented to check if the model is a functional, an Discrete, or an Discrete.
+function numberofloads(dsmodel::BeddoesLeishman) #TODO: This probably need to be augmented to check if the model is a Continuous, an Discrete, or an Discrete.
     if dsmodel.version==1
         @warn("The orginal Beddoes-Leishman model is not yet prepared.")
         return 0
@@ -130,7 +130,7 @@ function numberofloads(dsmodel::BeddoesLeishman) #TODO: This probably need to be
     end
 end
 
-function numberofparams(dsmodel::BeddoesLeishman) #TODO: This probably need to be augmented to check if the model is a functional, an Discrete, or an Discrete.
+function numberofparams(dsmodel::BeddoesLeishman) #TODO: This probably need to be augmented to check if the model is a Continuous, an Discrete, or an Discrete.
 
     if dsmodel.version==1
         @warn("The orginal Beddoes-Leishman model is not yet prepared.")
