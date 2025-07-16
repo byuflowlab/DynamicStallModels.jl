@@ -80,7 +80,7 @@ end
 
 
 
-function (interp::Linear)(x; verbose::Bool=true)
+function (interp::Linear)(x; verbose::Bool=false)
 
     if x<interp.x[1]
         if verbose

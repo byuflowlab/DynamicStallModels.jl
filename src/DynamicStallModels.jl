@@ -2,6 +2,8 @@ module DynamicStallModels
 
 using FLOWMath, StaticArrays, Roots, CurveFit, SciMLBase, ForwardDiff
 
+#Todo. Removed Roots for compatibility with Julia 1.11. Affects Larsen and Riso models. 
+
 
 export Continuous, Discrete
 
