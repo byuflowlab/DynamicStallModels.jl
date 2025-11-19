@@ -27,7 +27,7 @@ end
 
 A method to create an ADSP struct. This method is a fit of the separation point function based on the separation as a function of Cl, and the chordwise forces.
 """
-function ADSP(alpha, cn, cc, alpha0, alphasep, dcndalpha, eta) #Todo: Probably needs fixing (compare to OpenFAST)
+function ADSP(alpha, cn, cc, alpha0, alphasep, dcndalpha, eta) #todo: Probably needs fixing (compare to OpenFAST)
 
     fvec, fcvec = reverse_separationpointcalculation_ADO(alpha, cn, cc, dcndalpha, alpha0, alphasep, eta)
     ffit = Akima(alpha, fvec) 
@@ -40,10 +40,10 @@ end
     ADGSP()
 AeroDyn's separation point function with Gonzalez's modifications. 
 """
-struct ADGSP <: SeparationPoint #Todo: Do I need a separate struct for this?
+struct ADGSP <: SeparationPoint #todo: Do I need a separate struct for this?
 end
 
-#The original Beddoes-Leishman separation point function. Todo: Change the name to match Beddoes-Leishman. 
+#The original Beddoes-Leishman separation point function. todo: Change the name to match Beddoes-Leishman. 
 """
     BLSP(S::Vector{TF})
 
@@ -56,6 +56,12 @@ struct BLSP{TF} <: SeparationPoint
     S::Array{TF, 1}
 end
 
+"""
+    LSP()
+Larsen's separation point function from his 2007 paper (and repeated in Oye from Faber 2018).
+"""
+struct LSP <: SeparationPoint
+end
 
 
 """
@@ -134,10 +140,9 @@ A struct to hold all of the airfoil polars, fits, and dynamic coefficients.
 - T - A vector of floats holding the time constants for the airfoil. 
 - S - A vector of floats holding the S constants are best fit constants for the separation point curve. 
 - s - A fit of the the separation point curve. 
-- xcp - The distance from the quarter chord to the center of pressure? 
 """
-struct Airfoil{TF, Tfit, Fun}
-    model::DSModel
+struct Airfoil{TF, Tfit, TFun, TFV, TDSM<:DSModel} #Todo: I feel like there should be a good way to type this whole struct. 
+    model::TDSM
     polar::Array{TF, 2} #Airfoil polar - alpha (radians), cl, cd, cm
     cl::Tfit #Fit of the coefficient of lift
     cd::Tfit #Fit of the drag coefficient
@@ -145,14 +150,12 @@ struct Airfoil{TF, Tfit, Fun}
     cn::Tfit #Fit of the normal force coefficient
     cc::Tfit #Fit of the chordwise force coefficient
     dcldalpha::TF #Lift curve slope at alpha0
-    dcndalpha::TF #Normal curve slope at alpha0
+    dcndalpha::TF #Normal curve slope at alpha0 #Todo. I might consider getting rid of this field... Does dcldalpha==dcndalpha? No, but it's really close. 
     alpha0::TF #The zero lift angle of attack
-    alphasep #::TFV #The separation angles of attack #Todo: Figure out how to put this as a vector or an array. 
-    alphacut
+    alphasep::TFV #The separation angles of attack #Todo: Figure out how to put this as a vector or an array. -> AbstractArray?
+    alphacut::TFV
     cutrad::TF
-    sfun::Fun #The separation point function
-    c::TF #Chord length
-    xcp::TF #The center of pressure
+    sfun::TFun #The separation point function
 end
 
 #################################################################
@@ -171,10 +174,10 @@ A function that takes a simple airfoil polar to make a dynamic airfoil. The func
 - Airfoil
 
 """
-function make_simpleairfoil(polar, dsmodel::DSModel, chord)
-    alphavec = @view(polar[:,1])
-    clvec = @view(polar[:,2])
-    cdvec = @view(polar[:,3])
+function make_simpleairfoil(polar, dsmodel::DSModel)
+    alphavec = polar[:,1]
+    clvec = polar[:,2]
+    cdvec = polar[:,3]
 
     cl = Akima(alphavec, clvec)
     cd = Akima(alphavec, cdvec)
@@ -196,19 +199,18 @@ function make_simpleairfoil(polar, dsmodel::DSModel, chord)
     _, minclidx = findmin(clvec) #TODO: I have the find_seperation_alpha function. 
     _, maxclidx = findmax(clvec)
 
-    if isa(sfun, OSP) #this kind of setup is required for hermite interpolation to work properly
+    sfun(x) = 0.0
+
+    if isa(sfun, LSP) #this kind of setup is required for hermite interpolation to work properly
         alphasep = [-32*pi/180, 32*pi/180]
     else
         alphasep = [polar[minclidx, 1], polar[maxclidx,1]]
     end
 
-    alphacut = 45*pi/180
+    alphacut = [-45, 45].*pi/180
     cutrad = 5*pi/180
 
-    sfun(x) = 0.0
-
-    xcp = 0.2
-    return Airfoil(dsmodel, polar, cl, cd, cm, cn, cc, dcldalpha, dcldalpha, alpha0, alphasep, alphacut, cutrad, sfun, chord, xcp)
+    return Airfoil(dsmodel, polar, cl, cd, cm, cn, cc, dcldalpha, dcldalpha, alpha0, alphasep, alphacut, cutrad, sfun)
 end
 
 
@@ -219,26 +221,27 @@ end
 
 A slightly more complex version of simpleairfoil. Takes a polar and numerically finds some characteristics. 
 
-### Inputs
+**Arguments**
 - polar - A matrix of floats describing the airfoil polar. This includes the angle of attack (radians), and coefficients of lift, drag, and moment.
 - A - A vector of floats holding the A dynamic constants for the airfoil. 
 - b - A vector of floats holding the b dynamic constants for the airfoil. 
 - T - A vector of floats holding the time constants for the airfoil. 
 - separationpointfit - An integer telling which fit function to use. 1 -> AeroDyn Cn separation point function, 
 
-### Outputs
-- Airfoil
 """
-function make_airfoil(polar, dsmodel::DSModel, chord; xcp=0.2, sfun::Union{SeparationPoint, Function}=ADSP(1, 1), alphacut = 45*pi/180, cutrad = 5*pi/180, eta = 1.0) 
+function make_airfoil(polar, dsmodel::DSModel; sfun::Union{SeparationPoint, Function}=ADSP(1, 1), alphacut = [-45, 45].*pi/180, cutrad = 5*pi/180, verbose=false, radians=true) 
     #TODO: Need some sort of behavior when the provided polar is too small. 
 
     alphavec = polar[:,1]
+    if !radians
+        alphavec .*= pi/180
+    end
     clvec = polar[:,2]
     cdvec = polar[:,3]
 
-    cl = Akima(polar[:,1], polar[:,2])
-    cd = Akima(polar[:,1], polar[:,3])
-    cm = Akima(polar[:,1], zeros(length(polar[:,1])))
+    cl = Akima(alphavec, polar[:,2])
+    cd = Akima(alphavec, polar[:,3])
+    cm = Akima(alphavec, zeros(length(alphavec)))
 
     cnvec = @. clvec*cos(alphavec) + cdvec*sin(alphavec)
     ccvec = @. clvec*sin(alphavec) - cdvec*cos(alphavec)
@@ -251,7 +254,7 @@ function make_airfoil(polar, dsmodel::DSModel, chord; xcp=0.2, sfun::Union{Separ
     _, maxclidx = findmax(polar[:,2])
     _, minclidx = findmin(polar[1:maxclidx,2])
 
-    if isa(sfun, OSP) #this kind of setup is required for hermite interpolation to work properly
+    if isa(sfun, LSP) #this kind of setup is required for hermite interpolation to work properly
         alphasep = [-32*pi/180, 32*pi/180]
     else
         alphasep = [polar[minclidx, 1], polar[maxclidx,1]]
@@ -272,100 +275,99 @@ function make_airfoil(polar, dsmodel::DSModel, chord; xcp=0.2, sfun::Union{Separ
     _, dcldalpha = linear_fit(middlepolar[cl0idx:alf50idx,1], middlepolar[cl0idx:alf50idx,2]) #TODO: Create my own linear fit function so I don't have to pull in a package. #Todo: This is returning a NaN
     if isnan(dcldalpha)
         dcldalpha=2*pi
-        @warn("dcldalpha returned NaN")
+        verbose ? @warn("dcldalpha returned NaN") : nothing
     end
 
     if isa(sfun, ADSP)
         sfun = ADSP(alphavec, cnvec, ccvec, alpha0, alphasep, dcldalpha, eta)
     elseif !isa(sfun, Union{Function, SeparationPoint}) #TODO: If it isn't a function or a SeparationPoint.... Does this do anything? I enforced function and SeparationPoint in the function arguments. 
-        @warn("The separation point function must be a function, or one of the provided options. Returning to default ADSP().")
+        verbose ? @warn("The separation point function must be a function, or one of the provided options. Returning to default ADSP().") : nothing
         sfun = ADSP(alphavec, cnvec, ccvec, alpha0, alphasep, dcldalpha, eta)
     end
 
-    return Airfoil(dsmodel, polar, cl, cd, cm, cn, cc, dcldalpha, dcldalpha, alpha0, alphasep, alphacut, cutrad, sfun, chord, xcp)
+    return Airfoil(dsmodel, polar, cl, cd, cm, cn, cc, dcldalpha, dcldalpha, alpha0, alphasep, alphacut, cutrad, sfun)
 end
 
 
+"""
+    update_airfoil(airfoil::Airfoil; dsmodel::DSModel=nothing, polar=nothing, dcldalpha=nothing, dcndalpha=nothing, alpha0=nothing, alphasep=nothing, alphacut=nothing, cutrad=nothing, sfun=nothing, chord=nothing, xcp=nothing)
 
-function update_airfoil(airfoil::Airfoil; dsmodel::Union{DSModel, Nothing}=nothing, polar=nothing, dcldalpha=nothing, dcndalpha=nothing, alpha0=nothing, alphasep=nothing, alphacut=nothing, cutrad=nothing, sfun=nothing, chord=nothing, xcp=nothing)
+Create a new airfoil object based on the input airfoil object. Any option argument that is input will replace the previous input. 
 
-    if !(dsmodel == nothing)
-        newdsmodel = dsmodel
-    else
+**Arguments**
+- airfoil::Airfoil - The airfoil to be copied. 
+- dsmodel::DSModel - The replacement dynamic stall model. 
+- polar::Array{Float, 2}(n, 3) - The replacement airfoil polar (aoa in radians)
+- dcldalpha::Float - The replacement lift curve slope evaluated at alpha0. 
+- dcndalpha::Float - The replacement normal curve slope evaluated at alpha0. 
+"""
+function update_airfoil(airfoil::Airfoil; dsmodel::Union{DSModel, Nothing}=nothing, polar=nothing, dcldalpha=nothing, dcndalpha=nothing, alpha0=nothing, alphasep=nothing, alphacut=nothing, cutrad=nothing, sfun=nothing, fit=Akima)
+
+    if isnothing(dsmodel)
         newdsmodel = airfoil.model
+    else
+        newdsmodel = dsmodel
     end
 
-    if !(polar == nothing)
-        newpolar = polar
-    else
+    if isnothing(polar)
         newpolar = airfoil.polar
+    else
+        newpolar = polar
     end
-    newcl = Akima(newpolar[:,1], newpolar[:,2])
-    newcd = Akima(newpolar[:,1], newpolar[:,3])
-    newcm = Akima(newpolar[:,1], newpolar[:,4])
+    newcl = fit(newpolar[:,1], newpolar[:,2])
+    newcd = fit(newpolar[:,1], newpolar[:,3])
+    newcm = fit(newpolar[:,1], newpolar[:,4])
 
     cnvec = @. newpolar[:,2]*cos(newpolar[:,1]) + newpolar[:,3]*sin(newpolar[:,1])
     ccvec = @. newpolar[:,2]*sin(newpolar[:,1]) - newpolar[:,3]*cos(newpolar[:,1])
 
-    newcn = Akima(newpolar[:,1], cnvec)
-    newcc = Akima(newpolar[:,1], ccvec)
+    newcn = fit(newpolar[:,1], cnvec)
+    newcc = fit(newpolar[:,1], ccvec)
 
-    if !(dcldalpha==nothing)
-        newslope = dcldalpha
-    else
+    if isnothing(dcldalpha)
         newslope = airfoil.dcldalpha
+    else
+        newslope = dcldalpha
     end
 
-    if !(dcndalpha==nothing)
-        newdcndalpha = dcndalpha
-    else
+    if isnothing(dcndalpha)
         newdcndalpha = airfoil.dcndalpha
+    else
+        newdcndalpha = dcndalpha
     end
 
-    if !(alpha0==nothing)
-        newalpha0 = alpha0
-    else
+    if isnothing(alpha0)
         newalpha0 = airfoil.alpha0
+    else
+        newalpha0 = alpha0
     end
 
-    if !(alphasep==nothing)
-        newalphasep = alphasep
-    else
+    if isnothing(alphasep)
         newalphasep = airfoil.alphasep
+    else
+        newalphasep = alphasep
     end
 
-    if !(alphacut==nothing)
-        newalphacut = alphacut
-    else
+    if isnothing(alphacut)
         newalphacut = airfoil.alphacut
+    else
+        newalphacut = alphacut
     end
 
-    if !(cutrad==nothing)
-        newcutrad = cutrad
-    else
+    if isnothing(cutrad)
         newcutrad = airfoil.cutrad
+    else
+        newcutrad = cutrad
     end
 
-    if !(sfun==nothing)
-        newsfun = sfun
-    else
+    if isnothing(sfun)
         newsfun = airfoil.sfun
-    end
-
-    if !(chord==nothing)
-        newchord = chord
     else
-        newchord = airfoil.c
-    end
-
-    if !(xcp==nothing)
-        newxcp = xcp
-    else
-        newxcp = airfoil.xcp
+        newsfun = sfun
     end
 
 
-    return Airfoil(newdsmodel, newpolar, newcl, newcd, newcm, newcn, newcc, newslope, newdcndalpha, newalpha0, newalphasep, newalphacut, newcutrad, newsfun, newchord, newxcp)
+    return Airfoil(newdsmodel, newpolar, newcl, newcd, newcm, newcn, newcc, newslope, newdcndalpha, newalpha0, newalphasep, newalphacut, newcutrad, newsfun)
 end
 
 function Base.getproperty(obj::AbstractVector{<:Airfoil}, sym::Symbol)
@@ -554,6 +556,34 @@ function separationpoint(sfun::ADGSP, airfoil::Airfoil, alpha)
 end
 
 
+function separationpoint(sfun::OSP, airfoil::Airfoil, alpha)
+    alpha0 = airfoil.alpha0
+    alphasep = airfoil.alphasep[2]
+
+    if alpha0<=alpha<=alphasep
+        dcldalpha = airfoil.dcldalpha(alpha)
+        Clsep = airfoil.cl(alphasep)
+
+        atop = dcldalpha*(alpha0-alphasep) + Clsep
+        btop = -alpha0*alpha0*dcldalpha - 2*alpha0*Clsep + dcldalpha*alphasep*alphasep
+        ctop = alpha0*(alpha0*(Clsep + dcldalpha*alphasep) - dcldalpha*alphasep*alphasep)
+
+        bot = (alpha0 - alphasep)^2
+
+        a = atop/bot
+        b = btop/bot
+        c = ctop/bot
+
+        return a*(alpha^2) + b*alpha + c
+    elseif alpha>alphasep
+        return 0.0
+    else
+        return 1.0
+    end
+end
+
+
+
 
 # function fst_riso(alpha, liftfit, dcldalpha, alpha0)
     
@@ -574,19 +604,10 @@ function separationpoint(sfun::RSP, airfoil::Airfoil, alpha)
         println("Riso sep function called. ")
     end
 
-
-
-    afm, _ = airfoil.alphasep
+    afm, afp = airfoil.alphasep
     clfit = airfoil.cl
     dcldalpha = airfoil.dcldalpha
     alpha0 = airfoil.alpha0
-
-    f(x) = clfit(x) - dcldalpha*(x - alpha0)/4
-
-    afp , _ = brent(f , 0.17 , 0.8726)
-
-
-    #println(afp)
     #TODO: I'm not really sure that using the minimum of these two is really the way to avoid the problem of this blowing up to infinity. (When alpha=alpha0) (This check happens in the if statement.)
 
     #TODO: I'm not sure that using the absolute value here is the correct way to dodge the problem of crossing the x axis at different times.
@@ -614,17 +635,12 @@ function separationpoint(sfun::RSP, airfoil::Airfoil, alpha)
     f = (2*sqrt(abs(cl_static/cl_linear))-1)^2
     # println(f)  
 
-   
-
-    
     if f>1 #Question: What if I don't return this? I might get Inf.... or possibly NaN... but I will less likely get 1.0... which is my problem child in the seperated coefficient of lift function. -> I fixed the fully seperated coefficient of lift function... I just plugged this function inside the other and simplified. 
-        return typeof(alpha)(1.0)
+        return typeof(alpha)(1)
     elseif isnan(f)
         # println("f return NaN")
-        return typeof(alpha)(1.0)
+        return typeof(alpha)(1)
     end
-    
-
 
     #Todo. Hansen must have some sort of switch that stops this function from reattaching when the aoa gets really high. -> like the one where you automatically set f=0 when you're outside the bounds of afm, afp
     return f
@@ -635,8 +651,8 @@ separationpoint(sfun::Function, airfoil::Airfoil, alpha) = sfun(alpha)
 #=
 Larsen's separation point function from his 2007 paper. 
 =#
-function separationpoint(sfun::OSP, airfoil::Airfoil, alpha)
-    #println("using the OSP separation point function. Currently at line 639 in airfoils.jl ")
+function separationpoint(sfun::LSP, airfoil::Airfoil, alpha)
+    #println("using the LSP separation point function. Currently at line 639 in airfoils.jl ")
     if alpha>airfoil.alphasep[2] #? right after stall is fully separated? not partially?
         return 0.0
     elseif alpha<airfoil.alpha0

@@ -23,7 +23,7 @@ function numberofstates_total(airfoils::AbstractVector{<:Airfoil})
     ns = 0
 
     for i in eachindex(airfoils)
-        ns += numberofstates(airfoils[i].model)
+        ns += numberofstates(airfoils[i].model) #todo: Same dynamic dispatch ... problem? I don't know if it's a problem. 
     end
     return ns
 end
@@ -39,8 +39,8 @@ end
 
 
 
-function initialize(airfoil, tvec, y)  #Todo: Why do I have tvec as one of the entries of this function? I didn't see something in the indicial models, so I wonder if I needed to initialize the functionals or iterative models. 
-    return initialize(airfoil.model, airfoil, tvec, y) 
+function initialize(airfoil, tvec, y, p)  #Todo: Why do I have tvec as one of the entries of this function? I didn't see something in the indicial models, so I wonder if I needed to initialize the continuous or discrete models. 
+    return initialize(airfoil.model, airfoil, tvec, y, p) 
 end
 
 function initialize_environment(U, udot, alpha, alphadot, n)
@@ -61,105 +61,85 @@ function get_state_types(airfoils)
     return unique(datatypes)
 end
 
-function update_states(airfoil::Airfoil, oldstates, y, dt)
+function update_states(airfoil::Airfoil, oldstates, y, p, dt)
     newstates = zero(oldstates)
-    return update_states!(airfoil.model, airfoil, oldstates, newstates, y, dt)
+    return update_states!(airfoil.model, airfoil, oldstates, newstates, y, p, dt)
 end
 
-function update_states!(airfoil::Airfoil, oldstates, newstates, y, dt) #Note: Might need another function for state rate equations. 
-    update_states!(airfoil.model, airfoil, oldstates, newstates, y, dt)
+function update_states!(airfoil::Airfoil, oldstates, newstates, y, p, dt) #Note: Might need another function for state rate equations. 
+    update_states!(airfoil.model, airfoil, oldstates, newstates, y, p, dt)
     return newstates
 end
 
-function state_rates!(airfoil, state_rates, states, y, t_aspect)
+function state_rates!(airfoil, state_rates, states, y, p, t_aspect)
     # @show state_rates
     # @show states
-    state_rates!(airfoil.model, airfoil, state_rates, states, y, t_aspect)
+    state_rates!(airfoil.model, airfoil, state_rates, states, y, p, t_aspect)
     # @show state_rates
     # @show states
     # println("")
 end
 
-function get_loads(dsmodel::DSModel, states, y, airfoil)
+function get_loads(dsmodel::DSModel, states, y, p, airfoil)
     loads = zeros(3)
-    get_loads!(dsmodel, airfoil, states, loads, y)
+    get_loads!(dsmodel, airfoil, states, loads, y, p)
 end
 
 #=
 Convinience function to access state rate equations
     - Todo: Add a check_dsm_type() function or capability to see if 
 =#
-function (airfoil::Airfoil)(state_in, y, t_aspect)
+function (airfoil::Airfoil)(state_in, y, p, t_aspect)
     state_out = zeros(numberofstates(airfoil.model))
-    return airfoil(state_out, state_in, y, t_aspect)
+    return airfoil(state_out, state_in, y, p, t_aspect)
 end
 
 # Same as above, but for calculations
 """
     (airfoil::Airfoil)(state_in, state_out, y, t_aspect)
 
-A method on the Airfoil struct to either update the states, or the state rates of the dynamic stall model (respective to if the model is indicial, or functional/iterative). 
+A method on the Airfoil struct to either update the states, or the state rates of the dynamic stall model (respective to if the model is discrete, or continuous). 
 
-**Arguments**
+### Inputs
 - state_in::Vector{TF} - A vector of the old states. 
-- state_out::Vector{TF} - A vector of the new states if the model is indicial, and a vector of the new state rates if the model is a state space model (functional/iterative). 
+- state_out::Vector{TF} - A vector of the new states if the model is discrete, and a vector of the new state rates if the model is a state space model (continuous). 
 - y::Vector{TF} - A vector of the environmental inputs. 
-- t_aspect::TF - Either the time step if the model is indicial, or the current time value if the model is a state space model. 
+- t_aspect::TF - Either the time step if the model is discrete, or the current time value if the model is a state space model. 
 """
-function (airfoil::Airfoil)(state_out, state_in, y, t_aspect)
-    if isa(airfoil.model.detype, Indicial)
-        return update_states!(airfoil, state_out, state_in, y, t_aspect)
-    elseif isa(airfoil.model.detype, Functional)
-        return state_rates!(airfoil, state_out, state_in, y, t_aspect)
+function (airfoil::Airfoil)(state_out, state_in, y, p, t_aspect)
+    if isa(airfoil.model.detype, Discrete)
+        return update_states!(airfoil, state_out, state_in, y, p, t_aspect)
+    elseif isa(airfoil.model.detype, Continuous)
+        return state_rates!(airfoil, state_out, state_in, y, p, t_aspect)
     end
 end
 
-"""
-    (airfoils::AbstractVector{<:Airfoil})(state_idxs, state_in, y, t_aspect)
-
-A method on the Airfoil vector struct that is used to call the method on the single airfoil struct (allowing for each airfoil to be evaluated individually).
-
-**Arguments**
-- state_idxs::
-- state_in::Vector{TF}: A vector containing the state values for all of the airfoils coming in.
-- y::Vector{TF}: A vector containing parameter values for all of the airfoils (the function will take the corresponding parameters for a specific airfoil)
-- t_aspect::
-
-"""
-function (airfoils::AbstractVector{<:Airfoil})(state_idxs, state_in, y, t_aspect)
+function (airfoils::AbstractVector{<:Airfoil})(state_idxs, state_in, y, p, t_aspect)
     ns = numberofstates_total(airfoils)
     state_out = zeros(ns)
-
 
     for i in eachindex(airfoils)
         nsi1, nsi2 = state_indices(airfoils[i].model, state_idxs[i])
         xsi = view(state_out, trunc(Int,nsi1+1):trunc(Int,nsi2+1))
         xs1 = view(state_in, trunc(Int,nsi1+1):trunc(Int,nsi2+1))
         ys = view(y, 4*(i-1)+1:4*i)
+        ps = view(p, 2*(i-1)+1:2*i)
 
-
-        airfoils[i](xsi, xs1, ys, t_aspect)
-
-        # if any(item -> isnan(item), xs1) #Todo: I don't know if having something like this would be more robust, or just a nusiance. 
-        #     @show xsi
-        #     @show xs1
-        #     @show ys
-        #     error("Found NaN while updating states")
-        # end
+        airfoils[i](xsi, xs1, ys, ps, t_aspect)
     end
 end
 
 
-function (airfoils::AbstractVector{<:Airfoil})(state_out, state_in, state_idxs, y, t_aspect)
+function (airfoils::AbstractVector{<:Airfoil})(state_out, state_in, state_idxs, y, p, t_aspect)
+    
     for i in eachindex(airfoils)
         nsi1, nsi2 = state_indices(airfoils[i].model, state_idxs[i])
         xsi = view(state_in, nsi1:nsi2)
         xs1 = view(state_out, nsi1:nsi2)
         ys = view(y, 4*(i-1)+1:4*i)
+        ps = view(p, 2*(i-1)+1:2*i)
 
-        # @show ys
-
-        airfoils[i](xs1, xsi, ys, t_aspect)
+        airfoils[i](xs1, xsi, ys, ps, t_aspect)
     end
 end
 
@@ -170,12 +150,12 @@ function update_environment!(y, U, Udot, alpha, alphadot)
     y[4] = alphadot
 end
 
-function state_indices(dsmodel::DSModel, startidx)
-    nsi = numberofstates(dsmodel)
-    return startidx, startidx+nsi-1
+function state_indices(dsmodel::DSModel, startidx) #todo: -> should this function be dispatching on the type of dsmodel? Like have a state_indices function for each each dsmodel? 
+    nsi = numberofstates(dsmodel) #todo: nsi is assigned as Union{Nothing, Int64} -> numberofstates() probably needs to require exact outputs? 
+    return startidx, startidx+nsi-1 #todo: dynamic dispatch to DSM.numberofstates()
 end
 
-function solve_indicial(airfoils::Array{Airfoil, 1}, tvec, Uvec, alphavec; verbose::Bool=false, Udotvec=zeros(length(Uvec)), alphadotvec=zeros(length(Uvec)))
+function solve_indicial(airfoils::Array{Airfoil, 1}, tvec, Uvec, alphavec; verbose::Bool=false, cvec=ones(length(airfoils)), xcpvec=0.2.*ones(length(airfoils)), Udotvec=zeros(length(Uvec)), alphadotvec=zeros(length(Uvec)))
 
     nt = length(tvec)
     n = length(airfoils)
@@ -183,11 +163,15 @@ function solve_indicial(airfoils::Array{Airfoil, 1}, tvec, Uvec, alphavec; verbo
     ### Initialize the states
     ns = numberofstates_total(airfoils)
     # np = numberofparams_total(airfoils)
+    inittype = find_inittype(cvec[1], Uvec[1], alphavec[1])
 
-    states = Array{eltype(Uvec), 2}(undef, nt, ns)
-    y = initialize_environment(Uvec[1], Udotvec[1], alphavec[1], alphadotvec[1], n) #TODO: 
+    states = Array{inittype, 2}(undef, nt, ns)
+    y = initialize_environment(Uvec[1], Udotvec[1], alphavec[1], alphadotvec[1], n) 
+    # p = cvec
+
     stateidx = Vector{Int}(undef, n)
-    loads = Array{eltype(Uvec), 2}(undef, nt, 3n) 
+    p = Vector{inittype}(undef, 2n)
+    loads = Array{inittype, 2}(undef, nt, 3n) 
 
     tempx = 1
     # idxs = ns*(j-1)+1:j*ns 
@@ -195,9 +179,14 @@ function solve_indicial(airfoils::Array{Airfoil, 1}, tvec, Uvec, alphavec; verbo
         stateidx[i] = tempx
         nsi1, nsi2 = state_indices(airfoils[i].model, stateidx[i])
         loadidx = 3*(i-1)+1:3i
-        paramidx = 4*(i-1)+1:4*i #Todo: This needs to be updated to work with any number of input parameters -> I think I'm going to make the parameters be a constant length (the same for all DS models)
-        ys = view(y, paramidx)
-        states[1,nsi1:nsi2], loads[1,loadidx] = initialize(airfoils[i], tvec, ys) #Todo: make this function inplace. 
+        envidx = 4*(i-1)+1:4*i #todo: This needs to be updated to work with any number of input parameters -> I think I'm going to make the parameters be a constant length (the same for all DS models)
+        paramidx = 2*(i-1)+1:2*i
+        ys = view(y, envidx)
+
+        p[paramidx] = [cvec[i], xcpvec[i]] 
+        ps = view(p, paramidx)
+
+        states[1,nsi1:nsi2], loads[1,loadidx] = initialize(airfoils[i], tvec, ys, ps) #todo: make this function inplace. 
         tempx += numberofstates(airfoils[i].model)
     end
 
@@ -219,16 +208,17 @@ function solve_indicial(airfoils::Array{Airfoil, 1}, tvec, Uvec, alphavec; verbo
             xsi = view(states, i, nsi1:nsi2)
             xs1 = view(states, i+1, nsi1:nsi2)
             ys = view(y, 4*(j-1)+1:4*j)
+            ps = view(p, 2*(j-1)+1:2*j)
          
-            # idxs = 1:3 #Todo: What the heck is going on here? 
-            idxs = 3*(j-1)+1:3*j
+            
+            idxs = 3*(j-1)+1:3j
             loads_j = view(loads, i+1, idxs)
 
-            update_environment!(ys, Uvec[i+1], Udotvec[i+1], alphavec[i+1], alphadotvec[i+1]) #TODO: Figure out how to make this work for varying stations. 
+            update_environment!(ys, Uvec[i+1], Udotvec[i+1], alphavec[i+1], alphadotvec[i+1]) #TODO: Figure out how to make this work for varying stations. -> I don't know what I meant by that. 
             
-            airfoils[j](xsi, xs1, ys, dt) #Todo: I had xsi, xs1... 
+            airfoils[j](xsi, xs1, ys, ps, dt)
 
-            get_loads!(airfoils[j].model, airfoils[j], xs1, loads_j, ys) 
+            get_loads!(airfoils[j].model, airfoils[j], xs1, loads_j, ys, ps) 
         end
     end
 
@@ -238,6 +228,7 @@ end
 export ODEProblem
 
 function SciMLBase.ODEProblem(airfoils::AbstractVector{<:Airfoil}, x0, tspan, y)
+    #Todo: account for x, y, p, t (p being paramters). -> GXBeam probably has some examples. 
 
     n = length(airfoils)
     stateidx = Vector{Int}(undef, n)
@@ -258,10 +249,10 @@ end
 
 function evaluate_environment(y, t)
 
-    y1 = isa(y[1], Function) ? y[1](t) : y[1]
-    y2 = isa(y[2], Function) ? y[2](t) : y[2]
-    y3 = isa(y[3], Function) ? y[3](t) : y[3]
-    y4 = isa(y[4], Function) ? y[4](t) : y[4]
+    U = isa(y[1], Function) ? y[1](t) : y[1]
+    Udot = isa(y[2], Function) ? y[2](t) : y[2]
+    alpha = isa(y[3], Function) ? y[3](t) : y[3]
+    alphadot = isa(y[4], Function) ? y[4](t) : y[4]
 
-    return y1, y2, y3, y4
+    return U, Udot, alpha, alphadot
 end

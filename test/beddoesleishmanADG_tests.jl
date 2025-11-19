@@ -27,7 +27,7 @@ datavec = readdlm(file, ',')
 items = ["i", "t", "U", "alpha", "a_s", "M", "Gonzalez_factor", "c", "C_nalpha", "A1", "b1", "A2", "b2", "eta_e", "tau_v", "Cn_FS", "Cn_v", "Cn_alpha_q_nc", "Cn_q_circ", "Cn_alpha_q_circ", "fprimeprime", "Cn_alpha_nc", "Cn_q_nc", "T_alpha", "Kalpha_f", "Kprime_alpha", "q_f_cur", "alpha_filt_cur", "k_alpha", "alpha_e", "Kq_f", "Kprime_q", "Df", "fprime", "alpha_f", "Cc_pot", "fprime_c", "fprimeprime_c", "C_nalpha_circ", "Cn", "Cc", "Cm"]
 
 
-### Read in AeroDyn files #Todo: Switch to a test that doesn't depend on updates from OpenFASTTools.
+### Read in AeroDyn files #Todo: Switch to a test that doesn't depend on updates from OpenFASTTools. *And the possibility that those files could change!
 addriver = of.read_addriver("NREL5MW_ADdriver.dvr", "../testing/OpenFAST_NREL5MW_modified")
 adfile = of.read_adfile("NREL5MW_ADfile.dat","../testing/OpenFAST_NREL5MW_modified")
 adblade = of.read_adblade("NREL5MW_adblade.dat", "../testing/OpenFAST_NREL5MW_modified")
@@ -96,7 +96,7 @@ tvec = tspan[1]:dt:4.9
         @test isapprox(mat[1,1,i], i)
 
         ### Prepare inputs that rely on the package. 
-        af = make_dsairfoil(afs[i], chordvec[i]; interp=Linear) 
+        af, xcp = of.make_dsairfoil(afs[i]; interp=Linear) 
         # af = make_dsairfoil(afs[i], chordvec[i]) 
         airfoils = Array{Airfoil, 1}(undef, 1) #TODO: I should probably change the type requirement. 
         airfoils[1] = af
@@ -112,7 +112,7 @@ tvec = tspan[1]:dt:4.9
         aoavec[1:2] .= mat[1,4, i]
 
         ### Solve
-        states, loads = solve_indicial(airfoils, tvec, Uvec, aoavec) #TODO: There might be a scoping issue somewhere because when I was running the code multiple times in a row, I would get a different error. 
+        states, loads = DSM.solve_indicial(airfoils, tvec, Uvec, aoavec; cvec=[chordvec[i]], xcpvec=[xcp]) #TODO: There might be a scoping issue somewhere because when I was running the code multiple times in a row, I would get a different error. 
 
         Cnvec = zero(tvec)
         Ccvec = zero(tvec)
@@ -161,11 +161,11 @@ tvec = tspan[1]:dt:4.9
 
         # @show fpc_rms, fppc_rms
 
-        # Cnerr = relerr(loads[3:end,1], mat[:,40,i]).*100
-        Cnerr = relerr(Cnvec[3:end], mat[:,40,i]).*100
-        # Ccerr = relerr(loads[3:end,2], mat[:,41,i]).*100
-        Ccerr = relerr(Ccvec[3:end], mat[:,41,i]).*100
-        Cmerr = relerr(loads[3:end,3], mat[:,42,i]).*100
+        # Cnerr = calculate_relerr(loads[3:end,1], mat[:,40,i]).*100
+        Cnerr = calculate_relerr(Cnvec[3:end], mat[:,40,i]).*100
+        # Ccerr = calculate_relerr(loads[3:end,2], mat[:,41,i]).*100
+        Ccerr = calculate_relerr(Ccvec[3:end], mat[:,41,i]).*100
+        Cmerr = calculate_relerr(loads[3:end,3], mat[:,42,i]).*100
 
         @show mean(abs.(Cnerr)), mean(abs.(Ccerr)), mean(abs.(Cmerr))
 

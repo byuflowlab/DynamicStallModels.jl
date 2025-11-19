@@ -61,7 +61,7 @@ include("./testingutils.jl")
     airfoils = Array{Airfoil, 1}(undef, numnodes) 
     
     for i in eachindex(chordvec)
-        airfoils[i] = make_dsairfoil(afs[i], chordvec[i]; interp=Linear) 
+        airfoils[i] = of.make_dsairfoil(afs[i]; interp=Linear)[1]
         if i<5
             airfoils[i] = update_airfoil(airfoils[i]; dsmodel=DSM.NoModel())
         end

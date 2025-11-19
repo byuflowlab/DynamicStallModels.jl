@@ -27,7 +27,7 @@ export Riso, riso
 The Risø model struct. It stores airfoil data for every section to be simulated. It can be used as a method to return updated states or state rates depending on it's DEType. 
 
 ### Inputs
-- detype - The type of model it is, Functional(), Iterative(), or Indicial().
+- detype - The type of model it is, Continuous() or Discrete().
 - n - The number of sections to be simulated. 
 - airfoils - A vector of Airfoil structs, one corresponding to each section to be simulated. 
 """
@@ -38,15 +38,15 @@ struct Riso{TI} <: DSModel
 end
 
 """
-    riso(airfoils::Array{Airfoil, 1}; detype::DEType=Iterative())
+    riso(airfoils::Array{Airfoil, 1}; detype::DEType=Discrete())
 
 A convenience. constructor for the Risø model. 
 
 ### Inputs
 - airfoils - A vector of Airfoil structs, one corresponding to each section to be simulated. 
-- detype - The DEType of the model. Defaults to Iterative(). 
+- detype - The DEType of the model. Defaults to Discrete(). 
 """
-function Riso(airfoils; detype::DEType=Iterative()) #::Array{Airfoil,1} #TODO: I'm not sure how to type this. 
+function Riso(airfoils; detype::DEType=Discrete()) #::Array{Airfoil,1} #TODO: I'm not sure how to type this. 
     n = length(airfoils)
     return Riso(detype, n, airfoils)
 end
@@ -164,17 +164,12 @@ end
 
 
 # Out-of-place ODE dispatch
-function (model::Riso)(x, p, t)
+function (model::Riso)(x, p, t) #Todo: This is probably needing a revamp to x, y, p, t. -> Need to figure out how to do the dispatching. 
     return riso_ode(model.detype, model, x, p, t)
 end
 
-# function riso_ode(detype::Iterative, x, p, t)
-#     u, udot, v, vdot, theta, thetadot, c, dcldalpha, alpha0, afm, afp, liftfit, A1, A2, b1, b2, Tp, Tf = p
 
-#     return riso_state_rates(x, u, udot, v, vdot, theta, thetadot, c, dcldalpha, alpha0, afm, afp, liftfit, A1, A2, b1, b2, Tp, Tf)
-# end
-
-function riso_ode(detype::Iterative, model, x, p, t)
+function riso_ode(detype::Discrete, model, x, p, t)
     n = model.n
 
     #p = [u, udot, alpha, alphadot, c]
@@ -207,8 +202,8 @@ function (model::Riso)(dx, x, p, t)
 end
 
 
-# Inplace, functional ode form of the Riso Model. 
-function riso_ode!(detype::Functional, model, dx, x, p, t) 
+# Inplace, continuous ode form of the Riso Model. 
+function riso_ode!(detype::Continuous, model, dx, x, p, t) 
     U, Udot, alpha, alphadot = p[1:4]
     cvec = view(p, 5:model.n+4)
     for i = 1:model.n

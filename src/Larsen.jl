@@ -9,7 +9,7 @@ export Larsen
 The Larsen model struct. It stores airfoil data for every section to be simulated. It can be used as a method to return updated states or state rates depending on it's DEType. 
 
 ### Inputs
-- detype - The type of model it is, Functional(), Iterative(), or Indicial().
+- detype - The type of model it is, Continuous() or Discrete().
 - n - The number of sections to be simulated. 
 - airfoils - A vector of Airfoil structs, one corresponding to each section to be simulated. 
 """
@@ -18,6 +18,8 @@ struct Larsen{TI} <: DSModel
     n::TI #Number of airfoils simulated
     airfoils::Array{Airfoil,1}
 end
+
+#Todo: This needs work. 
 
 function thetafun(t)
     #Solve equation 7.

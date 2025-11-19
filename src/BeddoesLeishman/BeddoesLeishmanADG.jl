@@ -40,13 +40,13 @@ The states I use are:
 
 
 #AeroDyn original implementation. 
-function update_states_ADG!(airfoil::Airfoil, oldstates, states, y, deltat)  #TODO: Ryan seems to think that all of this airfoil information should pass in from the airfoil struct just fine and not affect how derivatives are calculated. 
+function update_states_ADG!(airfoil::Airfoil, oldstates, states, y, p, deltat)  #TODO: Ryan seems to think that all of this airfoil information should pass in from the airfoil struct just fine and not affect how derivatives are calculated. 
 
     ### Unpack airfoil constants
     dcndalpha = airfoil.dcndalpha
     alpha0 = airfoil.alpha0
     # _, alpha1 = airfoil.alphasep
-    c = airfoil.c
+    c = p[1]
     # xcp = airfoil.xcp
 
     ### Unpack model constants
@@ -189,6 +189,12 @@ function update_states_ADG!(airfoil::Airfoil, oldstates, states, y, deltat)  #TO
 
     ### More constants
     M = U/a # Mach number
+
+    if M>1
+        states .= oldstates
+        return 
+    end
+
     beta = sqrt(1 - M^2) #Prandtl-Glauert compressibility correction factor #TODO: Need something to cap if M>1. Or at least some sort of diversion behavior. 
 
     bot = (1-M) + dcndalpha*(M^2)*beta*(A1*b1 + A2*b2)/2 #TODO: Calculated solely at first time step.... Maybe we pull this out and pass it in as a function argument. ... Or just calculate it every time as it isn't super costly. 
@@ -235,7 +241,6 @@ function update_states_ADG!(airfoil::Airfoil, oldstates, states, y, deltat)  #TO
     alphae = (alpha - alpha0) - X1 - X2 #EQ 1.14, Effective angle of attack
     dcndalpha_circ = dcndalpha/beta #EQ 1.12, Circulatory component of the normal force coefficient response to step change in alpha. #Checked against OpenFAST v3.3.0
 
-    # @show dcndalpha, beta
 
     Ncirc_aq = dcndalpha_circ*alphae #+ Cc_nq #EQ 1.13, Circulatory component of normal force via lumped approach. #TODO: This appears to be equal to Cpotcn
 
@@ -265,12 +270,7 @@ function update_states_ADG!(airfoil::Airfoil, oldstates, states, y, deltat)  #TO
 
     Cpn = Npot - Dp #EQ 1.35, lagged circulatory normal force 
 
-    # @show Npot, Dp
-
-
     alphaf = Cpn/dcndalpha_circ + alpha0 #EQ 1.34, delayed effective angle of incidence  Note: this is not the filtered angle of attack. 
-
-    # @show alphaf, Cpn, dcndalpha_circ, alpha0
 
     
     #### Separation points
@@ -377,21 +377,23 @@ function update_states_ADG!(airfoil::Airfoil, oldstates, states, y, deltat)  #TO
     states[29] = LESF
     states[30] = TESF
     states[31] = VRTX
-    states[32] = firstpass = 0.0
+    states[32] = firstpass = 0.0 #todo: Should these values be 0 or 0.0? 
 end
 
 
 
-function BLADG_coefficients!(airfoil::Airfoil, loads, states, y) #Todo: I don't know if I need this function. 
-    loads .= BLADG_coefficients(airfoil, states, y)
+function BLADG_coefficients!(airfoil::Airfoil, loads, states, y, p) #TODO: I don't know if I need this function. 
+    loads .= BLADG_coefficients(airfoil, states, y, p)
 end
 
 
-function BLADG_coefficients(airfoil::Airfoil, states, y)
+function BLADG_coefficients(airfoil::Airfoil, states, y, p)
 
     U = y[1]
 
-    c = airfoil.c
+    c = p[1]
+    xcp = p[2]
+
     clfit = airfoil.cl
     cdfit = airfoil.cd
     cmfit = airfoil.cm
@@ -399,7 +401,7 @@ function BLADG_coefficients(airfoil::Airfoil, states, y)
     alpha0 = airfoil.alpha0
     alphacut = airfoil.alphacut[2]
     cutrad = airfoil.cutrad
-    xcp = airfoil.xcp
+    # xcp = airfoil.xcp
 
     model = airfoil.model
 
@@ -494,9 +496,6 @@ function BLADG_coefficients(airfoil::Airfoil, states, y)
     
     Cfsc = Cpot*eta*(sqrt(fppc)-0.2) #EQ 1.40, Gonzalez modifications 
 
-    if c==2.086
-        # @show Cpot, fppc
-    end
 
     ### Chordwise force 
     Cc = Cfsc #EQ 1.55b
@@ -505,8 +504,11 @@ function BLADG_coefficients(airfoil::Airfoil, states, y)
 
 
     ### Lift and Drag
-    Cl = Cn*cos(aoa) + Cc*sin(aoa)
+    Cl = Cn*cos(aoa) + Cc*sin(aoa) #TODO: Use the sincos function? 
     Cd = Cn*sin(aoa) - Cc*cos(aoa) + Cd0 #Adding frictional drag back in. 
+
+    # @show Cl
+    # error("")
 
     
     if firstpass==1.0
@@ -559,7 +561,7 @@ function BLADG_coefficients(airfoil::Airfoil, states, y)
     return Cl, Cd, Cm
 end
 
-function initialize_ADG(airfoil::Airfoil, tvec, y) 
+function initialize_ADG(airfoil::Airfoil, tvec, y, p) #Todo: I should probably swap tvec for t0.
 
     model = airfoil.model
     Cd0 = model.Cd0
@@ -578,7 +580,7 @@ function initialize_ADG(airfoil::Airfoil, tvec, y)
     Kpa = Kpq = Kppq = Kpppq = 0.0
     Dp = Df = Dfc = Dfm = 0.0
     
-    Cpotn = airfoil.cl(alpha) +(airfoil.cd(alpha)-Cd0)*sin(alpha)
+    Cpotn = airfoil.cl(alpha) + (airfoil.cd(alpha)-Cd0)*sin(alpha) #todo: dynamic dispatch to akima
     fp = fpp = 1.0
     # fp = fpp = 0.0
     fpc = fppc = fclimit

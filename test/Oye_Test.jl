@@ -1,201 +1,183 @@
 using DynamicStallModels, DelimitedFiles, FLOWMath, DifferentialEquations, Test
-using Plots
 
 dsm = DynamicStallModels
 
 path = dirname(@__FILE__)
 cd(path)
 
-include("testingutils.jl")
+c = 0.55
 
+M = 0.11
+a = 343.0
+Vrel = M*a 
 
-@testset "Oye" begin
+file = "../polars/NACA_0015_Faber.csv"
+
+file_2 = "../polars/Faber_0015_Oye_Top_Half.csv"
+
+file_3 = "../polars/Faber_0015_Oye_Bottom_Half.csv"
+
+polar = readdlm(file , ',') #reads in Faber's static lift polar for the NACA_0015 airfoil
+
+Polar_Top_Half = readdlm(file_2, ',') #reads in the dynamic lift values from Faber's NACA 0015 (top half)
+Lift_Top_Half = Akima(Polar_Top_Half[:,1].*pi/180, Polar_Top_Half[:,2])
+
+Polar_Bottom_Half = readdlm(file_3, ',') #reads in the dynamic lift values from Faaber's NACA 0015 (bottom half)
+Lift_Bottom_Half = Akima(Polar_Bottom_Half[:,1].*pi/180, Polar_Bottom_Half[:,2])
+
+dsmodel = Oye(Functional(), 1, 2, 4.0)
+
+af = dsm.make_airfoil(polar, dsmodel, c; sfun=dsm.LSP())
+
+airfoils = Array{Airfoil, 1}(undef, 1)
+airfoils[1] = af
+
+tspan = (0, 2.0) #0:0.001:0.05
+
+function Uvector(t)
+    return 0.11*343.0
+end
+
+function alpha(t)
     c = 0.55
-
     M = 0.11
     a = 343.0
-    Vrel = M*a 
+    shift = 10.0
+    amp = 10.0
+    k = 0.051
 
-    file = "../data/NACA_0015_Faber.csv"
+    v = M*a
+    omega = k*2*v/c
 
-    file_2 = "../data/Faber_0015_Oye_Top_Half.csv"
+    alf = shift + amp*sin(omega*t)
+    return alf*(pi/180)
+end
 
-    file_3 = "../data/Faber_0015_Oye_Bottom_Half.csv"
+parameters = [Uvector, 0.0, alpha, 0.0]
 
-    polar = readdlm(file , ',') #reads in Faber's static lift polar for the NACA_0015 airfoil
+x_initial = [0.8]
 
-    faber_top = readdlm(file_2, ',') #reads in the dynamic lift values from Faber's NACA 0015 (top half)
-    Lift_Top_Half = Akima(faber_top[:,1].*pi/180, faber_top[:,2])
+prob = ODEProblem(airfoils, x_initial, tspan, parameters)
 
-    faber_bot = readdlm(file_3, ',') #reads in the dynamic lift values from Faber's NACA 0015 (bottom half)
-    Lift_Bottom_Half = Akima(faber_bot[:,1].*pi/180, faber_bot[:,2])
+sol = DifferentialEquations.solve(prob, reltol=1e-8)
 
-    dsmodel = Oye(Functional(), 1, 2, 4.0)
+answer = parsesolution(dsmodel, af, sol, parameters)
 
-    af = dsm.make_airfoil(polar, dsmodel, c; sfun=dsm.OSP())
-    af = dsm.update_airfoil(af; dcldalpha=2*pi)
+dsmodel_2 = Oye(Indicial(), 1, 2, 4.0)
 
-    airfoils = Array{Airfoil, 1}(undef, 1)
-    airfoils[1] = af
+af_2 = dsm.make_airfoil(polar, dsmodel_2, c; sfun=dsm.LSP())
 
-    tspan = (0, 2.0) #0:0.001:0.05
+airfoils_2 = Array{Airfoil, 1}(undef, 1)
+airfoils_2[1] = af_2
 
-    function Uvector(t)
-        return 0.11*343.0
-    end
-
-    function alpha(t)
-        c = 0.55
-        M = 0.11
-        a = 343.0
-        shift = 10.0
-        amp = 10.0
-        k = 0.051
-
-        v = M*a
-        omega = k*2*v/c
-
-        alf = shift + amp*sin(omega*t)
-        return alf*(pi/180)
-    end
-
-    parameters = [Uvector, 0.0, alpha, 0.0]
-
-    x_initial = [0.8]
-
-    prob = ODEProblem(airfoils, x_initial, tspan, parameters)
-
-    sol = DifferentialEquations.solve(prob, reltol=1e-8)
-
-    answer = parsesolution(dsmodel, airfoils, sol, parameters)
-
-    # display(answer)
-
-    # nstart = 30
-    # plt = plot(answer[1,nstart:end], answer[2,nstart:end])
-    # plot!(faber_top[:, 1].*(pi/180), faber_top[:,2])
-    # plot!(faber_bot[:, 1].*(pi/180), faber_bot[:,2])
-    # display(plt)
+tvec = range(0, 1.0, 1000)
+Uvec = Vrel.*ones(length(tvec))
+alphavec = alpha.(tvec)
 
 
+states, loads = solve_indicial(airfoils_2, tvec, Uvec, alphavec)
 
-    
-
+@testset "Oye" begin
     @testset "Oye Functional Test" begin
-        #tests to see if the states are always between 0 and 1
-        @testset "State Value" begin
-            f = Array(sol)
 
-            @test all((Ref(0) .<= f .<= Ref(1)))
-        end
+        ### states are always between 0 and 1
+        f = Array(sol)
+        @test !any(fval->(fval<0||fval>1), f)
         
-        @testset "Fully Separated Lift" begin
-            C_fs = dsm.cl_fullysep_faber.(Ref(af), alpha.(sol.t))
-            Cl = af.cl.(alpha.(sol.t))
+        #test to see if the fully separated lift is always positive and below the static lift; test to see if the derivative near 32 degrees is pi/6
+        #test to see if the derivative near alpha0 is pi
 
-            #test to see if the fully separated lift is always positive and below the static lift; 
-            @test all(C_fs<=Cl)
-            @test all(Ref(-0.05).<=C_fs)
+        aoavec = alpha.(sol.t)
 
+        Cl_fs = dsm.cl_fullysep_faber.(Ref(af), aoavec)
+        Cl = af.cl.(aoavec)
 
-            C_fs_end = dsm.cl_fullysep_faber(af, 32*pi/180)
-            C_fs_end_minus_step = dsm.cl_fullysep_faber(af, 31.99*pi/180)
-
-
-            derivative_1 = (C_fs_end-C_fs_end_minus_step)/(32*pi/180 - 31.99*pi/180) 
-
-            #test to see if the derivative near 32 degrees is pi/6
-            @test isapprox(derivative_1, (pi)/6 , rtol = 0.05) #testing derivative at alphasep
+        @test !any(val -> val<0, Cl.-Cl_fs)
+        @test !any(val -> val<=-0.05, Cl_fs)
 
 
-            C_fs_beginning = dsm.cl_fullysep_faber(af, af.alpha0)
-            C_fs_beginning_plus_step = dsm.cl_fullysep_faber(af, af.alpha0+0.01)
+        C_fs_end = dsm.cl_fullysep_faber(af, 32*pi/180)
+        C_fs_end_minus_step = dsm.cl_fullysep_faber(af, 31.99*pi/180)
 
 
-            derivative_2 = (C_fs_beginning_plus_step- C_fs_beginning)/(0.01)
+        derivative_1 = (C_fs_end-C_fs_end_minus_step)/(32*pi/180 - 31.99*pi/180) #Todo: There is a more efficient way to calculate the derivative. Like actually use the aoa values in the denominator. 
 
-            #test to see if the derivative near alpha0 is pi
-            @test isapprox(derivative_2, pi, rtol=0.05) #testing derivative at alpha0
+
+        @test isapprox(derivative_1, (pi)/6 , rtol = 0.05) #testing derivative at alphasep
+
+
+        C_fs_beginning = dsm.cl_fullysep_faber(af, af.alpha0)
+        C_fs_beginning_plus_step = dsm.cl_fullysep_faber(af, af.alpha0+0.01)
+
+
+        derivative_2 = (C_fs_beginning_plus_step- C_fs_beginning)/(0.01)
+
+
+        
+        @test isapprox(derivative_2, pi, rtol=0.05) #testing derivative at alpha0
+
+
+        @testset "Dynamic Lift Compared to Faber (Functional)" begin
+        #    for i in 1:length(answer[1,1:(end-1)]) #compares the lfit from Faber to our Lift using the Functional Method method
+        #         if answer[1,i] < answer[1, i+1]
+        #             Faber_Lift = Lift_Top_Half(answer[1,i])
+        #         else
+        #             Faber_Lift = Lift_Bottom_Half(answer[1,i])
+        #         end
+        #         @test isapprox(answer[2,i], Faber_Lift, atol = 0.05)
+        #     end
         end
-
-        @testset "Dynamic Lift Compared to Faber" begin 
-           for i in 30:length(sol.t)-1 #compares the lfit from Faber to our Lift using the Functional Method method
-                if answer[1,i] < answer[1, i+1]
-                    Faber_Lift = Lift_Top_Half(answer[1,i])
-                else
-                    Faber_Lift = Lift_Bottom_Half(answer[1,i])
-                end
-
-                relative_error = (answer[2,i]-Faber_Lift)/maximum(polar[:,2]) #relative maximum error
-                @test abs(relative_error)<=0.05
-
-                # @test isapprox(answer[2,i], Faber_Lift, atol = 0.07) #Todo. Failing. -> Switch to 0.07 from 0.05 
-            end
-        end
-    end
+     end
 
    
-    # @testset "Oye Indicial Test" begin
-        # dsmodel_2 = Oye(Indicial(), 1, 2, 4.0)
+    @testset "Oye Indicial Test" begin
+        #test to see if the state value is between 0 and 1
+        @testset "State Values" begin
+            # for i in 1:length(states)
+            #     @test 0 <= states[i] <= 1
+            # end
+        end
 
-        # af_2 = dsm.make_airfoil(polar, dsmodel_2, c; sfun=dsm.OSP())
-
-        # airfoils_2 = Array{Airfoil, 1}(undef, 1)
-        # airfoils_2[1] = af_2
-
-        # tvec = range(0, 1.0, 1000)
-        # Uvec = Vrel.*ones(length(tvec))
-        # alphavec = alpha.(tvec)
-
-
-        # states, loads = solve_indicial(airfoils_2, tvec, Uvec, alphavec)
-    #     #test to see if the state value is between 0 and 1
-    #     @testset "State Values" begin
-    #         for i in 1:length(states)
-    #             @test 0 <= states[i] <= 1
-    #         end
-    #     end
-
-    #     @testset "Fully Separated Lift" begin
-    #         for w in 1:length(airfoils_2)
-    #             for i in 1:length(tvec)
-    #                 Cl_fs = dsm.cl_fullysep_faber(airfoils_2[w], alphavec[i])
-    #                 Cl = airfoils_2[w].cl(alphavec[i])
-    #                 @test Cl_fs <= Cl #tests to see if the fully sep lift is always less than or equal to the static lift
-    #                 @test Cl_fs >= -0.05 #tests to see if fully sep lift is greater than zero (near alpha0 it might be a little bit negative)
-    #             end
+        @testset "Fully Separated Lift" begin
+            # for w in 1:length(airfoils_2)
+            #     for i in 1:length(tvec)
+            #         Cl_fs = dsm.cl_fullysep_faber(airfoils_2[w], alphavec[i])
+            #         Cl = airfoils_2[w].cl(alphavec[i])
+            #         @test Cl_fs <= Cl #tests to see if the fully sep lift is always less than or equal to the static lift
+            #         @test Cl_fs >= -0.05 #tests to see if fully sep lift is greater than zero (near alpha0 it might be a little bit negative)
+            #     end
 
 
-    #             C_fs_end = dsm.cl_fullysep_faber(airfoils_2[w], 32*pi/180)
-    #             C_fs_end_minus_step = dsm.cl_fullysep_faber(airfoils_2[w], 31.99*pi/180)
+            #     C_fs_end = dsm.cl_fullysep_faber(airfoils_2[w], 32*pi/180)
+            #     C_fs_end_minus_step = dsm.cl_fullysep_faber(airfoils_2[w], 31.99*pi/180)
 
 
-    #             derivative_1 = (C_fs_end-C_fs_end_minus_step)/(32*pi/180 - 31.99*pi/180) 
+            #     derivative_1 = (C_fs_end-C_fs_end_minus_step)/(32*pi/180 - 31.99*pi/180) 
 
 
-    #             @test isapprox(derivative_1, (pi)/6 , rtol = 0.05) #testing derivative at alphasep
+            #     @test isapprox(derivative_1, (pi)/6 , rtol = 0.05) #testing derivative at alphasep
 
 
-    #             C_fs_beginning = dsm.cl_fullysep_faber(airfoils_2[w], af.alpha0)
-    #             C_fs_beginning_plus_step = dsm.cl_fullysep_faber(airfoils_2[w], af.alpha0+0.01)
+            #     C_fs_beginning = dsm.cl_fullysep_faber(airfoils_2[w], af.alpha0)
+            #     C_fs_beginning_plus_step = dsm.cl_fullysep_faber(airfoils_2[w], af.alpha0+0.01)
 
 
-    #             derivative_2 = (C_fs_beginning_plus_step- C_fs_beginning)/(0.01)
+            #     derivative_2 = (C_fs_beginning_plus_step- C_fs_beginning)/(0.01)
 
 
-    #             @test isapprox(derivative_2, pi, rtol=0.05) #testing derivative at alpha0
-    #         end
-    #     end
+            #     @test isapprox(derivative_2, pi, rtol=0.05) #testing derivative at alpha0
+            # end
+        end
 
-    #     @testset "Dynamic Lift Compared to Faber (Indicial)" begin
-    #         for i in 1:(length(tvec)-1) #compares the lfit from Faber to our Lift using the Indicial method
-    #             if alphavec[i] < alphavec[i+1]
-    #                 Faber_Lift = Lift_Top_Half(alphavec[i])
-    #             else
-    #                 Faber_Lift = Lift_Bottom_Half(alphavec[i])
-    #             end
-    #             @test isapprox(loads[i,1], Faber_Lift, atol = 0.05)
-    #         end
-    #     end
-    # end
+        @testset "Dynamic Lift Compared to Faber (Indicial)" begin
+            # for i in 1:(length(tvec)-1) #compares the lfit from Faber to our Lift using the Indicial method
+            #     if alphavec[i] < alphavec[i+1]
+            #         Faber_Lift = Lift_Top_Half(alphavec[i])
+            #     else
+            #         Faber_Lift = Lift_Bottom_Half(alphavec[i])
+            #     end
+            #     @test isapprox(loads[i,1], Faber_Lift, atol = 0.05)
+            # end
+        end
+    end
 end

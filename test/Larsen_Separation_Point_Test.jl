@@ -5,56 +5,56 @@ dsm = DynamicStallModels
 path = dirname(@__FILE__)
 cd(path)
 
+c = 0.55
 
+M = 0.11
+a = 343.0
+Vrel = M*a 
+
+file = "../polars/NACA_0015_Faber.csv"
+
+polar = readdlm(file , ',')
+
+dsmodel = Oye(Functional(), 1, 2, 4.0)
+
+af = dsm.make_airfoil(polar, dsmodel, c; sfun=dsm.LSP())
+
+airfoils = Array{Airfoil, 1}(undef, 1)
+airfoils[1] = af
+
+tspan = (0, 2.0) #0:0.001:0.05
+
+function Uvector(t)
+    return 0.11*343.0
+end
+
+function alpha(t)
+    c = 0.55
+    M = 0.11
+    a = 343.0
+    shift = 10.0
+    amp = 10.0
+    k = 0.051
+
+    v = M*a
+    omega = k*2*v/c
+
+    alf = shift + amp*sin(omega*t)
+    return alf*(pi/180)
+end
+
+parameters = [Uvector, 0.0, alpha, 0.0]
+
+x_initial = [0.8]
+
+prob = ODEProblem(airfoils, x_initial, tspan, parameters)
+
+sol = DifferentialEquations.solve(prob, reltol=1e-8)
+
+answer = parsesolution(dsmodel, af, sol, parameters)
 
 
 @testset "Larsen Separation Point" begin
-    c = 0.55
-
-    M = 0.11
-    a = 343.0
-    Vrel = M*a 
-
-    file = "../data/NACA_0015_Faber.csv"
-    polar = readdlm(file , ',')
-
-    dsmodel = Oye(Functional(), 1, 2, 4.0)
-
-    af = dsm.make_airfoil(polar, dsmodel, c; sfun=dsm.OSP())
-
-    airfoils = Array{Airfoil, 1}(undef, 1)
-    airfoils[1] = af
-
-    tspan = (0, 2.0) #0:0.001:0.05
-
-    function Uvector(t)
-        return 0.11*343.0
-    end
-
-    function alpha(t)
-        c = 0.55
-        M = 0.11
-        a = 343.0
-        shift = 10.0
-        amp = 10.0
-        k = 0.051
-
-        v = M*a
-        omega = k*2*v/c
-
-        alf = shift + amp*sin(omega*t)
-        return alf*(pi/180)
-    end
-
-    parameters = [Uvector, 0.0, alpha, 0.0]
-
-    x_initial = [0.8]
-
-    prob = ODEProblem(airfoils, x_initial, tspan, parameters)
-
-    sol = DifferentialEquations.solve(prob, reltol=1e-8)
-
-    answer = parsesolution(dsmodel, airfoils, sol, parameters)
     @testset "Separation Point Values" begin
         #checks to see if the separation point is always between 0 and 1
         for i in 1:length(sol.t)

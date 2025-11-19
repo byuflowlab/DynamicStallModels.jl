@@ -6,7 +6,7 @@ export Onera
 The Onera model struct. It stores airfoil data for every section to be simulated. It can be used as a method to return updated states or state rates depending on it's DEType. 
 
 ### Inputs
-- detype - The type of model it is, Functional(), Iterative(), or Indicial().
+- detype - The type of model it is, Continuous() or Discrete().
 - n - The number of sections to be simulated. 
 - airfoils - A vector of Airfoil structs, one corresponding to each section to be simulated. 
 """
@@ -16,9 +16,11 @@ struct Onera{TI} <: DSModel
     airfoils::Array{Airfoil,1}
 end
 
+#Todo: This needs work. 
 
-function states!(dx, x, p, t)
-    alpha, alphadot, liftfit, liftfitderiv, dcldalpha, A, omega, zeta = p
+
+function states!(dx, x, y, p, t)
+    alpha, alphadot, liftfit, liftfitderiv, dcldalpha, A, omega, zeta = p #Todo: Separate out the parameters from the environmental variables. 
 
     dx[1] = -omega[1]*x[1] + omega[1]*dcldalpha*(alpha(t)) + (1-A[1])*dcldalpha*alphadot(t)
     dx[2] = x[3]
@@ -33,7 +35,7 @@ function parsesolution(sol, p)
     u = reduce(hcat, sol.u)'
     n,m = size(u)
 
-    alpha, alphadot, liftfit, liftfitderiv, dcldalpha, A, omega, zeta = p
+    alpha, alphadot, liftfit, liftfitderiv, dcldalpha, A, omega, zeta = p #Todo: 
 
     t = sol.t
 

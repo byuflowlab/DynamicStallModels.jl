@@ -55,6 +55,10 @@ function dirac(x; w=0.1)
     return L/(pi*(x^2 + L^2))
 end
 
+function find_inittype(vars...) #Todo: I'm going to guess that this function needs improvement. 
+    return eltype(vars)
+end
+
 
 
 export Linear #Todo: Add to FLOWMath? 
@@ -76,7 +80,7 @@ end
 
 
 
-function (interp::Linear)(x; verbose::Bool=true)
+function (interp::Linear)(x; verbose::Bool=false)
 
     if x<interp.x[1]
         if verbose
@@ -109,6 +113,44 @@ function (interp::Linear)(x; verbose::Bool=true)
     y1 = interp.y[idx]
 
     top = y0*(x1-x) + y1*(x-x0)
+    bot = x1-x0
+
+    return top/bot
+end
+
+function linear(xnew, x, y; verbose::Bool=false) #Todo: this should probably be left true. 
+
+    if xnew<x[1]
+        if verbose
+            @warn("Linear(): Outside of linear interpolation domain.")
+        end
+        return y[1]
+    elseif xnew>x[end]
+        if verbose
+            @warn("Linear(): Outside of linear interpolation domain.")
+        end
+        return y[end]
+
+    elseif xnew==x[1]
+        return y[1]
+    elseif xnew==x[end]
+        return y[end]
+
+    end
+
+    # @show x, x[1], x[end]
+    #Todo: I should probably figure out a behavior if the function gets passed a NaN 
+
+    idx = findfirst(i -> xnew<i, x)
+
+    # @show idx
+
+    x0 = x[idx-1]
+    x1 = x[idx]
+    y0 = y[idx-1]
+    y1 = y[idx]
+
+    top = y0*(x1-xnew) + y1*(xnew-x0)
     bot = x1-x0
 
     return top/bot
