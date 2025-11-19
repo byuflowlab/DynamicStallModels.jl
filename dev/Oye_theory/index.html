@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Øye Theory · DynamicStallModels.jl</title><script data-outdated-warner src="../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.045/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.13.24/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../">DynamicStallModels.jl</a></span></div><form class="docs-search" action="../search/"><input class="docs-search-query" id="documenter-search-query" name="q" type="text" placeholder="Search docs"/></form><ul class="docs-menu"><li><a class="tocitem" href="../">Introduction</a></li><li><a class="tocitem" href="../gettingstarted/">Getting Started</a></li><li><span class="tocitem">Examples</span><ul><li><a class="tocitem" href="../Oye_example/">Øye</a></li><li><a class="tocitem" href="../riso_example/">Risø Model</a></li><li><a class="tocitem" href="../beddoesleishman_example/">Beddoes-Leishman</a></li></ul></li><li><span class="tocitem">Developers</span><ul><li><a class="tocitem" href="../codeoutline/">Code Outline</a></li><li class="is-active"><a class="tocitem" href>Øye Theory</a><ul class="internal"><li><a class="tocitem" href="#State-Rate-Equation"><span>State Rate Equation</span></a></li></ul></li><li><a class="tocitem" href="../riso_theory/">Risø Theory</a></li><li><a class="tocitem" href="../beddoesleishman_theory/">Beddoes-Leishman Theory</a></li></ul></li><li><a class="tocitem" href="../apireference/">API Reference</a></li><li><a class="tocitem" href="../references/">References</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Developers</a></li><li class="is-active"><a href>Øye Theory</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Øye Theory</a></li></ul></nav><div class="docs-right"><a class="docs-edit-link" href="https://github.com/byuflowlab/DynamicStallModels.jl/blob/master/docs/src/Oye_theory.md#L" title="Edit on GitHub"><span class="docs-icon fab"></span><span class="docs-label is-hidden-touch">Edit on GitHub</span></a><a class="docs-settings-button fas fa-cog" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-sidebar-button fa fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a></div></header><article class="content" id="documenter-page"><h1 id="Øye-Theory"><a class="docs-heading-anchor" href="#Øye-Theory">Øye Theory</a><a id="Øye-Theory-1"></a><a class="docs-heading-anchor-permalink" href="#Øye-Theory" title="Permalink"></a></h1><p>Øye&#39;s model is a linear interpolation of fully attached lift (inviscid), and fully detached lift based on a dynamic degree of attachment. The dynamic attachment degree is a simple first-order filter on the separation point on the suction side of an airfoil. This dynamic degree of attachment is the Øye model&#39;s only state, which makes it the simplest dynamic stall model to implement.</p><p>The state is:</p><table><tr><th style="text-align: right">Variable</th><th style="text-align: right">Name</th><th style="text-align: right">Comments</th></tr><tr><td style="text-align: right"><span>$f^d$</span></td><td style="text-align: right">Dynamic Attachment Degree</td><td style="text-align: right">This differential equation is also utilized in the Riso model and Beddoes-Leishman model</td></tr></table><h2 id="State-Rate-Equation"><a class="docs-heading-anchor" href="#State-Rate-Equation">State Rate Equation</a><a id="State-Rate-Equation-1"></a><a class="docs-heading-anchor-permalink" href="#State-Rate-Equation" title="Permalink"></a></h2><p class="math-container">\[
+\begin{equation}
+\dot{f}^d = -\tau (f^d- f(\alpha))
+\end{equation}
+$$
+
+As stated, equation 1 is the only state rate equation in this model. $f^d$ is the state, $\tau$ is the time constant, and $f^s(\alpha)$ is the position of the fluid&#39;s separation point as a function of the angle of attack (also known as the static separation point).
+
+Additionally, it should be noted that variables with a dot above them, such as $\dot{f}^d$, are derivatives with respect to time.
+
+The above equation can be evaluated using a prefered ODE solver. Once the solution is discovered, it can be implemented into the following equation to solve for the dynamic lift.
+
+$$
+\begin{equation}
+C_{L}(t) = f^{d}(t)C_l^{inv} + (1-f^{d}(t))C_l^{fs}
+\end{equation}
+$$
+
+The indicial approach simply solves equation 1 by assuming that the inflow velocity and angle of attack do not vary within the time step, and using an integrating factor:
+
+$$
+\begin{equation}
+f^{d}_{i+1} = f^{s}(\alpha_i) + (f^{d}_i - f^{s}(\alpha_i))\hspace{3pt}e^{-\frac{dt}{\tau}}
+\end{equation}
+$$
+
+
+## Explanation of Variables
+#### Time Constant
+
+The time constant is experimentally determined, and provides the needed information for how long it takes to come to steady state. 
+
+$$
+\begin{equation}
+\tau = \frac{V}{A c}
+\end{equation}
+$$
+
+where $\tau$ is the time constant, $V$ is the inflow velocity (m/s) $A$ is the airfoil time coefficient, and $c$ is the airfoil chord (m). $A$ is assumed to be $A=4$.
+For myriad reasons, different authors have decided to rearrange this equation to suit their circumstance. Since we verified our code against Faber and Larsen, we present here their formulations for the airfoil time coefficient.
+
+Faber multiplies the airfoil time coefficient by two:
+
+$$
+\begin{equation}
+A = \frac{T}{2}
+\end{equation}
+$$
+
+and suggests a value of $T=8$. This provides for the exact same value as Øye, but note that he uses slightly different notation than what is presented here.
+
+Larsen used a dimensionalized and non-dimensionalized frequencies:
+
+$$
+\begin{equation}
+A = \frac{1}{2\omega}
+\end{equation}
+$$
+
+where 
+$$
+\begin{equation*}
+\hat{\omega} = \frac{\omega c}{2v}
+\end{equation*}
+$$
+
+
+#### Static Separation Point
+Øye assumes a linear interpolation between the inviscid and static lifts, that interpolation percent he deems as the static separation point:
+
+$$
+\begin{equation}
+f^s(\alpha) = \frac{C_l^{st} - C_l^{fs}}{C_l^{inv} - C_l^{fs}}
+\end{equation}
+$$
+
+
+The static attatchment degree $f$ is used to describe the separation point of the fluid. The range of values for $f$ is in between $0$ and $1$: where $1$ would indicate fully attatched flow and $0$ represents fully separated flow. If $f$ were to equal a value of $0.75$, then the fluid would have a separation point that occurs $75\%$ the length of the chord away from the leading edge. 
+
+For $f(\alpha)$, $C_l^{st}$ represents the  static lift coefficient; $C_l^{fs}$ is the lift for an airfoil that is under the condition of fully separated flow; and $C_l^{inv}$ is the lift for an airfoil in inviscid flow. It should also be mentioned that all of these coefficient of lift values are functions of angle of attack that range from $\alpha_{0} \leq \alpha \leq \alpha_{sep}$: where $\alpha_0$ is the angle of attack that produces zero lift and $\alpha_{sep}$ is the angle of attack where full separation occurs following static stall.
+
+Because $C_l^{inv}$ is the lift under inviscid flow, it has a completely linear relationship with the angle of attack. The slope for the line of $C_l^{inv}$ is equal to the slope of $C_l^{st}$ at $\alpha_0$ (i.e. $\frac{\partial C_l^{st}}{\partial \alpha}\big|_{\alpha_0}$). This initial slope is approximately equal to $2\pi$, which allows $C_l^{inv}$ to be represented by the equation:
+
+$$C_l^{inv} \approx 2\pi(\alpha - \alpha_0)\]</p><p>Note that here we default to <span>$2\pi$</span>, but ultimately the slope is set by the user. </p><p>When Hansen describes this method in his textbook, he uses the same approach he used in his dynamic stall model:</p>$<p>\begin{equation} f^s<em>{H}\left(\alpha\right) = \left(2\sqrt{\frac{C</em>l^{st}}{C_l^{inv}}}\right)^2 \end{equation} $</p><h5 id="Fully-Separated-Lift-Coefficient"><a class="docs-heading-anchor" href="#Fully-Separated-Lift-Coefficient">Fully Separated Lift Coefficient</a><a id="Fully-Separated-Lift-Coefficient-1"></a><a class="docs-heading-anchor-permalink" href="#Fully-Separated-Lift-Coefficient" title="Permalink"></a></h5><p>As was the case with finding the separation point, there are multiple ways to find the fully separated coefficient of lift. In Øye&#39;s original paper, he uses quadratic interpolation between <span>$C^{s}_{l}(\alpha_0)$</span> and <span>$C_l^{s}(\alpha_{sep})$</span>, with a derivative constraint at <span>$\alpha_0$</span>. Thus the fully separated lift can be found by:</p>$<p>\begin{equation}  C_l^{fs}(\alpha) = a\alpha^2 + b\alpha + c  \end{equation} $</p><p>where: </p>$<p>\begin{aligned} a = &amp; \frac{\frac{\partial C<em>l}{\partial \alpha}\big|</em>{\alpha<em>0}(\alpha</em>0-\alpha<em>{sep}) + C</em>{l<em>{sep}}}{(\alpha</em>0-\alpha<em>{sep})^2} \
+b = &amp; \frac{-\alpha</em>0^2\frac{\partial C<em>l}{\partial \alpha}\big|</em>{\alpha<em>0} -2\alpha</em>0C<em>{l</em>{sep}} + \frac{\partial C<em>l}{\partial \alpha}\big|</em>{\alpha<em>0}\alpha</em>s^2}{(\alpha<em>0-\alpha</em>{sep})^2} \
+c = &amp; \frac{\alpha<em>0(\alpha</em>0(C<em>{l</em>{sep}}+\frac{\partial C<em>l}{\partial \alpha}\big|</em>{\alpha<em>0}\alpha</em>s)-\frac{\partial C<em>l}{\partial \alpha}\big|</em>{\alpha<em>0}\alpha</em>s^2)}{(\alpha<em>0-\alpha</em>{sep})^2} \end{aligned} $</p><p>Note that this approach is only valid between <span>$\alpha_0$</span> and <span>$\alpha_{sep}$</span>. </p><p>Since Hansen used a different approach to find the static separation point, he utilizes the linear interpolation between the inviscid and static lift coefficients to find the fully separated lift. </p>$<p>\begin{equation} C<em>l^{fs}(\alpha) = \frac{C</em>l^{st} - f^s C_l^{inv}}{1-f^s} \end{equation} $</p><p>Larsen and Faber use Hermite interpolation on the fully separated lift. Since the fully separated lift is unknown, they assume that the fully separated lift is equal to the static lift at <span>$\alpha_0$</span> and <span>$\alpha_{sep}$</span> and there derivatives are: </p>$<p>\frac{\partial C<em>l^{fs}}{\partial \alpha}|</em>{\alpha<em>0} = \frac{1}{2}(\frac{\partial C</em>l^{st}}{\partial \alpha}|<em>{\alpha</em>0}) $</p>$<p>\frac{\partial C<em>l^{fs}}{\partial \alpha}|</em>{\alpha<em>{sep}} = \frac{1}{12}(\frac{\partial C</em>l^{st}}{\partial \alpha}|<em>{\alpha</em>0}) $</p><p>Using these derivatives, we find the Hermite interpolation to be:</p>$<p>\begin{equation} C<em>l^{fs}(\alpha) = t</em>0\left((\alpha<em>{sep}-\alpha</em>0)\frac{1}{2}\frac{\partial C<em>l^{st}}{\partial \alpha}\bigg|</em>{\alpha<em>0}\left(1 + t</em>0 \left( \frac{7}{6}t<em>1-1\right) \right)+C</em>{l<em>{sep}}^{st}t</em>0(1-2t_1) \right) \end{equation} $</p><p>where: $ \begin{aligned} t<em>0 = \frac{\alpha - \alpha</em>0}{\alpha<em>{sep}-\alpha</em>0} &amp;&amp; t<em>1 = \frac{\alpha - \alpha</em>{sep}}{\alpha<em>{sep}-\alpha</em>0} \end{aligned} $</p><p>As with Øye&#39;s original model, this model is only valid between <span>$\alpha_0$</span> and <span>$\alpha_{sep}$</span>. For this approach it is traditionally assumed that <span>$\alpha_{sep}=32^\circ$</span>. Note that in our implementation of this function we assume that the fully separated lift converges to the static lift outside of this region.</p><p>Just as the separation point has an option of how to solve for it, DynamicStallModels.jl allows the user to toggle which method they want to use to find <span>$C_l^{fs}$</span>.</p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../codeoutline/">« Code Outline</a><a class="docs-footer-nextpage" href="../riso_theory/">Risø Theory »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.25 on <span class="colophon-date" title="Wednesday 19 November 2025 19:09">Wednesday 19 November 2025</span>. Using Julia version 1.12.1.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
