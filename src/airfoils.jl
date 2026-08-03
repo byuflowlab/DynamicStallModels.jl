@@ -158,6 +158,10 @@ struct Airfoil{TF, Tfit, TFun, TFV, TDSM<:DSModel} #Todo: I feel like there shou
     sfun::TFun #The separation point function
 end
 
+#The symbols that are genuine Airfoil fields. Used by the getproperty override below to tell
+#a struct-of-arrays field request apart from an ordinary field access on the container itself.
+const _AIRFOIL_FIELDS = fieldnames(Airfoil)
+
 #################################################################
 ####################### Convenience Functions ###################
 #################################################################
@@ -370,8 +374,33 @@ function update_airfoil(airfoil::Airfoil; dsmodel::Union{DSModel, Nothing}=nothi
     return Airfoil(newdsmodel, newpolar, newcl, newcd, newcm, newcn, newcc, newslope, newdcndalpha, newalpha0, newalphasep, newalphacut, newcutrad, newsfun)
 end
 
+"""
+    getproperty(obj::AbstractVector{<:Airfoil}, sym::Symbol)
+
+A struct-of-arrays convenience on vectors of airfoils: `airfoils.polar` returns that field
+broadcast over the elements, i.e. `[af.polar for af in airfoils]`.
+
+Only genuine `Airfoil` fields are broadcast. Every other symbol falls through to ordinary
+field access on the container. That fallback is required, not cosmetic: under Julia >= 1.11
+`Array` reaches its own private fields through `getproperty` (`A.ref` in `setindex!`,
+`A.ref` again via `dataids` in `unalias`/`collect`), so broadcasting those symbols over the
+elements makes a plain `Vector{Airfoil}` unusable - it throws `UndefRefError` the moment you
+try to fill one.
+
+### Inputs
+- obj::AbstractVector{<:Airfoil} - A vector of airfoils.
+- sym::Symbol - The field to access.
+
+### Outputs
+- The field broadcast over the elements if `sym` is an `Airfoil` field, otherwise the
+  container's own field.
+"""
 function Base.getproperty(obj::AbstractVector{<:Airfoil}, sym::Symbol)
-    return getfield.(obj,sym)
+    if sym in _AIRFOIL_FIELDS
+        return getfield.(obj, sym) #Struct-of-arrays: broadcast a real Airfoil field.
+    else
+        return getfield(obj, sym) #Array internals (:ref, :size), SubArray (:parent), etc.
+    end
 end
 
 

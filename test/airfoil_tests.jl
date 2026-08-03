@@ -160,6 +160,55 @@ include("./testingutils.jl")
 
         end # End testing vectors of airfoils
 
+        @testset "Vector{Airfoil} storage" begin
+            ### Regression test for the getproperty(::AbstractVector{<:Airfoil}) override.
+            ### The override used to broadcast getfield over the elements for *every* symbol,
+            ### which hijacked the private Array fields that Base itself reaches through
+            ### getproperty (A.ref in setindex!, dataids in unalias/collect) and made a plain
+            ### Vector{Airfoil} throw UndefRefError under Julia >= 1.11.
+
+            du40_a17 = of.read_airfoilinput("../data/airfoils/DU40_A17.dat")
+            af, _ = of.make_dsairfoil(du40_a17)
+            afnm = update_airfoil(af; dsmodel=dsm.NoModel()) #A different concrete Airfoil type.
+
+            ## Abstract eltype, undef-allocated then setindex!-filled. This is the pattern that
+            ## used to fail, and it's how blades with heterogeneous models get built.
+            v = Vector{Airfoil}(undef, 3)
+            for i in eachindex(v)
+                v[i] = af
+            end
+            v[3] = afnm
+            @test length(v) == 3
+            @test isa(v[3].model, dsm.NoModel)
+
+            ## Paths that go through dataids/unalias.
+            @test length(collect(v)) == 3
+            @test length(copy(v)) == 3
+            @test length([x for x in v]) == 3
+            @test length(push!(copy(v), af)) == 4
+
+            ## Non-Airfoil symbols must reach ordinary field access on the container.
+            @test view(v, 1:2).parent === v
+            @test getproperty(v, :size) == (3,)
+
+            ## The struct-of-arrays convenience still works and is unchanged.
+            @test v.alpha0 == [af.alpha0, af.alpha0, afnm.alpha0]
+            @test v.cutrad == [af.cutrad, af.cutrad, afnm.cutrad]
+            @test length(v.polar) == 3
+            @test v.polar[1] === af.polar
+            @test length(v.sfun) == 3
+            @test length(v.model) == 3
+
+            ## Concrete eltype too - that failed the same way.
+            w = Vector{typeof(af)}(undef, 2)
+            w[1] = af
+            w[2] = af
+            @test w.dcldalpha == [af.dcldalpha, af.dcldalpha]
+
+            ## The mixed-model vector is still usable by the package's own machinery.
+            @test dsm.numberofstates_total(v) ==
+                sum(dsm.numberofstates(v[i].model) for i in eachindex(v))
+        end # End Vector{Airfoil} storage tests
 
     end #End Airfoil Method tests
 

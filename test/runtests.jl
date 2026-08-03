@@ -1,7 +1,9 @@
-using DynamicStallModels, DelimitedFiles, DifferentialEquations, OpenFASTTools, FLOWMath, Statistics
+using DynamicStallModels, DelimitedFiles, OpenFASTTools, FLOWMath, Statistics
 using Test
 
-DE = DifferentialEquations
+#Note: DifferentialEquations is only needed by the commented-out test files below
+#(Oye_Test.jl, Larsen_Separation_Point_Test.jl, risotests.jl, beddoesleishmantests.jl).
+#Re-add `using DifferentialEquations` and `DE = DifferentialEquations` when those are enabled.
 ds = DynamicStallModels
 of = OpenFASTTools
 @testset "DynamicStallModels" begin

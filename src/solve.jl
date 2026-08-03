@@ -98,7 +98,7 @@ end
 """
     (airfoil::Airfoil)(state_in, state_out, y, t_aspect)
 
-A method on the Airfoil struct to either update the states, or the state rates of the dynamic stall model (respective to if the model is discrete, or continuous). 
+A method on the Airfoil struct to either update the states, or return the state rates of the dynamic stall model (respective to if the model is discrete, or continuous). 
 
 ### Inputs
 - state_in::Vector{TF} - A vector of the old states. 
