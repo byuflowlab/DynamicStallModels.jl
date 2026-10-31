@@ -1,131 +1,119 @@
-# Getting Started 
+# Getting Started
 
-The dynamic stall models are implemented in three ways: as a functional, an iterative, and in an indicial form. 
+This example runs the **Beddoes–Leishman AeroDyn/Gonzalez (BL-ADG)** model for
+one DU21 airfoil using sampled inflow from the repository. It uses the discrete
+recurrence, not an ODE solver. For continuous integration see the [Øye](@ref)
+example. The previous Risø introduction used interfaces that no longer matched
+the current Airfoil representation.
 
-Functional implementations create a struct that returns the state rates. This allows for easy solution using DifferentialEquations.jl. These functional implementations are designed to be passed a single set of parameters, $p$. Out of this set of parameters, several are functions, such as the freestream velocity. 
+## Environment and data
 
-Iterative implementations create a struct that returns the state rates as well, however they are not as easily solved by DifferentialEquations.jl. The input parameters are now all constant values, including the freestream velocity and angle of attack. This implementation is designed to be solved iteratively, meaning that for a given set of parameters, the states are updated for a single time step. The purpose of this type of implementation is for interfacing with other packages, specifically Rotors.jl. In the future, a function will be introduced that converts functions that describe environmental inputs into parameters, and then iterates through the solution of the model. 
+Clone this repository and run commands **from its root directory**, which
+contains `Project.toml` and `data/`. Use the separate example environment:
 
-The final implementation is an indicial formulation. Rather than providing a state space model to be solve, the model takes the environmental inputs and time step and calculates the states at the next time step. Several of the dynamic stall models included in this pakage were first developed in indicial form. 
-
-
-
-We'll get started by using a functional implementation of the Risø model. Because we are using a functional implementation, we willl need our flow conditions as functions of time.
-We'll simulate a flat plate pitching in steady inflow. We'll look at a freestream velocity of 1 m/s, while the airfoil pitches plus or minus 1 degree (amplitude of 2) about 5 degrees. 
-
-```julia
-k = 0.2 #reduced frequency
-u = 1.0 #freestream velocity (m/s) 
-c = 1.0 #Chord (m)
-amplitude = 2
-shift = 5
-
-omega = k*2*u/c #Rate of oscillation
-
-### Prepare inputs
-U(t) = u #Freestream velocity as a function of time
-Udot(t) = 0.0 #Derivative of freestream velocity as a function of time
-alpha(t) = (amplitude*sin(omega*t) + shift)*(pi/180) #Angle of attack as a function of time (radians)
-alphadot(t) = (amplitude*omega*cos(omega*t)*(pi/180)) #Pitching rate as a function of time (radians)
+```sh
+julia --project=examples -e 'using Pkg; Pkg.instantiate()'
+julia --project=examples
 ```
 
-At this point, we would normally read in an airfoil polar, however, since we are simulating a flat plate, we will use the inviscid solution for lift for a flat plate. 
+The example Project uses Julia 1.11+ `[sources]` entries to select this local
+checkout and pin OpenFASTTools. It declares plotting/data dependencies rather
+than relying on your global environment. Instantiation creates a local example
+Manifest; keep it to repeat your run. Do not activate `docs/` or `test/` as a
+substitute. The development checks described below were run with Julia 1.13.1.
+On Windows systems that block native package images, use `--pkgimages=no`.
+
+Copy the following Julia blocks in order into that session. The data are read
+only; plots are saved in a new temporary directory.
 
 ```julia
+using DynamicStallModels, OpenFASTTools, DelimitedFiles
+repo = pwd()
+@assert isfile(joinpath(repo, "data", "DU21_A17.dat")) "Run from the repository root."
+@assert realpath(pathof(DynamicStallModels)) == realpath(joinpath(repo, "src", "DynamicStallModels.jl"))
 
-aoa = -pi:0.01:pi #Angle of Attack, (radians)
-lift = 2*pi.*(aoa) #Coefficient of lift
-drag = zero(aoa) #Coefficient of drag, left zero for this demonstration. 
-polar = hcat(aoa, lift, drag)
-
-A = [0.165, 0.335] #From the Hansen 2004 paper, for flat plate
-b = [0.0455, 0.3000] # "" ""
-
-Tp = 3.0 # "" "" 
-Tf = 6.0 # "" "" 
-T = [Tp, Tf]
+input = OpenFASTTools.read_airfoilinput(joinpath(repo, "data", "DU21_A17.dat"))
+af, xcp = OpenFASTTools.make_dsairfoil(input)
+airfoils = [af]
+@assert af.model.detype isa Discrete
+@assert af.model.version == 3
 ```
 
-Now at this point, we'll store that information in an airfoil struct. 
+`make_dsairfoil` returns **two values**, the Airfoil and nondimensional vortex
+centre parameter `xcp`. It also creates `af.model`; a separate
+`BeddoesLeishman(Indicial(), ...)` call is neither necessary nor supported.
+Julia model version 3 denotes Gonzalez; OpenFAST's corresponding switch is
+UA_Mod=2. With this pinned helper the defaults are Akima polar interpolation,
+sound speed 343 m/s and filter coefficient 0.5. `xcp` comes from the airfoil file.
+
+## Prescribed inflow
+
+The CSV has a header, units row, then 100 numeric rows. Its first header contains
+a UTF-8 byte-order mark; normalizing it to `Time` avoids a mismatched key.
+Node `AB1N011` supplies velocities in m/s and angle in degrees.
 
 ```julia
-using DynamicStallModels
-
-airfoils = Array{Airfoil, 1}(undef, 1)
-airfoils[1] = airfoil(polar; A, b, T)
+raw = readdlm(joinpath(repo, "data", "aerodynout_fordynamicstall.csv"), ',')
+names = String.(raw[1, :])
+names[1] = "Time"
+data = Float64.(raw[3:end, :])
+outs = Dict(names[i] => data[:, i] for i in eachindex(names))
+t = outs["Time"]
+U = sqrt.(outs["AB1N011Vx"].^2 .+ outs["AB1N011Vy"].^2)
+alpha = deg2rad.(outs["AB1N011Alpha"])
+chord = 1.0 # metres: the legacy documented example's choice
 ```
 
-If we had more airfoils, we would simply add them to the airfoils array. 
+`t` spans 0–9.9 s at 0.1 s intervals. Angles passed to the model are **radians**.
+The solver initializes from the first input; subsequent steps hold the next
+sample's input constant over the step. The example's 1 m chord is not established
+as the chord used to generate the reference CSV.
 
-Now we'll create the Risø struct, which will be our ODE to solve. 
+## Solve and extract loads
 
 ```julia
-dsmodel = Riso(airfoils; detype=Functional())
+states, loads = solve_discrete(airfoils, t, U, alpha;
+                               cvec=[chord], xcpvec=[xcp])
+@assert size(states) == (length(t), 32)
+@assert size(loads) == (length(t), 3)
+@assert all(isfinite, states) && all(isfinite, loads)
+Cl, Cd, Cm = loads[:, 1], loads[:, 2], loads[:, 3]
+Cn = Cl .* cos.(alpha) .+ Cd .* sin.(alpha)
+Ct = Cl .* sin.(alpha) .- Cd .* cos.(alpha)
 ```
 
-And now we prepare to solve using DifferentialEquations.jl. Note the order of $p$ below, this is the required order. If simulating more than one airfoil, the chord lengths would be concatonated. So `p = vcat([U, Udot, alpha, alphadot], [c])`.
+The **three load columns are Cl, Cd, Cm**, per airfoil. `Cn` and `Ct` are total
+normal/tangential-to-chord coefficients reconstructed by rotation; Cl is not Cn.
+Cm uses the supplied quarter-chord, positive-nose-up convention. The 32 states
+include lags and flags; they are not 32 continuously integrated ODE states.
+`solve_indicial` remains an exact compatibility alias for `solve_discrete`.
+
+## Compare and plot
 
 ```julia
-using DifferentialEquations
-x0 = zeros(4) #Hansen 2004's suggest initial conditions.
-x0[3] = 1.0
+reference_Cn = outs["AB1N011Cn"]
+cn_rmse = sqrt(sum(abs2, Cn .- reference_Cn) / length(t))
+@show cn_rmse
 
-p = [U, Udot, alpha, alphadot, c]
-
-tspan = (0.0, 80.0)
-
-prob = ODEProblem(dsmodel, x0, tspan, p)
-```
-
-Now let's solve using DifferentialEquations. A function to parse the DifferentialEquations solution and calculate the coefficients of lift and drag has been provided. 
-
-
-```julia
-sol = solve(prob, dtmax=0.1)
-
-Cl, Cd, t =  parsesolution(dsmodel, sol, p)
-```
-
-Also if the user has a specific set of states they would like to analyze, they can extract the states on their own and use the provided functions to calculate the coefficients. 
-
-```julia
-### Unpack
-x = Array(sol)'
-t = sol.t
-
-nt = length(t)
-
-clvec = zeros(nt, dsmodel.n)
-cdvec = zeros(nt, dsmodel.n)
-### run through the time steps and calculate the dynamic lift and drag (based on the states)
-for i = 1:nt
-    ti = t[i]
-    for j = 1:dsmodel.n
-        clvec[i,j], cdvec[i,j] = riso_coefficients(x[i,:], U(ti), alpha(ti), alphadot(ti), cvec[j], dsmodel.airfoils[j])
-    end
-end
-```
-
-
-
-
-Here we use Plots.jl to visualize the lift and compare against the values given in Hansen's 2004 paper where the model was presented. Note that shown is Hansen's indicial solution, whereas here we solve the state space model, so minor differences exist. 
-
-```julia
 using Plots
-alphavec = alpha.(sol.t)
-
-expdata = readdlm("./data/Hansen2004/figure8_flatplate/indicial.csv", ',')
-
-
-clplt = plot(legend=:topleft, title="Cyclic Alpha", yaxis="Cl", xaxis="Alpha (deg)")
-scatter!(expdata[:,1], expdata[:,2], lab="Hansen 2004")
-plot!(alphavec.*(180/pi), Cl, lab="DSM - Riso")
-plot!(alphavec.*(180/pi), linearlift.(alphavec), lab="Static")
-display(clplt)
+fig = plot(layout=(3, 1), size=(900, 900))
+for (i, label, calculated) in ((1, "Cn", Cn), (2, "Cd", Cd), (3, "Cm", Cm))
+    plot!(fig[i], t, calculated; label="BL-ADG", ylabel=label, xlabel="Time (s)")
+    plot!(fig[i], t, outs["AB1N011" * label]; label="Supplied reference", linestyle=:dash)
+end
+plot_path = joinpath(mktempdir(), "bl_adg_comparison.png")
+savefig(fig, plot_path)
+@assert isfile(plot_path)
+@show plot_path
 ```
 
+The audited primary run gave Cn RMSE approximately **0.01058**, with the largest
+error near 0.1 s. It did **not** reproduce all coefficients tightly: Cd and Cm
+disagree visibly. Do not remove startup rows, substitute Cl for Cn, or tune
+parameters just to make the plot agree.
 
-
-
-![](figures/flatplate_lift_oscillations.svg)
+This record stays near 3–4° and does not activate meaningful dynamic stall.
+Successful finite output verifies execution, not vortex physics. The exact
+legacy CSV generator/UA variant/initial states remain unknown. See
+[Beddoes–Leishman](@ref) and the [Audit and Fix Plan](@ref) for the separated-flow
+regression, source divergences and unresolved scientific questions.

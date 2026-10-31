@@ -17,7 +17,7 @@ end
 Or something like that. 
 =#
 
-export solve_indicial
+export solve_discrete, solve_indicial
 
 function numberofstates_total(airfoils::AbstractVector{<:Airfoil})
     ns = 0
@@ -155,10 +155,27 @@ function state_indices(dsmodel::DSModel, startidx) #todo: -> should this functio
     return startidx, startidx+nsi-1 #todo: dynamic dispatch to DSM.numberofstates()
 end
 
-function solve_indicial(airfoils::Array{Airfoil, 1}, tvec, Uvec, alphavec; verbose::Bool=false, cvec=ones(length(airfoils)), xcpvec=0.2.*ones(length(airfoils)), Udotvec=zeros(length(Uvec)), alphadotvec=zeros(length(Uvec)))
+"""
+    solve_discrete(airfoils, t, U, alpha; cvec=ones(length(airfoils)),
+                   xcpvec=fill(0.2, length(airfoils)),
+                   Udotvec=zeros(length(U)), alphadotvec=zeros(length(U)), verbose=false)
+
+Advance Discrete() models over a finite, strictly increasing time grid (s).
+The sampled environment is shared: U in m/s, alpha in radians, Udot in m/s²,
+alphadot in rad/s. Chords are in metres and xcp is nondimensional. Each step
+holds its right-end input constant. Return time-by-state states and loads
+grouped as Cl, Cd, Cm per airfoil. The first row is the model initialization.
+solve_indicial remains an exact compatibility alias.
+"""
+function solve_discrete(airfoils::AbstractVector{<:Airfoil}, tvec, Uvec, alphavec; verbose::Bool=false, cvec=ones(length(airfoils)), xcpvec=0.2.*ones(length(airfoils)), Udotvec=zeros(length(Uvec)), alphadotvec=zeros(length(Uvec)))
 
     nt = length(tvec)
     n = length(airfoils)
+    n > 0 && nt > 0 || throw(ArgumentError("Provide at least one airfoil and time sample."))
+    all(isfinite, tvec) && all(diff(tvec) .> 0) || throw(ArgumentError("Time must be finite and strictly increasing."))
+    all(length(v) == nt for v in (Uvec, alphavec, Udotvec, alphadotvec)) || throw(DimensionMismatch("Environment histories must match the time grid."))
+    length(cvec) == length(xcpvec) == n || throw(DimensionMismatch("Provide one chord and xcp per airfoil."))
+    all(af.model.detype isa Discrete for af in airfoils) || throw(ArgumentError("solve_discrete requires Discrete() models."))
 
     ### Initialize the states
     ns = numberofstates_total(airfoils)
@@ -225,12 +242,27 @@ function solve_indicial(airfoils::Array{Airfoil, 1}, tvec, Uvec, alphavec; verbo
     return states, loads
 end
 
+const solve_indicial = solve_discrete
+
 export ODEProblem
 
-function SciMLBase.ODEProblem(airfoils::AbstractVector{<:Airfoil}, x0, tspan, y)
+"""
+    ODEProblem(airfoils, x0, tspan, y; cvec=ones(length(airfoils)),
+               xcpvec=fill(0.2, length(airfoils)))
+
+Construct an in-place SciML problem for Continuous() models. For each airfoil,
+y contains U, Udot, alpha, alphadot (numbers or functions of time). Geometry
+is supplied separately as one chord and xcp per airfoil.
+"""
+function SciMLBase.ODEProblem(airfoils::AbstractVector{<:Airfoil}, x0, tspan, y; cvec=ones(length(airfoils)), xcpvec=fill(0.2, length(airfoils)))
     #Todo: account for x, y, p, t (p being paramters). -> GXBeam probably has some examples. 
 
     n = length(airfoils)
+    length(y) == 4n || throw(DimensionMismatch("Provide four environment entries per airfoil."))
+    length(cvec) == length(xcpvec) == n || throw(DimensionMismatch("Provide one chord and xcp per airfoil."))
+    length(x0) == numberofstates_total(airfoils) || throw(DimensionMismatch("Initial state count does not match the airfoils."))
+    all(af.model.detype isa Continuous for af in airfoils) || throw(ArgumentError("ODEProblem requires Continuous() models."))
+    geometry = collect(Iterators.flatten(zip(cvec, xcpvec)))
     stateidx = Vector{Int}(undef, n)
 
     tempx = 1
@@ -240,7 +272,7 @@ function SciMLBase.ODEProblem(airfoils::AbstractVector{<:Airfoil}, x0, tspan, y)
         tempx += numberofstates(airfoils[i].model)
     end
 
-    fun(dx, x, p, t) = airfoils(dx, x, stateidx, p, t)
+    fun(dx, x, p, t) = airfoils(dx, x, stateidx, p, geometry, t)
 
     # @show typeof(tspan)
 

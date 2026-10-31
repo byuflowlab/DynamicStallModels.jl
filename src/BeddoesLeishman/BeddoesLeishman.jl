@@ -3,14 +3,18 @@
 export BeddoesLeishman
 
 """
-    BeddoesLeishman(detype::DEType, n::Int, airfoils::Array{Airfoil, 1}, version::Int)
+    BeddoesLeishman(detype, version, polar, alpha0, alpha1, A, b, T;
+                    eta=1.0, zeta=0.5, a=335.0, interp=Akima)
 
-The Beddoes-Leishman model struct. It stores airfoil data for every section to be simulated. It can be used as a method to return updated states or state rates depending on it's DEType. 
+Model constants for one airfoil. The Gonzalez example uses OpenFASTTools to
+construct a Discrete() version 3 model and its Airfoil together. It does not
+use the obsolete vector-of-airfoils model constructor.
 
 ### Inputs
 - detype - The type of model it is, Continuous(), Discrete(), or Discrete().
-- n - The number of sections to be simulated. 
-- airfoils - A vector of Airfoil structs, one corresponding to each section to be simulated. 
+- polar - Columns alpha (radians), Cl, Cd, Cm.
+- alpha0, alpha1 - Zero-lift and positive separation angles (radians).
+- A, b, T - Response amplitudes, decay constants and model time constants.
 - version - Which version of the Discrete implementation. 1) original. 2) AeroDyn original. 3) AeroDyn Gonzalez. 4) AeroDyn Minema
 """
 struct BeddoesLeishman{TI, TF, TFV} <: DSModel
@@ -119,7 +123,7 @@ function numberofloads(dsmodel::BeddoesLeishman) #TODO: This probably need to be
         return 5
     elseif dsmodel.version==3
         # @warn("The Gonzalez Beddoes-Leishman model is not yet prepared.")
-        return 5
+        return 3
     elseif dsmodel.version==4
         @warn("The Minema Beddoes-Leishman model is not yet prepared.")
         return 5

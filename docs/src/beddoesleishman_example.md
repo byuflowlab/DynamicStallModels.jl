@@ -1,71 +1,64 @@
+# Beddoes–Leishman
 
-# Beddoes-Leishman 
-## Original and State Space Implementations
-These implementations are still under construction. 
+## AeroDyn/Gonzalez discrete implementation
 
+Begin with [Getting Started](@ref): it is a complete BL-ADG run, including
+environment setup, units, data loading, finite-output checks and labelled
+comparison plots. Its code is executed by `test/run_documentation_examples.jl`.
 
-## AeroDyn Implementations
+The original and continuous state-space implementations remain under
+construction. The usable path here is `Discrete()` version 3 (Gonzalez),
+created by the pinned OpenFASTTools helper. This is OpenFAST UA_Mod=2, not 3.
 
-This model is also indicial form, so it will behave similarly to all the other indicial implementations. There are some key differences in this implementation from the original implementation, and they are noted in the theory tab. 
-
-Since this same model is implemented in AeroDyn, we use OpenFASTTools.jl and some AeroDyn inputs and outputs to compare against. First we'll read in information about the airfoil. 
-
-```julia
-using DynamicStallModels, OpenFASTTools
-of = OpenFASTTools
-du21_a17 = of.read_airfoilinput("../../../data/DU21_A17.dat")
-af = of.make_dsairfoil(du21_a17)
-```
-
-Now we create a vector of airfoils. Here we will only test a single airfoil, so we will store that lone airfoil in a vector. 
-```julia
-airfoils = Array{Airfoil, 1}(undef, 1)
-airfoils[1] = af
-```
-
-
-Next we create an instance of the model that we want to simulate. We'll use Beddoes-Leishman, with Gonzalez's modifications (the third model). 
-```julia
-dsmodel = BeddoesLeishman(Indicial(), 1, airfoils, 3)
-```
-
-Now we need some inflow information. We'll use information that is passed to the unsteady module in OpenFAST. We need the inflow velocity and relative angle of attack for every time step of our simulation. 
+The following compact reproduction is independent of the Getting Started
+session. Run it from the repository root in `--project=examples`:
 
 ```julia
-using DelimitedFiles
-fullout = readdlm("../../../data/aerodynout_fordynamicstall.csv", ',')
-names = fullout[1,:]
-names[1] = "Time"
-data = Float64.(fullout[3:end,:])
-
-outs = Dict(names[i] => data[:,i] for i in 1:length(names)) 
-
-tvec = outs["Time"]
-nt = length(tvec)
-
-Uvec = [sqrt(outs["AB1N011Vx"][i]^2 + outs["AB1N011Vy"][i]^2) for i in 1:nt] #m/s
-aoavec = outs["AB1N011Alpha"].*(pi/180)
+using DynamicStallModels, OpenFASTTools, DelimitedFiles
+repo = pwd()
+input = OpenFASTTools.read_airfoilinput(joinpath(repo, "data", "DU21_A17.dat"))
+af, xcp = OpenFASTTools.make_dsairfoil(input)
+raw = readdlm(joinpath(repo, "data", "aerodynout_fordynamicstall.csv"), ',')
+names = String.(raw[1, :]); names[1] = "Time"
+values = Float64.(raw[3:end, :])
+outs = Dict(names[i] => values[:, i] for i in eachindex(names))
+t = outs["Time"]
+U = hypot.(outs["AB1N011Vx"], outs["AB1N011Vy"])
+alpha = deg2rad.(outs["AB1N011Alpha"])
+states, loads = solve_discrete([af], t, U, alpha; cvec=[1.0], xcpvec=[xcp])
+@assert size(states) == (100, 32) && size(loads) == (100, 3)
+@assert all(isfinite, states) && all(isfinite, loads)
+Cl, Cd, Cm = loads[:, 1], loads[:, 2], loads[:, 3]
+Cn = Cl .* cos.(alpha) .+ Cd .* sin.(alpha)
+Ct = Cl .* sin.(alpha) .- Cd .* cos.(alpha)
 ```
 
+Each station contributes **Cl, Cd, Cm**, not five output columns. For several
+stations the columns are `[Cl1,Cd1,Cm1,Cl2,Cd2,Cm2,...]`. The input histories in
+this solver are shared across the stations; chord/xcp are per station. The first
+row is a static initialization; later rows use dynamic coefficients.
 
+State columns relevant to investigation are 1=unfiltered alpha (radians),
+23=delayed normal separation fpp, 26=vortex driving source Cv, 27=vortex normal
+state Nv, 28=convective vortex clock tauv, and 29–32=flags/first-pass state.
+A nonzero Nv is not automatically a nonzero applied vortex force: clock and
+cutout blending also matter.
 
-Before we can solve the time series, we need the chord length. Here we'll assume the length is 1m. Then we can solve. 
+## What the reference establishes
 
-```julia
-c = 1.0
+The supplied low-incidence CSV is rounded and its original OpenFAST binary,
+UA variant and full initialization were not recovered. Historical consumers
+used AeroDyn-original; the later Gonzalez example reuses that file. Current
+modified-NREL5MW blade/driver parameters come from a different case and must
+not silently replace this example's settings.
 
-states, loads = solve_indicial(dsmodel, [c], tvec, Uvec, aoavec)
-```
+The existing `test/beddoesleishmanADG_tests.jl` uses separate high-precision
+`data/ADG_intermediates.txt`: 48 reference times, 19 stations and 42 fields.
+It includes separated flow, but its largest reference vortex contribution is
+only about 0.106% of peak total normal force. The original regression defaults
+to sound speed 343 m/s while its reference records 335 m/s.
 
-Now we can visualize the outputs using `Plots`. 
-
-```julia
-Cn = loads[:,1] #The columns of loads are Cn, Cc, Cl, Cd, Cm
-
-using Plots, LaTeXStrings
-
-cnplt = plot(xaxis="Time (s)", yaxis=L"C_n")
-plot!(tvec, Cn, lab="BL_AD")
-plot!(tvec, outs["AB1N011Cn"], linestyle=:dash, lab="OpenFAST")
-display(cnplt)
-```
+Four vortex-related source divergences from OpenFAST v3.3.0 remain under review.
+This documentation repair does not change those equations. Passing the
+regression or running the example is not a general dynamic-stall validation.
+See [Audit and Fix Plan](@ref) for quantitative evidence and questions for Adam.

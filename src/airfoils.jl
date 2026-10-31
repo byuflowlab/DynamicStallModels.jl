@@ -123,23 +123,14 @@ end
 
 
 """
-    Airfoil(polar::Array{TF, 2}, cl::Tfit, cd::Tfit, cm::Tfit, dcldalpha::TF, alpha0::TF, alphasep::Array{TF, 1}, A::Array{TF, 1}, b::Array{TF, 1}, T::Array{TF, 1})
+    Airfoil(model, polar, cl, cd, cm, cn, cc, dcldalpha, dcndalpha,
+            alpha0, alphasep, alphacut, cutrad, sfun)
 
-A struct to hold all of the airfoil polars, fits, and dynamic coefficients. 
-
-### Inputs
-- polar - A matrix of floats describing the airfoil polar. This includes the angle of attack (radians), and coefficients of lift, drag, and moment. 
-- cl - A fit of the coefficient of lift as a function of the angle of attack (radians). 
-- cd - A fit of the coefficient of drag as a function of the angle of attack (radians). 
-- cm - A fit of the coefficient of moment as a function of the angle of attack (radians). 
-- dcldalpha - The lift curve slope in the linear region (1/radians). Typically near 2 pi. 
-- alpha0 - The zero lift angle of attack (radians). 
-- alphasep - A vector of floats holding the angles of attack at which flow fully seperates from the airfoil. In order from least to greatest. 
-- A - A vector of floats holding the A dynamic constants for the airfoil. 
-- b - A vector of floats holding the b dynamic constants for the airfoil. 
-- T - A vector of floats holding the time constants for the airfoil. 
-- S - A vector of floats holding the S constants are best fit constants for the separation point curve. 
-- s - A fit of the the separation point curve. 
+Airfoil polars, coefficient interpolants and separation function together with
+the dynamic-stall `model`. Polar columns are alpha (radians), Cl, Cd and Cm;
+curve slopes are per radian. Separation angles are ordered negative, positive.
+Dynamic constants such as A, b and T belong to the model, not the Airfoil.
+Prefer `make_airfoil(polar, model; ...)` to constructing these fields manually.
 """
 struct Airfoil{TF, Tfit, TFun, TFV, TDSM<:DSModel} #Todo: I feel like there should be a good way to type this whole struct. 
     model::TDSM
@@ -167,7 +158,7 @@ const _AIRFOIL_FIELDS = fieldnames(Airfoil)
 #################################################################
 
 """
-    simpleairfoil(polar::Array{TF, 2})
+    make_simpleairfoil(polar, model::DSModel)
 
 A function that takes a simple airfoil polar to make a dynamic airfoil. The function assumes that the lift curve slope is 2 pi, that the zero lift angle of attack is zero, and uses AeroDyn's default dynamic airfoil coefficients. The seperation angles of attack are the angles of attack at the minimum and maximum lift.
 
@@ -221,16 +212,16 @@ end
 
 
 """
-    make_airfoil(polar::Array{TF, 2}; A::Array{TF, 1} = [0.3, 0.7], b::Array{TF, 1} = [0.14, 0.53], T::Array{TF, 1} = [1.7, 3.0])
+    make_airfoil(polar, model::DSModel; sfun, radians=true, alphacut, cutrad, verbose=false)
 
 A slightly more complex version of simpleairfoil. Takes a polar and numerically finds some characteristics. 
 
 **Arguments**
 - polar - A matrix of floats describing the airfoil polar. This includes the angle of attack (radians), and coefficients of lift, drag, and moment.
-- A - A vector of floats holding the A dynamic constants for the airfoil. 
-- b - A vector of floats holding the b dynamic constants for the airfoil. 
-- T - A vector of floats holding the time constants for the airfoil. 
-- separationpointfit - An integer telling which fit function to use. 1 -> AeroDyn Cn separation point function, 
+- model - The dynamic-stall model containing its dynamic constants.
+- sfun - Separation function; for Øye use RSP() (Hansen) or LSP() (Faber/Larsen).
+- radians - Whether the polar angles are already radians. Convert a copy of a
+  degree-valued polar before reuse; this helper's degree conversion mutates it.
 
 """
 function make_airfoil(polar, dsmodel::DSModel; sfun::Union{SeparationPoint, Function}=ADSP(1, 1), alphacut = [-45, 45].*pi/180, cutrad = 5*pi/180, verbose=false, radians=true) 
@@ -708,7 +699,7 @@ function separationpoint(sfun::LSP, airfoil::Airfoil, alpha)
         if fst>1
             return 1.0  
         elseif fst<0
-            return #0.0
+            return 0.0
         else
             return fst #! is something up with these values? running a for loop with alphavec on oyecomparer.jl doesn't go above .02ish
         end
