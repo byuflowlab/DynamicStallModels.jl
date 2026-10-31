@@ -1,5 +1,5 @@
 # using DifferentialEquations
-# using Roots
+using Roots
 
 export Larsen
 
@@ -21,7 +21,7 @@ end
 
 #Todo: This needs work. 
 
-function thetafun(t)
+function thetafun(t,alpha,liftfit,CL0)
     #Solve equation 7.
     aoa = alpha(t) 
     cl = liftfit(aoa)
@@ -35,7 +35,7 @@ function thetafun(t)
     return 4*acos((term)^(1/4)) 
 end
 
-function thetafun2(t) #Using the residual form of the function changed nothing.... oddly enough. 
+function thetafun2(t,alpha,liftfit,CL0)
     aoa = alpha(t)
     cl = liftfit(aoa)
     cl0 = CL0(t)
@@ -54,14 +54,22 @@ function Heavi(t)
     end
 end
 
-function CL0(t)
+function CL0(t,dcldalpha,alpha0,alpha)
     return dcldalpha*(alpha(t)-alpha0)
 end
 
-function CL0dot(t)
+function CL0dot(t,dcldalpha,alphadot)
     return dcldalpha*alphadot(t)
 end
 
+"""
+    states!(du, u, p::NamedTuple, t)
+
+Experimental Larsen RHS. Supply CL0, CL0dot, alpha, alphadot, alphav, w, A,
+and theta explicitly. theta(t) is the prescribed static separation angle.
+The old six-entry parameter vector omitted A and theta; no globals are inferred.
+This repairs parameter passing, not the model's experimental validation.
+"""
 function states!(du, u, p, t)
 
     #Cl0dot - input function - So I think this is the time derivative of the inviscid lift coefficient... Which.... isn't part of the ode.... but changes with time. I should be able to take the derivative. I can, so I can just pass that function in, or whatever. 
@@ -69,11 +77,13 @@ function states!(du, u, p, t)
     #alphav - separation angle
     #alpha - Input function
     #alphadot - Input function
-    CL0, CL0dot, alpha, alphadot, alphav, w = p
+    p isa NamedTuple && all(k->hasproperty(p,k),(:CL0,:CL0dot,:alpha,:alphadot,:alphav,:w,:A,:theta)) || throw(ArgumentError("Larsen needs a NamedTuple with CL0, CL0dot, alpha, alphadot, alphav, w, A and theta."))
+    CL0,CL0dot,alpha,alphadot,alphav,w,A,theta=p.CL0,p.CL0dot,p.alpha,p.alphadot,p.alphav,p.w,p.A,p.theta
+    length(w)==4 && length(A)==2 || throw(DimensionMismatch("Larsen needs four rates and two response amplitudes."))
     
     du[1] = -w[1]*u[1] + A[1]*CL0dot(t) #C1
     du[2] = -w[2]*u[2] + A[2]*CL0dot(t) #C2
-    du[3] = -w[3]*u[3] + w[3]*thetafun(t) #theta_d
+    du[3] = -w[3]*u[3] + w[3]*theta(t) #theta_d
 
     CL0d = CL0(t) - u[1] - u[2] 
     CL0ddot = CL0dot(t)-du[1]-du[2]
@@ -87,7 +97,11 @@ function parsesolution(sol, p)
     u = reduce(hcat, sol.u)'
     n,m = size(u)
     
-    CL0, CL0dot, alpha, alphadot, alphav, w = p
+    if p isa NamedTuple
+        CL0=p.CL0
+    else
+        CL0,CL0dot,alpha,alphadot,alphav,w=p
+    end
     
     Cl = zeros(n)
     

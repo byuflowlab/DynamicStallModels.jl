@@ -39,12 +39,13 @@ The supported example uses the AeroDyn/Gonzalez discrete version. Read the
 Oye
 ```
 
-## Risø
+## Risø API
 
 ```@docs
 Riso
 ```
 
-The older high-level Risø wrappers still need an Airfoil/model API repair;
-they are not used by the new Getting Started example. Larsen/Onera helpers
+The continuous Risø aggregate wrapper requires explicit `A`, `b` and dimensional
+`T` constants. See [Risø](@ref) for the attached-flow reproduction. It is separate
+from the per-Airfoil discrete solver. Larsen/Onera helpers
 that are not loaded by the module are not advertised as runnable entry points.

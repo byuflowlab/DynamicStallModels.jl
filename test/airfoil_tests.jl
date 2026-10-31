@@ -13,7 +13,9 @@ include("./testingutils.jl")
 @testset "Airfoils" begin
 
     @testset "Airfoil Constructors" begin
-        @test true
+        simple=dsm.make_simpleairfoil([-.1 -.6 .01; 0. 0. .01; .1 .6 .01],dsm.NoModel())
+        @test size(simple.polar)==(3,4)
+        @test simple.cm(0.)==0.
     end #End Airfoil Constructor tests
 
     @testset "Airfoil Methods" begin
@@ -150,7 +152,10 @@ include("./testingutils.jl")
 
             xsi = view(states, 1, :) #Note: You can't pass in a slice, you must pass in a view to this function. 
             xs1 = view(states, 2, :)
-            airfoils(xsi, xs1, stateidx, y, p, dt)
+            initial_copy=copy(xsi)
+            airfoils(xs1, xsi, stateidx, y, p, dt)
+            @test xsi==initial_copy
+            @test all(isfinite,xs1)
 
 
             # @test !any(item -> isnan(item), states)

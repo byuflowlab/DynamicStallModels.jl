@@ -56,31 +56,30 @@ function dirac(x; w=0.1)
 end
 
 function find_inittype(vars...) #Todo: I'm going to guess that this function needs improvement. 
-    return eltype(vars)
+    return float(promote_type(map(typeof, vars)...))
 end
 
 
 
 export Linear #Todo: Add to FLOWMath? 
 
-struct Linear
-    x
-    y
+struct Linear{TX,TY}
+    x::TX
+    y::TY
 
     function Linear(x,y)
-        for i in eachindex(x)[2:end-1]
-            if !(x[i-1]<x[i]<x[i+1])
-                error("Linear(): x vector must be in non-repeating ascending order.")
-            end
-        end
-        
-        new(x,y)
+        length(x)==length(y) || throw(DimensionMismatch("Linear x and y lengths must match."))
+        length(x)>=2 || throw(ArgumentError("Linear needs at least two points."))
+        all(isfinite,x) && all(isfinite,y) || throw(ArgumentError("Linear data must be finite."))
+        all(diff(x) .> 0) || throw(ArgumentError("Linear x values must be strictly increasing."))
+        new{typeof(x),typeof(y)}(x,y)
     end
 end
 
 
 
 function (interp::Linear)(x; verbose::Bool=false)
+    isnan(x) && throw(ArgumentError("Interpolation query must not be NaN."))
 
     if x<interp.x[1]
         if verbose

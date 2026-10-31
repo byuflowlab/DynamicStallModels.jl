@@ -5,7 +5,7 @@ repo=dirname(@__DIR__)
 @assert realpath(pathof(DynamicStallModels))==realpath(joinpath(repo,"src","DynamicStallModels.jl"))
 cd(repo)
 @testset "Runnable documentation" begin
-    for page in ("gettingstarted.md","beddoesleishman_example.md","Oye_example.md")
+    for page in ("gettingstarted.md","beddoesleishman_example.md","Oye_example.md","riso_example.md")
         @testset "$page" begin
             scope=Module(gensym(:DocumentationExample))
             source=read(joinpath(repo,"docs","src",page),String)
@@ -21,6 +21,9 @@ cd(repo)
             if page=="Oye_example.md"
                 @test maximum(abs.(getfield(scope,:states)[:,1].-vec(Array(getfield(scope,:solution)))))<0.02
                 @test all(f -> -1e-8<=f<=1+1e-8, Array(getfield(scope,:solution)))
+            elseif page=="riso_example.md"
+                @test getfield(scope,:max_Cl_error)<1e-6
+                @test all(isfinite,getfield(scope,:Cl))
             else
                 @test size(getfield(scope,:loads))==(100,3)
                 @test getfield(scope,:states)[:,1]==getfield(scope,:alpha)

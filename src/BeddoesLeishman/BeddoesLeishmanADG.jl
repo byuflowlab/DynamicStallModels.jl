@@ -41,6 +41,9 @@ The states I use are:
 
 #AeroDyn original implementation. 
 function update_states_ADG!(airfoil::Airfoil, oldstates, states, y, p, deltat)  #TODO: Ryan seems to think that all of this airfoil information should pass in from the airfoil struct just fine and not affect how derivatives are calculated. 
+    validate_adg_inputs(airfoil,y,p)
+    length(oldstates)==length(states)==32 || throw(DimensionMismatch("ADG needs 32 old/new state entries."))
+    isfinite(deltat) && deltat>0 || throw(ArgumentError("ADG time step must be finite and positive."))
 
     ### Unpack airfoil constants
     dcndalpha = airfoil.dcndalpha
@@ -388,6 +391,8 @@ end
 
 
 function BLADG_coefficients(airfoil::Airfoil, states, y, p)
+    validate_adg_inputs(airfoil,y,p)
+    length(states)==32 || throw(DimensionMismatch("ADG needs 32 state entries."))
 
     U = y[1]
 
@@ -562,6 +567,7 @@ function BLADG_coefficients(airfoil::Airfoil, states, y, p)
 end
 
 function initialize_ADG(airfoil::Airfoil, tvec, y, p) #Todo: I should probably swap tvec for t0.
+    validate_adg_inputs(airfoil,y,p)
 
     model = airfoil.model
     Cd0 = model.Cd0
@@ -600,6 +606,15 @@ function initialize_ADG(airfoil::Airfoil, tvec, y, p) #Todo: I should probably s
 
 
     return states, loads
+end
+
+# Validate the compressible ADG domain, without inventing a zero-speed closure.
+function validate_adg_inputs(airfoil,y,p)
+    length(y)==4 && length(p)==2 || throw(DimensionMismatch("ADG needs four environment and two geometry entries."))
+    all(isfinite,y) && all(isfinite,p) || throw(ArgumentError("ADG environment and geometry must be finite."))
+    isfinite(airfoil.model.a) && 0<y[1]<airfoil.model.a || throw(ArgumentError("ADG requires positive subsonic relative speed (0 < U < sound speed)."))
+    p[1]>0 || throw(ArgumentError("ADG chord must be positive."))
+    return nothing
 end
 
 

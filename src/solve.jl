@@ -47,22 +47,11 @@ function initialize_environment(U, udot, alpha, alphadot, n)
     return repeat([U, udot, alpha, alphadot], outer=n)
 end
 
-#=
-    get_state_types(airfoils)
-
-Get the different types of dynamic stall models used, and return a vector of their states so that they can be used to initialize an array of states. 
-=#
-function get_state_types(airfoils)
-    n = length(airfoils)
-    datatypes = Vector{DataType}(undef, n)
-    for i = 1:n
-        datatypes[i] = returnstatetype(airfoils[i].model)
-    end
-    return unique(datatypes)
-end
+# The unused private get_state_types helper was removed: state storage depends
+# on the supplied numerical inputs, not just on a model's type.
 
 function update_states(airfoil::Airfoil, oldstates, y, p, dt)
-    newstates = zero(oldstates)
+    newstates = similar(oldstates,promote_type(eltype(oldstates),eltype(airfoil.polar)))
     return update_states!(airfoil.model, airfoil, oldstates, newstates, y, p, dt)
 end
 
@@ -83,6 +72,7 @@ end
 function get_loads(dsmodel::DSModel, states, y, p, airfoil)
     loads = zeros(3)
     get_loads!(dsmodel, airfoil, states, loads, y, p)
+    return loads
 end
 
 #=
@@ -90,13 +80,13 @@ Convinience function to access state rate equations
     - Todo: Add a check_dsm_type() function or capability to see if 
 =#
 function (airfoil::Airfoil)(state_in, y, p, t_aspect)
-    state_out = zeros(numberofstates(airfoil.model))
+    state_out = similar(state_in,promote_type(eltype(state_in),eltype(airfoil.polar)),numberofstates(airfoil.model))
     return airfoil(state_out, state_in, y, p, t_aspect)
 end
 
 # Same as above, but for calculations
 """
-    (airfoil::Airfoil)(state_in, state_out, y, t_aspect)
+    (airfoil::Airfoil)(state_out, state_in, y, p, t_aspect)
 
 A method on the Airfoil struct to either update the states, or return the state rates of the dynamic stall model (respective to if the model is discrete, or continuous). 
 
@@ -108,7 +98,7 @@ A method on the Airfoil struct to either update the states, or return the state 
 """
 function (airfoil::Airfoil)(state_out, state_in, y, p, t_aspect)
     if isa(airfoil.model.detype, Discrete)
-        return update_states!(airfoil, state_out, state_in, y, p, t_aspect)
+        return update_states!(airfoil, state_in, state_out, y, p, t_aspect)
     elseif isa(airfoil.model.detype, Continuous)
         return state_rates!(airfoil, state_out, state_in, y, p, t_aspect)
     end
@@ -116,21 +106,17 @@ end
 
 function (airfoils::AbstractVector{<:Airfoil})(state_idxs, state_in, y, p, t_aspect)
     ns = numberofstates_total(airfoils)
-    state_out = zeros(ns)
-
-    for i in eachindex(airfoils)
-        nsi1, nsi2 = state_indices(airfoils[i].model, state_idxs[i])
-        xsi = view(state_out, trunc(Int,nsi1+1):trunc(Int,nsi2+1))
-        xs1 = view(state_in, trunc(Int,nsi1+1):trunc(Int,nsi2+1))
-        ys = view(y, 4*(i-1)+1:4*i)
-        ps = view(p, 2*(i-1)+1:2*i)
-
-        airfoils[i](xsi, xs1, ys, ps, t_aspect)
-    end
+    state_out = similar(state_in,promote_type(eltype(state_in),map(af->eltype(af.polar),airfoils)...),ns)
+    airfoils(state_out, state_in, state_idxs, y, p, t_aspect)
+    return state_out
 end
 
 
 function (airfoils::AbstractVector{<:Airfoil})(state_out, state_in, state_idxs, y, p, t_aspect)
+    n=length(airfoils)
+    length(state_idxs)==n || throw(DimensionMismatch("Provide a state offset per airfoil."))
+    length(state_in)==length(state_out)==numberofstates_total(airfoils) || throw(DimensionMismatch("State sizes must match the airfoils."))
+    length(y)==4n && length(p)==2n || throw(DimensionMismatch("Provide four environment and two geometry entries per airfoil."))
     
     for i in eachindex(airfoils)
         nsi1, nsi2 = state_indices(airfoils[i].model, state_idxs[i])
@@ -141,6 +127,7 @@ function (airfoils::AbstractVector{<:Airfoil})(state_out, state_in, state_idxs, 
 
         airfoils[i](xs1, xsi, ys, ps, t_aspect)
     end
+    return state_out
 end
 
 function update_environment!(y, U, Udot, alpha, alphadot)
@@ -176,6 +163,9 @@ function solve_discrete(airfoils::AbstractVector{<:Airfoil}, tvec, Uvec, alphave
     all(length(v) == nt for v in (Uvec, alphavec, Udotvec, alphadotvec)) || throw(DimensionMismatch("Environment histories must match the time grid."))
     length(cvec) == length(xcpvec) == n || throw(DimensionMismatch("Provide one chord and xcp per airfoil."))
     all(af.model.detype isa Discrete for af in airfoils) || throw(ArgumentError("solve_discrete requires Discrete() models."))
+    all(v->all(isfinite,v),(Uvec,alphavec,Udotvec,alphadotvec,cvec,xcpvec)) || throw(ArgumentError("Environment and geometry must be finite."))
+    all(Uvec .>= 0) || throw(ArgumentError("Relative-speed magnitudes must be nonnegative."))
+    all(cvec .> 0) || throw(ArgumentError("Chord lengths must be positive."))
 
     ### Initialize the states
     ns = numberofstates_total(airfoils)
@@ -233,7 +223,7 @@ function solve_discrete(airfoils::AbstractVector{<:Airfoil}, tvec, Uvec, alphave
 
             update_environment!(ys, Uvec[i+1], Udotvec[i+1], alphavec[i+1], alphadotvec[i+1]) #TODO: Figure out how to make this work for varying stations. -> I don't know what I meant by that. 
             
-            airfoils[j](xsi, xs1, ys, ps, dt)
+            airfoils[j](xs1, xsi, ys, ps, dt)
 
             get_loads!(airfoils[j].model, airfoils[j], xs1, loads_j, ys, ps) 
         end

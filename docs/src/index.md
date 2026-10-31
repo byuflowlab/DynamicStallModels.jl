@@ -2,17 +2,11 @@
 
 This package is a collection of different dynamic stall models. 
 
-Dynamic stall models included in this package: 
-- Beddoes-Leishman
-  - State Space 
-  - Indicial
-  - AeroDyn implementation (original and Gonzalez variants)
-- Risø (Hansen 2004)
-  - State Space
-  - Indicial
-- Larsen
-- Onera
-- Oye
+The currently exercised interfaces are discrete AeroDyn/Gonzalez BL, continuous
+and discrete lift-only Øye, continuous aggregate Risø with explicit constants,
+and discrete NoModel static coefficients. Historical source files for additional
+formulations remain in the repository; they are not all loaded or implemented
+through the public solver interfaces. See [Audit repairs and compatibility](@ref).
 
 
 To get started, add the package. 
@@ -24,9 +18,13 @@ Then checkout the [Getting Started](@ref) page.
 
 
 !!! warning "Warning - Lack of Validation"
-    An important thing to note is the lack of validation. Except for the AeroDyn implementation, the Beddoes-Leishman implementations are very far from validated and likely still have bugs. 
-    The Risø models perform much better. For attached conditions, the models perform as expected compare excellently to published data (see the validation section of theory (that has yet to be created)). In stall conditions, when actual stall occurs, the models do not perform as expected. We were unable to find the operating conditions that Hansen did his simulations at, and so we assumed them. We were able to get a decent match by optimizing the dynamic coefficients, but they were much different than the ones Hansen provided. 
-    The Onera model has been validated (The validation needs to be added). 
+    The examples and tests provide limited numerical verification and
+    computational regression. They do not establish broad experimental
+    dynamic-stall validation. The documented BL record stays at low incidence;
+    historical separated-flow regression has weak vortex coverage and unresolved
+    formulation/reference differences. Risø's attached-flow equation check does
+    not validate separated stall or establish empirical time-constant calibration.
+    No validation claim is made here for dormant Larsen/Onera/BL prototypes.
 
 
 ### References

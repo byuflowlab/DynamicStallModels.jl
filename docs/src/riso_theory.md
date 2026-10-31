@@ -24,7 +24,7 @@ It has four states. The four states are:
 \dot{x}_1 = - \frac{x_1}{T_u}\left(b_1 + \frac{c\dot{U}}{2U^2}\right) + \frac{b_1A_1 \alpha_{3/4}}{T_u} \\
 \dot{x}_2 = - \frac{x_2}{T_u}\left(b_2 + \frac{c\dot{U}}{2U^2}\right) + \frac{b_2A_2 \alpha_{3/4}}{T_u} \\
 \dot{x}_3 = - \frac{x_3}{T_p} + \frac{1}{T_p}\left(\frac{\partial C_l}{\partial \alpha}(\alpha_E - \alpha_0) + \pi T_u \dot{\alpha} \right) \\
-\dot{x}_4 = - \frac{x_4}{T_f} = \frac{1}{T_f}f^{st}\left(\alpha_f\right)
+\dot{x}_4 = - \frac{x_4}{T_f} + \frac{1}{T_f}f^{st}\left(\alpha_f\right)
 \end{aligned}
 ```
 

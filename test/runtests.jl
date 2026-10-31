@@ -12,6 +12,8 @@ of = OpenFASTTools
     include("./nomodel_tests.jl") #Updated
     include("./beddoesleishmanADG_tests.jl") #Updated
     include("./Oye_Test.jl")
+    include("./audit_regressions.jl")
+    include("./repair_model_tests.jl")
     # include("./Larsen_Separation_Point_Test.jl") #Todo: Tests need to be cut down. 
 # include("./risotests.jl")
 # include("./beddoesleishmantests.jl")
