@@ -1,6 +1,6 @@
 # Contributor changes and verification
 
-Based on Adam Cardoza's `fix/narrow-airfoilvector-getproperty` at
+Based on `fix/narrow-airfoilvector-getproperty` at
 `15f75cd1800ed9d1b40b3312afb7a78a5c832faa`. Tested with Julia 1.13.1 on Windows.
 The scientific audit and unresolved numerical questions are published in
 [Audit and Fix Plan](docs/src/audit_and_fix_plan.md).
@@ -81,5 +81,5 @@ still passes its existing tolerances, which do not establish vortex fidelity.
 dynamic-stall validation. The audit's four ADG source divergences require a
 separate formulation decision and verification before numerical repairs.
 
-No upstream merge, upstream push, pull request or message to Adam is part of
+No upstream merge, upstream push, pull request or external message is part of
 this change. The audit is shared through the personal fork for review.

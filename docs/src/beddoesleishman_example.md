@@ -61,4 +61,4 @@ to sound speed 343 m/s while its reference records 335 m/s.
 Four vortex-related source divergences from OpenFAST v3.3.0 remain under review.
 This documentation repair does not change those equations. Passing the
 regression or running the example is not a general dynamic-stall validation.
-See [Audit and Fix Plan](@ref) for quantitative evidence and questions for Adam.
+See [Audit and Fix Plan](@ref) for quantitative evidence and open questions.

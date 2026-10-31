@@ -3,7 +3,7 @@
 ## Scope and evidence
 
 This contributor investigation reproduced the documentation, compared upstream
-master `6cc8a23f0362a13e7479151068515354eac4298f` with Adam Cardoza's fix
+master `6cc8a23f0362a13e7479151068515354eac4298f` with the fix branch at
 `15f75cd1800ed9d1b40b3312afb7a78a5c832faa`, and examined Gonzalez separated-flow
 references. Tests used Julia 1.13.1. OpenFASTTools was pinned to
 `b16ff261855030b184868c1eafcc3ba8830b50b8`. No OpenFAST executable was run.
@@ -12,7 +12,7 @@ The master Getting Started page stopped at undefined `airfoil`; independent
 probes also found obsolete tags and Risø wrappers accessing removed fields.
 An external scalar adapter solved the original attached-flow Risø equations
 and agreed with an analytic Cl solution to about 1.42e-12. The entire 803-row
-solution CSV was identical on master and Adam's fix. His vector repair passed
+solution CSV was identical on master and the fix branch. The vector repair passed
 16 targeted assertions and the 531-assertion active suite at the audited commit.
 These counts describe the previous source snapshot, not all possible models.
 
@@ -70,7 +70,7 @@ They need a decision on the intended formulation and separate verification.
    is changed. See `CONTRIBUTOR_VALIDATION.md` in the repository root for the
    new branch's actual check results and reproduction commands.
 
-## Questions for Adam and next work
+## Open questions and next work
 
 - Which original OpenFAST revision, UA variant, polar files and startup schedule
   produced `aerodynout_fordynamicstall.csv`? Should Gonzalez use another dataset?
