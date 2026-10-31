@@ -4,7 +4,14 @@ The no model model (for turning off Dynamic stall models but having a place hold
 
 struct NoModel <: DSModel
     detype::DEType
+    function NoModel(detype::DEType)
+        detype isa Discrete || throw(ArgumentError("NoModel supports Discrete() static-polar evaluation."))
+        new(detype)
+    end
 end
+
+numberofparams(::NoModel) = 2
+numberofloads(::NoModel) = 3
 
 function NoModel()
     return NoModel(Discrete())
@@ -25,6 +32,7 @@ function initialize(dsmode::NoModel, airfoil::Airfoil, tvec, y, p)
 end
 
 function update_states!(model::NoModel, airfoil::Airfoil, x, xnew, y, p, dt)
+    return xnew
 end
 
 function update_states(dsmodel::NoModel, airfoil::Airfoil, x, y, p, dt)

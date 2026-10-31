@@ -1,28 +1,48 @@
 # DynamicStallModels.jl
 
 [![](https://img.shields.io/badge/docs-dev-blue.svg)](http://flow.byu.edu/DynamicStallModels.jl/)
-[![Build Status](https://github.com/byuflowlab/DynamicStallModels.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/byuflowlab/DynamicStallModels.jl/actions/workflows/CI.yml?query=branch%3Amain)
+[![Build Status](https://github.com/byuflowlab/DynamicStallModels.jl/actions/workflows/CI.yml/badge.svg?branch=master)](https://github.com/byuflowlab/DynamicStallModels.jl/actions/workflows/CI.yml?query=branch%3Amaster)
 
 
-This package is a collection of different dynamic stall models. 
+This package is a collection of different dynamic stall models.
 
-Dynamic stall models included in this package: 
-- Beddoes-Leishman - State Space
-- Beddoes-Leishman - Indicial
-- Beddoes-Leishman - AeroDyn implementation
-- Risø (Hansen 2004) - State Space
-- Risø - Indicial
-- Larsen
-- Onera
-- Oye
+Current execution paths in this checkout:
+
+- Beddoes–Leishman AeroDyn/Gonzalez: discrete recurrence, 32 stored entries,
+  three load columns (Cl, Cd, Cm).
+- Øye: continuous or discrete attachment lag, lift only.
+- Risø: continuous aggregate wrapper with explicit A, b and dimensional T.
+- NoModel: discrete static-polar evaluation.
+
+Other BL variants and continuous BL are unfinished and rejected by the shared
+solver interfaces. Historical Larsen/Onera, BL state-space and other prototype
+files exist, but are not loaded as supported package entry points. Their presence
+does not imply validation. See [repair notes](docs/src/repair_notes.md) for limits.
 
 
-The dynamic stall models are implemented in three ways: as a functional, an iterative, and in an indicial form. 
+Use [Getting Started](docs/src/gettingstarted.md) with the isolated example
+environment. It selects the local checkout and pins the external helper.
+Julia 1.11+ is required by the separate test/example project source settings.
+`solve_discrete` is the sampled-input driver; `solve_indicial` remains an alias.
+The scalar/vector callback contract is output first: `af(new, old, y, p, dt)`.
 
-Functional implementations create a struct that returns the state rates. This allows for easy solution using DifferentialEquations.jl. These functional implementations are designed to be passed a single set of parameters, $p$. Out of this set of parameters, several are functions, such as the freestream velocity. 
+Passing tests verifies the exercised computations, not broad experimental
+dynamic-stall fidelity. In particular, the low-angle example does not validate
+vortex dynamics, and the separated-flow reference comparison has unresolved
+formulation/configuration questions. See the [audit](docs/src/audit_and_fix_plan.md).
 
-Iterative implementations create a struct that returns the state rates as well, however they are not as easily solved by DifferentialEquations.jl. The input parameters are now all constant values, including the freestream velocity and angle of attack. This implementation is designed to be solved iteratively, meaning that for a given set of parameters, the states are updated for a single time step. The purpose of this type of implementation is for interfacing with other packages, specifically [Rotors.jl](https://github.com/byuflowlab/Rotors.jl). In the future, a function will be introduced that converts functions that describe environmental inputs into parameters, and then iterates through the solution of the model. 
+The repository also contains older functional, iterative and indicial prototypes.
 
-The final implementation is an indicial formulation. Rather than providing a state space model to be solve, the model takes the environmental inputs and time step and calculates the states at the next time step. Several of the dynamic stall models included in this pakage were first developed in indicial form. 
+Continuous interfaces return state rates for an ODE solver. Environmental
+entries can be functions of time or numbers; the documented wrapper determines
+how geometry and constants are supplied.
 
-Check out the documentation on how to get started and summaries of the implementation of the theories. 
+Discrete interfaces update states for sampled environmental inputs and a time
+increment. `solve_discrete` provides this driver for the supported per-Airfoil
+models, including the indicial recurrence used by BL-ADG.
+
+Older scripts can use obsolete Functional/Indicial tags, missing helper context
+or nonportable paths. They are historical development material; use the current
+documented examples and [repair results](AUDIT_REPAIR_RESULTS.md) for tested paths.
+
+Check out the documentation on how to get started and summaries of the implementation of the theories.

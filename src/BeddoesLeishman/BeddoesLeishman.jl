@@ -3,14 +3,18 @@
 export BeddoesLeishman
 
 """
-    BeddoesLeishman(detype::DEType, n::Int, airfoils::Array{Airfoil, 1}, version::Int)
+    BeddoesLeishman(detype, version, polar, alpha0, alpha1, A, b, T;
+                    eta=1.0, zeta=0.5, a=335.0, interp=Akima)
 
-The Beddoes-Leishman model struct. It stores airfoil data for every section to be simulated. It can be used as a method to return updated states or state rates depending on it's DEType. 
+Model constants for one airfoil. The Gonzalez example uses OpenFASTTools to
+construct a Discrete() version 3 model and its Airfoil together. It does not
+use the obsolete vector-of-airfoils model constructor.
 
 ### Inputs
 - detype - The type of model it is, Continuous(), Discrete(), or Discrete().
-- n - The number of sections to be simulated. 
-- airfoils - A vector of Airfoil structs, one corresponding to each section to be simulated. 
+- polar - Columns alpha (radians), Cl, Cd, Cm.
+- alpha0, alpha1 - Zero-lift and positive separation angles (radians).
+- A, b, T - Response amplitudes, decay constants and model time constants.
 - version - Which version of the Discrete implementation. 1) original. 2) AeroDyn original. 3) AeroDyn Gonzalez. 4) AeroDyn Minema
 """
 struct BeddoesLeishman{TI, TF, TFV} <: DSModel
@@ -27,9 +31,10 @@ struct BeddoesLeishman{TI, TF, TFV} <: DSModel
     a::TF # Speed of sound
 
     function BeddoesLeishman{TI, TF, TFV}(detype::DEType, version::TI, A::TFV, b::TFV, T::TFV, Cn1::TF, Cd0::TF, Cm0::TF, eta::TF, zeta::TF, a::TF) where {TI, TF, TFV}
-        if version>4
+        if !(version in 1:4)
             error("BeddoesLeishamn: the version only accepts whole integers between 1-4.")
         end
+        isfinite(a) && a>0 || throw(ArgumentError("Sound speed must be finite and positive."))
         return new{TI, TF, TFV}(detype, version, A, b, T, Cn1, Cd0, Cm0, eta, zeta, a)
     end
 
@@ -50,46 +55,15 @@ end
 
 
 
-function get_loads!(dsmodel::BeddoesLeishman, airfoil::Airfoil, states, loads, y, p)
-    if isa(dsmodel.detype, Continuous)
-        @warn("Continuous implementation not yet prepared.")
-    elseif isa(dsmodel.detype, Discrete)
-        if dsmodel.version==1
-            @warn("Original Discrete Beddoe-Leishman not prepared for use yet.")
-
-        elseif dsmodel.version==2
-            return getloads_BLA(dsmodel, states, airfoil, p)
-
-        elseif dsmodel.version==3
-            # @warn("AeroDyn Beddoe-Leishman with Gonzalez's modifications not prepared for use yet.")
-            # return getloads_BLAG(dsmodel, states, p, airfoil)
-            BLADG_coefficients!(airfoil::Airfoil, loads, states, y, p)
-        elseif dsmodel.version==4
-            @warn("AeroDyn Beddoe-Leishman with Minema's modifications not prepared for use yet.")
-        end
-    end
+function get_loads!(model::BeddoesLeishman, airfoil::Airfoil, states, loads, y, p)
+    require_adg(model)
+    BLADG_coefficients!(airfoil,loads,states,y,p)
+    return loads
 end
 
-function get_loads(dsmodel::BeddoesLeishman, airfoil::Airfoil, states, y, p)
-    if isa(dsmodel.detype, Continuous)
-        @warn("Continuous implementation not yet prepared.")
-    elseif isa(dsmodel.detype, Discrete)
-        if dsmodel.version==1
-            @warn("Original Discrete Beddoe-Leishman not prepared for use yet.")
-        elseif dsmodel.version==2
-            return getloads_BLA(dsmodel, states, p, airfoil, p)
-        elseif dsmodel.version==3
-            # @warn("AeroDyn Beddoe-Leishman with Gonzalez's modifications not prepared for use yet.")
-            # return getloads_BLAG(dsmodel, states, p, airfoil)
-            return BLADG_coefficients(airfoil::Airfoil, states, y, p)
-        elseif dsmodel.version==4
-            @warn("AeroDyn Beddoe-Leishman with Minema's modifications not prepared for use yet.")
-        else
-            dsv = dsmodel.version
-            error("$dsv isn't a valid version model number for the Beddoes-Leishman models.")
-            return nothing
-        end
-    end
+function get_loads(model::BeddoesLeishman, airfoil::Airfoil, states, y, p)
+    require_adg(model)
+    return BLADG_coefficients(airfoil,states,y,p)
 end
 
 function numberofstates(dsmodel::BeddoesLeishman) #TODO: This probably need to be augmented to check if the model is a Continuous, an Discrete, or an Discrete. 
@@ -119,7 +93,7 @@ function numberofloads(dsmodel::BeddoesLeishman) #TODO: This probably need to be
         return 5
     elseif dsmodel.version==3
         # @warn("The Gonzalez Beddoes-Leishman model is not yet prepared.")
-        return 5
+        return 3
     elseif dsmodel.version==4
         @warn("The Minema Beddoes-Leishman model is not yet prepared.")
         return 5
@@ -147,67 +121,33 @@ function numberofparams(dsmodel::BeddoesLeishman) #TODO: This probably need to b
 end
 
 # function initialize(dsmodel::Oye, airfoil::Airfoil, tvec, y)
-function initialize(dsmodel::BeddoesLeishman, airfoil::Airfoil, tvec, y, p)
-    if isa(dsmodel.detype, Continuous)
-        @warn("Beddoes Leishman Continuous implementation isn't prepared yet. - initialize()")
-    else #Model is Discrete
-        if dsmodel.version==2 # Original AeroDyn Implementation
-            return initialize_ADO(Uvec, aoavec, tvec, airfoil, c, a) #Todo: What is a? 
-        elseif dsmodel.version==3 # AeroDyn with Gonzalez modifications. 
-            return initialize_ADG(airfoil, tvec, y, p)
-        end
-    end
+function initialize(model::BeddoesLeishman, airfoil::Airfoil, tvec, y, p)
+    require_adg(model)
+    return initialize_ADG(airfoil,tvec,y,p)
 end
 
-
-
 function update_states(dsmodel::BeddoesLeishman, airfoil::Airfoil, x, y, p, dt) 
-    ns = numberofstates(model)
-    newstates = Array{eltype(p), 1}(undef, ns)
+    require_adg(dsmodel)
+    ns = numberofstates(dsmodel)
+    newstates = similar(x,promote_type(eltype(x),eltype(airfoil.polar)),ns)
 
-    update_states!(dsmodel, airfoil, x, newstates, y, dt)
+    update_states!(dsmodel, airfoil, x, newstates, y, p, dt)
             
     return newstates
 end
 
 #### Inplace Functions
-function update_states!(model::BeddoesLeishman, airfoil::Airfoil, x, xnew, y, p, dt) 
-    if isa(model.detype, Continuous)
-        @warn("Continuous implementation not yet prepared.")
-    elseif isa(model.detype, Discrete)
-        if model.version==1
-            @warn("Original Discrete Beddoe-Leishman not prepared for use yet.")
-        elseif model.version==2
-            error("The original AeroDyn implementation doesn't function in-place yet. ")
-            ns = numberofstates(model)
-            newstates = Array{eltype(p), 1}(undef, ns)
-            for i = 1:model.n
-                ps = view(p, 18*(i-1)+1:18*i) #Todo: This seems wrong. 
-                #[c, a, dcndalpha, alpha0, Cd0, Cm0, A1, A2, b1, b2, Tf0, Tv0, Tp, Tvl, Cn1, xcp]
-                c, a, dcndalpha, alpha0, _, _, A1, A2, b1, b2, Tf0, Tv0, Tp, Tvl, Cn1, _, U, aoa = ps #Inputs  #Todo: why is c and argument here? 
-                
-                xs = view(x, 22*(i-1)+1:22*i)
-                xsnew = view(xnew, 22*(i-1)+1:22*i)
-
-                idx = 22*(i-1)+1:22*i
-                newstates[idx] = update_states_ADO!(model, xs, c, a, U, dt, aoa, dcndalpha, alpha0, A1, A2, b1, b2, Tf0, Tv0, Tp, Tvl, Cn1, i)
-            end
-            return newstates
-
-        elseif model.version==3
-
-                update_states_ADG!(airfoil, x, xnew, y, p, dt)
-
-        elseif model.version==4
-            @warn("AeroDyn Beddoe-Leishman with Minema's modifications not prepared for use yet.")
-        end
-    end
+function update_states!(model::BeddoesLeishman, airfoil::Airfoil, x, xnew, y, p, dt)
+    require_adg(model)
+    update_states_ADG!(airfoil,x,xnew,y,p,dt)
+    return xnew
 end
 
+function require_adg(model::BeddoesLeishman)
+    model.detype isa Discrete && model.version==3 || throw(ArgumentError("Only Discrete() BeddoesLeishman version 3 (Gonzalez) is implemented. Other variants are unfinished."))
+    return nothing
+end
 
-
-
-
-
-
-
+function state_rates!(model::BeddoesLeishman, airfoil::Airfoil, dx, x, y, p, t)
+    throw(ArgumentError("Continuous BeddoesLeishman is unfinished; use Discrete() version 3."))
+end

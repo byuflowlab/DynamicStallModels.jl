@@ -93,7 +93,12 @@ AeroDyn has it's own implementation of the Beddoes-Leishman model, with several 
 - There are separate separation point and associated deficiency functions for the normal, chordwise, and moment loads. 
 - There are values stored with the states that aren't labeled as states.
 
-What I have implemented isn't quite the same as what AeroDyn presents in their theory document, but it produces the same loads (<0.01%, <0.05% relative error for the normal, tangential, and moment loads respectively) as OpenFAST v3.3.0. 
+Historical regression work compared this implementation with OpenFAST v3.3.0.
+Those results apply to specific reference cases, not general dynamic-stall
+validation. A later reproducibility audit found unresolved vortex-source,
+clock/reset, decay-modifier and moment-sign divergences. Small total-load
+errors can conceal large relative errors in a weak vortex contribution.
+See the [Audit and Fix Plan](@ref) for the evidence and outstanding questions.
 
 Some of the differences between my code and OpenFAST v3.3.0 include:
 - I don't differentiate between other states and the continuous states. 
@@ -106,7 +111,7 @@ If you want to see the exact algorithm that I implement, check out the code.
 
 AeroDyn also has several different versions that you can change between. The theory is also presented in the theory document mentioned above. Note that states and other variables change with the modifications (as expected). The different versions I have are:
 - Original (Under construction)
-- Gonzalez (Validated)
+- Gonzalez (working discrete implementation; validation coverage is limited)
 
 
 

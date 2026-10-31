@@ -1,155 +1,85 @@
-# Øye 
+# Øye
 
----
+Øye delays one attachment state f. These examples use the supported **lift-only**
+mode: `cflag=1`. Outputs are Cl, zero Cd and zero Cm; zero columns are not drag
+or moment predictions. `cflag=2` now raises a clear error because its previous
+normal-force implementation was empty. No new force-closure assumption is made.
 
-## Functional Solve Example
+Use the example environment from [Getting Started](@ref) and start from the
+repository root. Copy the blocks in order. The stored Faber polar's first column
+already spans -pi to pi in radians; do not convert it again.
 
-This version of the Øye method uses the functional solve. The functional solve uses an ODE solver like `DifferentialEquations.jl` to automaticall solve the state rate equations.
-
-To begin, we prepare for the functional solve. In this example, a NACA 0015 polar from Faber's paper is read in using the package DelimitedFiles. Additionally, the model that we will be using for the solve is set up in this block. The Øye method is chosen for the dynamic stall model; the functional solve is picked; the number `1` indicates that the coefficient of lift is being evaluated; the number `2` shows that the Faber/Larsen use of Hermite interpolation for the fully separated lift is used; and the `4.0` value is the constant used in the time scale parameter.
-```julia
-using DynamicStallModels, DelimitedFiles
-dsm = DynamicStallModels
-polar_0015 = readdlm("NACA_0015_Faber.csv" , ',')
-dsmodel = Oye(Functional(), 1, 2, 4.0)
-```
-The chord length, mach number, and inflow velocity are then prepared.
-```julia
-c = 0.55
-M = 0.11
-a = 343.0
-Vrel = M*a 
-```
-The airfoil function is now created. In order to do this, the polar, the model, and the chord length are passed into the `make_airfoil` function. The `sfun` value at the end indicates that we are using the Larsen separation point function for this solve.
-
-An array is then generated to hold the information of all the airfoils that we want to evaluate. In this case, only one airfoil is being tested, so this array is of length 1 and filled with our single airfoil function.
-```julia
-af = dsm.make_airfoil(polar_0015, dsmodel, c; sfun=dsm.LSP())
-airfoils = Array{Airfoil, 1}(undef, 1)
-airfoils[1] = af
-```
-A touple containing the span of time that we want to evaluate over is now generated.
-```julia
-tspan = (0, 2.0)
-```
-Two functions with respect to time are created, as well. `Uvector` gives the inflow velocity and `alpha` gives the angle of attack of the airfoil.
-```julia
-function Uvector(t)
-    return Vrel
-end
-function alpha(t)
-    c = 0.55
-    M = 0.11
-    a = 343.0
-    shift = 10.0
-    amp = 10.0
-    k = 0.051
-
-    v = M*a
-    omega = k*2*v/c
-
-    alf = shift + amp*sin(omega*t)
-    return alf*(pi/180)
-end
-```
-The parameters and initial condition for this solve can now be generated. The order for the parameter vector is imperative. The order for the inputted values should be the inflow velocity, the rate of change of the inflow velocity, the angle of attack, and the rate of change of the angle of attack. If multiple airfoils are being evaluated, then this pattern will just continue onwards through the vector's indices. Since this example only solves a single airfoil, only four inputs are required into the parameters vector. Additionally, the rate of change of the angle of attack and inflow velocity are not required for the Øye method, so they are just inputted in as `0.0`.
-
-Additionally, any initial condition between `0.0` and `1.0` is good for the Øye method. The solution will converge if a value is picked in this range. Since we are only evaluating a single airfoil, there is only one initial condition required for this method.
-``` julia
-parameters = [Uvector, 0.0, alpha, 0.0]
-x_initial = [0.8]
-```
-The ODE problem is now created using the `ODEProblem` function.
-```julia
-prob = ODEProblem(airfoils, x_initial, tspan, parameters)
-```
-The problem from the previous block of code can now be passed into the `solve` function of `DifferentialEquations.jl`. The keyword `reltol` adds more control to the step size in the solve and allows for more precise solutions.
-```julia
-sol = DifferentialEquations.solve(prob, reltol=1e-8)
-```
-With the solution found, the `parsesolution` function can be used to find the dynamic lift or normal force coefficients. This function outputs a matrix that contains alternating rows of the angle of attacks and their corresponding coefficient values for each airfoil.
-```julia
-answer = parsesolution(dsmodel, af, sol, parameters)
-```
-Using `Plots` allows us to view the results of our functional solve.
-```julia
-using Plots, LaTeXStrings
-cyclecnplt = plot(xaxis="Angle of Attack (deg)", yaxis=L"C_L", leg=:bottomright)
-plot(answer[1,:].*180/pi, answer[2,:])
-```
----
-
-## Indicial Solve Example
----
-This version of the Øye method utilizes the indicial solve. An indicial solve analytically solves the state rate equation and solves for new state values with a time step. 
-
-To begin, we prepare for our indicial solve. In this example, a NACA 0015 polar from Faber's paper is read in using the package `DelimitedFiles`. Additionally, the model that we will be using for the solve is set up in this block. The Øye method is chosen for the dynamic stall model; an indicial solve is picked; the number `1` indicates that the coefficient of lift is being evaluated; the number `2` shows that the Faber/Larsen use of Hermite interpolation for the fully separated lift is used; and the `4.0` value is the constant used in the time scale parameter.
+## Discrete solve
 
 ```julia
 using DynamicStallModels, DelimitedFiles
-dsm = DynamicStallModels
-polar_0015 = readdlm("NACA_0015_Faber.csv" , ',')
-dsmodel = Oye(Indicial(), 1, 2, 4.0)
-```
-Next, the chord length, mach number, and velocity are generated.
-```julia
+ds = DynamicStallModels
+polar = readdlm(joinpath(pwd(), "data", "NACA_0015_Faber.csv"), ',', Float64)
+model = Oye(Discrete(), 1, 2, 4.0)
+af = ds.make_airfoil(polar, model; sfun=ds.LSP())
 c = 0.55
-M = 0.11
-a = 343.0
-Vrel = M*a 
+speed = 0.11 * 343.0
+omega = 0.051 * 2speed / c
+alpha(t) = deg2rad(10 + 10sin(omega*t))
+t = collect(range(0.0, 2.0; length=2001))
+U = fill(speed, length(t))
+states, loads = solve_discrete([af], t, U, alpha.(t); cvec=[c])
+@assert size(states) == (length(t), 1) && size(loads) == (length(t), 3)
+@assert all(isfinite, loads) && all(f -> 0 <= f <= 1, states)
+@assert all(iszero, loads[:, 2:3])
+@assert maximum(abs, loads[:, 1]) < 3.0 # broad plausibility check, not validation
 ```
-The airfoil function is now created. In order to do this, the polar, the model, and the chord length are passed into the `make_airfoil` function. The `sfun` value at the end indicates that we are using the Larsen separation point function for this solve. 
 
-An array is then generated to hold the information of all the airfoils that we want to evaluate. In this case, only one airfoil is being tested, so this array is of length 1 and filled with our single airfoil function.
+Version 2 uses the existing Faber/Larsen positive-incidence Hermite construction
+and its LSP separation function. Outside alpha0–positive separation angle the
+fully separated lift uses the static polar; this is not a calibrated symmetric
+negative-stall extension. The existing LSP near-equality heuristic is retained.
 
-``` julia
-af = dsm.make_airfoil(polar_0015, dsmodel, c; sfun=dsm.LSP())
-airfoils = Array{Airfoil, 1}(undef, 1)
-airfoils[1] = af
-```
-Here, the range of time values is set up, and the angle of attack function with respect to time is created.
+`solve_discrete` initializes f from the first static separation value and uses
+the right-end input for each held step. The dimensional response time is
+tau=A*c/U. `solve_indicial` is retained as a compatibility alias.
+
+## Continuous solve
+
+The same physical model can be integrated with an ODE solver. Geometry is
+separate from the four environment entries; omitting `cvec` would use 1 m.
+The derivatives are unused by Øye, so they may be numbers rather than functions.
+
 ```julia
-tvec = range(0, 1.0, 1000)
-function alpha(t)
-    c = 0.55
-    M = 0.11
-    a = 343.0
-    shift = 10.0
-    amp = 10.0
-    k = 0.051
-
-    v = M*a
-    omega = k*2*v/c
-
-    alf = shift + amp*sin(omega*t)
-    return alf*(pi/180)
-end
+using OrdinaryDiffEqTsit5
+continuous = Oye(Continuous(), 1, 2, 4.0)
+afc = ds.make_airfoil(copy(polar), continuous; sfun=ds.LSP())
+environment = [t -> speed, 0.0, alpha, 0.0]
+x0 = [states[1, 1]]
+problem = ODEProblem([afc], x0, (first(t), last(t)), environment; cvec=[c])
+solution = solve(problem, Tsit5(); reltol=1e-9, abstol=1e-11,
+                 saveat=t, dtmax=minimum(diff(t)))
+@assert ds.SciMLBase.successful_retcode(solution)
+@assert all(isfinite, Array(solution))
+answer = parsesolution(continuous, afc, solution, environment, [c, 0.2])
+@assert size(answer) == (2, length(t))
 ```
-With the previous values prepared, a vector of the angle of attack at each time value is created. Additionally, the inflow velocity vector is made. Since the inflow velocity for this problem is constant, every value in this vector will be the same.
+
+`answer` has angle in radians in row 1 and Cl in row 2. It uses the same load
+routine as the discrete solve. Under time-varying forcing the held-input
+discrete solution need not equal the continuously forced ODE solution at finite
+dt; refine the sampling before interpreting the difference as model error.
+`saveat` only selects output times: it does not limit internal integration steps.
+The `dtmax` limit prevents an adaptive solver from skipping short changes in the
+polar-based separation forcing during a nearly constant part of the response.
+
 ```julia
-alphavec = alpha.(tvec)
-Uvec = Vrel.*ones(length(tvec))
-```
-The state values and loads can be found using the `solve_indicial` function.
-``` julia
-states, loads = solve_indicial(airfoils, tvec, Uvec, alphavec)
-```
-This block of code changes the load values to either be with respect to lift or normal force coefficients.
-``` julia
-cn = loads[:,1]
-if dsmodel.cflag == 2
-    cn_static = af.cn.(alphavec)
-else
-    cn_static = af.cl.(alphavec)
-end
-```
-Now, the dynamic loads or state values can be viewed using `Plots`
-``` julia
-using Plots, LaTeXStrings
-stateplt = plot(tvec, states[:,1], leg=false, xaxis="time (s)", yaxis="f")
-cyclecnplt = plot(xaxis="Angle of Attack (deg)", yaxis=L"C_L", leg=:bottomright)
-plot!(alphavec.*(180/pi), cn, lab="DSM")
-plot!(alphavec.*(180/pi), cn_static, lab="Static")
-display(cyclecnplt) 
+using Plots
+fig = plot(rad2deg.(alpha.(t)), loads[:, 1]; label="Discrete", xlabel="Angle (deg)", ylabel="Cl")
+plot!(fig, rad2deg.(answer[1, :]), answer[2, :]; label="Continuous", linestyle=:dash)
+plot_path = joinpath(mktempdir(), "oye_lift.png")
+savefig(fig, plot_path)
+@assert isfile(plot_path)
+@show plot_path
 ```
 
+For the Hansen fully separated lift, use `Oye(Discrete(),1,1,4.0)` with
+`sfun=ds.RSP()`. Its fully attached removable singularity uses the Hansen limit
+Cinv/2. See [Øye Theory](@ref). Numerical verification tests are active in
+`test/Oye_Test.jl`; they do not establish experimental agreement or full dynamic
+stall validation of these formulations.

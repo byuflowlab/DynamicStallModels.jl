@@ -1,183 +1,110 @@
-using DynamicStallModels, DelimitedFiles, FLOWMath, DifferentialEquations, Test
+# Numerical verification, not an experimental validation of dynamic stall.
+using DynamicStallModels, Test
 
-dsm = DynamicStallModels
-
-path = dirname(@__FILE__)
-cd(path)
-
-c = 0.55
-
-M = 0.11
-a = 343.0
-Vrel = M*a 
-
-file = "../polars/NACA_0015_Faber.csv"
-
-file_2 = "../polars/Faber_0015_Oye_Top_Half.csv"
-
-file_3 = "../polars/Faber_0015_Oye_Bottom_Half.csv"
-
-polar = readdlm(file , ',') #reads in Faber's static lift polar for the NACA_0015 airfoil
-
-Polar_Top_Half = readdlm(file_2, ',') #reads in the dynamic lift values from Faber's NACA 0015 (top half)
-Lift_Top_Half = Akima(Polar_Top_Half[:,1].*pi/180, Polar_Top_Half[:,2])
-
-Polar_Bottom_Half = readdlm(file_3, ',') #reads in the dynamic lift values from Faaber's NACA 0015 (bottom half)
-Lift_Bottom_Half = Akima(Polar_Bottom_Half[:,1].*pi/180, Polar_Bottom_Half[:,2])
-
-dsmodel = Oye(Functional(), 1, 2, 4.0)
-
-af = dsm.make_airfoil(polar, dsmodel, c; sfun=dsm.LSP())
-
-airfoils = Array{Airfoil, 1}(undef, 1)
-airfoils[1] = af
-
-tspan = (0, 2.0) #0:0.001:0.05
-
-function Uvector(t)
-    return 0.11*343.0
+function oye_test_airfoil(model; sfun=(alpha -> 0.25), lift=nothing)
+    a = [-0.7,-0.5,-0.2,-0.1,0.0,0.1,0.2,0.5,0.7]
+    cl = isnothing(lift) ? [-0.4,-0.7,-0.6,-0.4,0.0,0.4,0.6,0.7,0.4] : lift
+    cd = fill(0.02,length(a)); cm = zeros(length(a))
+    cn = cl.*cos.(a).+cd.*sin.(a); cc = cl.*sin.(a).-cd.*cos.(a)
+    return Airfoil(model,hcat(a,cl,cd,cm),Linear(a,cl),Linear(a,cd),Linear(a,cm),
+        Linear(a,cn),Linear(a,cc),4.0,4.0,0.0,[-0.5,0.5],[-pi/4,pi/4],pi/36,sfun)
 end
 
-function alpha(t)
-    c = 0.55
-    M = 0.11
-    a = 343.0
-    shift = 10.0
-    amp = 10.0
-    k = 0.051
-
-    v = M*a
-    omega = k*2*v/c
-
-    alf = shift + amp*sin(omega*t)
-    return alf*(pi/180)
+struct OyeTestSolution
+    t::Vector{Float64}
+    states::Matrix{Float64}
 end
+Base.Array(sol::OyeTestSolution) = sol.states
 
-parameters = [Uvector, 0.0, alpha, 0.0]
-
-x_initial = [0.8]
-
-prob = ODEProblem(airfoils, x_initial, tspan, parameters)
-
-sol = DifferentialEquations.solve(prob, reltol=1e-8)
-
-answer = parsesolution(dsmodel, af, sol, parameters)
-
-dsmodel_2 = Oye(Indicial(), 1, 2, 4.0)
-
-af_2 = dsm.make_airfoil(polar, dsmodel_2, c; sfun=dsm.LSP())
-
-airfoils_2 = Array{Airfoil, 1}(undef, 1)
-airfoils_2[1] = af_2
-
-tvec = range(0, 1.0, 1000)
-Uvec = Vrel.*ones(length(tvec))
-alphavec = alpha.(tvec)
-
-
-states, loads = solve_indicial(airfoils_2, tvec, Uvec, alphavec)
-
-@testset "Oye" begin
-    @testset "Oye Functional Test" begin
-
-        ### states are always between 0 and 1
-        f = Array(sol)
-        @test !any(fval->(fval<0||fval>1), f)
-        
-        #test to see if the fully separated lift is always positive and below the static lift; test to see if the derivative near 32 degrees is pi/6
-        #test to see if the derivative near alpha0 is pi
-
-        aoavec = alpha.(sol.t)
-
-        Cl_fs = dsm.cl_fullysep_faber.(Ref(af), aoavec)
-        Cl = af.cl.(aoavec)
-
-        @test !any(val -> val<0, Cl.-Cl_fs)
-        @test !any(val -> val<=-0.05, Cl_fs)
-
-
-        C_fs_end = dsm.cl_fullysep_faber(af, 32*pi/180)
-        C_fs_end_minus_step = dsm.cl_fullysep_faber(af, 31.99*pi/180)
-
-
-        derivative_1 = (C_fs_end-C_fs_end_minus_step)/(32*pi/180 - 31.99*pi/180) #Todo: There is a more efficient way to calculate the derivative. Like actually use the aoa values in the denominator. 
-
-
-        @test isapprox(derivative_1, (pi)/6 , rtol = 0.05) #testing derivative at alphasep
-
-
-        C_fs_beginning = dsm.cl_fullysep_faber(af, af.alpha0)
-        C_fs_beginning_plus_step = dsm.cl_fullysep_faber(af, af.alpha0+0.01)
-
-
-        derivative_2 = (C_fs_beginning_plus_step- C_fs_beginning)/(0.01)
-
-
-        
-        @test isapprox(derivative_2, pi, rtol=0.05) #testing derivative at alpha0
-
-
-        @testset "Dynamic Lift Compared to Faber (Functional)" begin
-        #    for i in 1:length(answer[1,1:(end-1)]) #compares the lfit from Faber to our Lift using the Functional Method method
-        #         if answer[1,i] < answer[1, i+1]
-        #             Faber_Lift = Lift_Top_Half(answer[1,i])
-        #         else
-        #             Faber_Lift = Lift_Bottom_Half(answer[1,i])
-        #         end
-        #         @test isapprox(answer[2,i], Faber_Lift, atol = 0.05)
-        #     end
+@testset "Øye" begin
+    ds = DynamicStallModels
+    @testset "Supported configuration and domain" begin
+        for flag in (-1,0,2,3)
+            @test_throws ArgumentError Oye(Discrete(),flag,1,4.0)
         end
-     end
-
-   
-    @testset "Oye Indicial Test" begin
-        #test to see if the state value is between 0 and 1
-        @testset "State Values" begin
-            # for i in 1:length(states)
-            #     @test 0 <= states[i] <= 1
-            # end
+        for version in (0,3)
+            @test_throws ArgumentError Oye(Discrete(),1,version,4.0)
         end
-
-        @testset "Fully Separated Lift" begin
-            # for w in 1:length(airfoils_2)
-            #     for i in 1:length(tvec)
-            #         Cl_fs = dsm.cl_fullysep_faber(airfoils_2[w], alphavec[i])
-            #         Cl = airfoils_2[w].cl(alphavec[i])
-            #         @test Cl_fs <= Cl #tests to see if the fully sep lift is always less than or equal to the static lift
-            #         @test Cl_fs >= -0.05 #tests to see if fully sep lift is greater than zero (near alpha0 it might be a little bit negative)
-            #     end
-
-
-            #     C_fs_end = dsm.cl_fullysep_faber(airfoils_2[w], 32*pi/180)
-            #     C_fs_end_minus_step = dsm.cl_fullysep_faber(airfoils_2[w], 31.99*pi/180)
-
-
-            #     derivative_1 = (C_fs_end-C_fs_end_minus_step)/(32*pi/180 - 31.99*pi/180) 
-
-
-            #     @test isapprox(derivative_1, (pi)/6 , rtol = 0.05) #testing derivative at alphasep
-
-
-            #     C_fs_beginning = dsm.cl_fullysep_faber(airfoils_2[w], af.alpha0)
-            #     C_fs_beginning_plus_step = dsm.cl_fullysep_faber(airfoils_2[w], af.alpha0+0.01)
-
-
-            #     derivative_2 = (C_fs_beginning_plus_step- C_fs_beginning)/(0.01)
-
-
-            #     @test isapprox(derivative_2, pi, rtol=0.05) #testing derivative at alpha0
-            # end
+        for A in (-1.0,0.0,NaN,Inf)
+            @test_throws ArgumentError Oye(Discrete(),1,1,A)
         end
-
-        @testset "Dynamic Lift Compared to Faber (Indicial)" begin
-            # for i in 1:(length(tvec)-1) #compares the lfit from Faber to our Lift using the Indicial method
-            #     if alphavec[i] < alphavec[i+1]
-            #         Faber_Lift = Lift_Top_Half(alphavec[i])
-            #     else
-            #         Faber_Lift = Lift_Bottom_Half(alphavec[i])
-            #     end
-            #     @test isapprox(loads[i,1], Faber_Lift, atol = 0.05)
-            # end
+        af=oye_test_airfoil(Oye(Discrete(),1,1,4.0))
+        @test ds.numberofstates(af.model)==1
+        @test ds.numberofloads(af.model)==3
+        @test ds.update_states(af.model,af,[0.8],[0.0,0.0,0.2,0.0],[0.5,0.2],1.0)==[0.8]
+        @test ds.update_states(af.model,af,[0.8],[2.0,0.0,0.2,0.0],[0.5,0.2],0.0)==[0.8]
+        @test_throws ArgumentError ds.update_states(af.model,af,[0.8],[-1.0,0.0,0.2,0.0],[0.5,0.2],0.1)
+        @test_throws ArgumentError ds.update_states(af.model,af,[0.8],[2.0,0.0,0.2,0.0],[0.0,0.2],0.1)
+        @test_throws ArgumentError ds.update_states(af.model,af,[0.8],[2.0,0.0,0.2,0.0],[0.5,0.2],-0.1)
+    end
+    @testset "Closed-form separation step and solver contract" begin
+        af=oye_test_airfoil(Oye(Discrete(),1,1,4.0);sfun=(a -> a>0.1 ? 0.25 : 0.8))
+        t=[0.0,0.1,0.2,0.3];U=fill(2.0,4);alpha=[0.0,0.2,0.2,0.2]
+        states,loads=solve_discrete([af],t,U,alpha;cvec=[0.5])
+        @test states[:,1] ≈ 0.25 .+ 0.55.*exp.(-t) # tau=A*c/U=1 second
+        @test size(states)==(4,1) && size(loads)==(4,3)
+        @test all(isfinite,loads) && all(x -> 0<=x<=1,states)
+        @test all(iszero,loads[:,2:3]) # lift-only model contract
+        @test solve_indicial === solve_discrete
+        @test solve_indicial([af],t,U,alpha;cvec=[0.5])==(states,loads)
+        @test solve_discrete(view([af],:),t,U,alpha;cvec=[0.5])==(states,loads)
+        one_state,one_load=solve_discrete([af],[0.0],[2.0],[0.0])
+        @test size(one_state)==(1,1) && size(one_load)==(1,3)
+        @test_throws ArgumentError solve_discrete([af],[0.0,0.0],[2.0,2.0],[0.0,0.0])
+        @test_throws DimensionMismatch solve_discrete([af],t,U[1:2],alpha)
+        @test_throws DimensionMismatch solve_discrete([af],t,U,alpha;cvec=Float64[])
+        afc=oye_test_airfoil(Oye(Continuous(),1,1,4.0))
+        @test_throws ArgumentError solve_discrete([afc],t,U,alpha)
+    end
+    @testset "Finite attached limit and static polar recovery" begin
+        for version in (1,2)
+            af=oye_test_airfoil(Oye(Discrete(),1,version,4.0);
+                sfun=version==1 ? ds.RSP() : ds.LSP())
+            for a in (-0.6,-0.2,0.0,0.1,0.2,0.5,0.6)
+                states,loads=ds.initialize(af,[0.0],[10.0,0.0,a,0.0],[0.55,0.2])
+                @test all(isfinite,states) && all(isfinite,loads)
+                @test 0<=states[1]<=1
+                # Exact equilibrium recovery where the selected separation
+                # convention is consistent; LSP intentionally has a .35 rule.
+                if version==1
+                    @test loads[1] ≈ af.cl(a) atol=1e-12
+                end
+            end
         end
+        attached=oye_test_airfoil(Oye(Discrete(),1,1,4.0);sfun=(a->1.0))
+        @test ds.cl_fullysep_hansen(attached,0.0)==0.0
+        @test ds.cl_fullysep_hansen(attached,0.1) ≈ 0.2
+        # A low static coefficient can give negative raw LSP. It must be a
+        # numeric zero, not `nothing` from the historical bare return.
+        low=oye_test_airfoil(Oye(Discrete(),1,2,4.0);sfun=ds.LSP(),
+            lift=[-0.1,-0.1,-0.01,-0.005,0.0,0.005,0.01,0.1,0.1])
+        @test ds.separationpoint(low,0.2)==0.0
+        @test ds.oye_attachment(oye_test_airfoil(low.model;sfun=(a->-0.1)),0.2)==0.0
+        @test ds.oye_attachment(oye_test_airfoil(low.model;sfun=(a->1.1)),0.2)==1.0
+    end
+    @testset "Hermite endpoint values and slopes" begin
+        af=oye_test_airfoil(Oye(Discrete(),1,2,4.0);sfun=ds.LSP())
+        h=1e-6;f(a)=ds.cl_fullysep_faber(af,a)
+        @test f(0.0)==af.cl(0.0)
+        @test f(0.5)==af.cl(0.5)
+        @test (f(h)-f(0.0))/h ≈ af.dcldalpha/2 rtol=1e-4
+        @test (f(0.5)-f(0.5-h))/h ≈ af.dcldalpha/12 rtol=1e-4
+    end
+    @testset "Continuous dispatch, geometry and parsing" begin
+        a1=oye_test_airfoil(Oye(Continuous(),1,1,4.0))
+        a2=oye_test_airfoil(Oye(Continuous(),1,1,4.0);sfun=(a->0.75))
+        y=[t->2.0,0.0,t->0.2,0.0,t->2.0,0.0,t->0.2,0.0]
+        x=[0.8,0.1];dx=zeros(2)
+        prob=ODEProblem([a1,a2],x,(0.0,1.0),y;cvec=[0.5,1.0])
+        prob.f(dx,x,prob.p,0.2)
+        @test dx ≈ [-0.55,0.325]
+        @test x==[0.8,0.1] # rates must not overwrite the state
+        @test_throws DimensionMismatch ODEProblem([a1],x,(0.0,1.0),y[1:4])
+        @test_throws DimensionMismatch ODEProblem([a1],[0.8],(0.0,1.0),y)
+        fake=OyeTestSolution([0.0,0.5],reshape([0.8,0.25],1,2))
+        parsed=parsesolution(a1.model,a1,fake,y[1:4],[0.5,0.2])
+        @test parsed[1,:]==[0.2,0.2]
+        @test parsed[2,end] ≈ a1.cl(0.2)
+        @test parsed[2,1] ≈ 0.8*0.8+0.2*((0.6-0.25*0.8)/0.75)
     end
 end

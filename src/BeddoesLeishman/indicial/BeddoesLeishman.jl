@@ -23,15 +23,23 @@ function Cvfun(KNn, CcNn) #x
 end
 
 function CvNfun(CvNn_1, Cvn, Cvn_1, delS, Tv) #x
-    return CvNn_1*exp(delS/Tv) + (Cvn-Cvn_1)*exp(delS/(2*Tv))
+    validate_legacy_decay(delS,Tv)
+    return CvNn_1*exp(-delS/Tv) + (Cvn-Cvn_1)*exp(-delS/(2*Tv))
 end
 
 function Dffun(Dfn_1, delSn, Tf, fpn, fpn_1) #x
-    return Dfn_1*exp(delSn/Tf) + (fpn-fpn_1)*exp(delSn/(2*Tf))
+    validate_legacy_decay(delSn,Tf)
+    return Dfn_1*exp(-delSn/Tf) + (fpn-fpn_1)*exp(-delSn/(2*Tf))
 end
 
 function delSfun(c, Un, Un_1, tn, tn_1) #x #Note: I recalculated this myself, but I thought I saw a different formulation of this somewhere. 
-    return 2*((Un*tn)-(Un_1*tn_1))/c
+    all(isfinite,(c,Un,Un_1,tn,tn_1)) && c>0 && Un>=0 && Un_1>=0 && tn>=tn_1 || throw(ArgumentError("Reduced distance requires finite nonnegative speeds, ordered times and positive chord."))
+    # Trapezoidal quadrature of ds=2U(t)dt/c; exact for linear speed histories.
+    return (Un+Un_1)*(tn-tn_1)/c
+end
+
+function validate_legacy_decay(ds,T)
+    isfinite(ds) && ds>=0 && isfinite(T) && T>0 || throw(ArgumentError("Decay requires a nonnegative finite step and positive finite time constant."))
 end
 
 function betafun(Mn) #x
@@ -73,8 +81,9 @@ function CPNfun(CINn, CCNn) #x
 end
 
 function DPfun(DPn_1, delS, Tp, CPNn, CPNn_1) #x
-    t1 = DPn_1*exp(delS/Tp)
-    t2 = (CPNn-CPNn_1)*exp(delS/(2*Tp))
+    validate_legacy_decay(delS,Tp)
+    t1 = DPn_1*exp(-delS/Tp)
+    t2 = (CPNn-CPNn_1)*exp(-delS/(2*Tp))
     return t1 + t2
 end
 

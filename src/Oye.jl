@@ -1,304 +1,135 @@
-#=
-The Oye model, as given by ???. 
-
-Indicial States
-1 - f
-
-Environmental Parameters (y)
-U, alpha
-
-=#
-export Oye
+export Oye, parsesolution
 
 """
-    Oye(detype::DEType, n::Int, airfoils::Array{Airfoil, 1})
+    Oye(detype::DEType, cflag::Int, version::Int, A::Real)
 
-The Øye model struct. It stores airfoil data for every section to be simulated. It can be used as a method to return updated states or state rates depending on it's DEType. 
+One-state Øye lift model: `Continuous()` rates or `Discrete()` exponential
+steps. Use `cflag=1`; normal-force mode (`cflag=2`) is not implemented.
+`version=1` selects Hansen's fully separated lift and `version=2` selects
+Faber/Larsen's positive-incidence Hermite construction. The separation time is
+`tau=A*c/U`, with positive A and chord, and nonnegative relative speed.
 
-### Inputs
-- detype - The type of model it is, Continuous() or Discrete().
-- cflag::Int - A flag to apply the separation delay to the coefficient of 1) lift, 2) normal force. 
-- version::Int - A flag to say whether to use 1) Hansen 2008, or 2) Larsen's Hermite interpolation from Faber's 2018's implementation of the model.
-- A::Float - Dynamic stall coefficient. 
+This lift-only model returns `(Cl, 0, 0)`, not predictions of drag or moment.
+Angles are in radians. See the Øye examples for matching separation functions.
 """
 struct Oye{TI, TF} <: DSModel
-    detype::DEType 
-    cflag::TI 
+    detype::DEType
+    cflag::TI
     version::TI
     A::TF
-
     function Oye{TI, TF}(detype::DEType, cflag::TI, version::TI, A::TF) where {TI, TF}
-        if cflag>2
-            error("Øye: the cflag only accepts flags of 1 or 2.")
-        elseif version>2
-            error("Øye: the version only accepts values of 1 or 2.")
-        end
-        return new{TI, TF}(detype, cflag, version, A)
+        cflag == 1 || throw(ArgumentError("Øye supports cflag=1 (lift); normal-force mode is not implemented."))
+        version in (1, 2) || throw(ArgumentError("Øye version must be 1 (Hansen) or 2 (Faber/Larsen)."))
+        isfinite(A) && A > 0 || throw(ArgumentError("Øye A must be finite and positive."))
+        new{TI, TF}(detype, cflag, version, A)
     end
-
     Oye(detype::DEType, cflag::TI, version::TI, A::TF) where {TI, TF} = Oye{TI, TF}(detype, cflag, version, A)
 end
 
-# function Oye(detype::DEType; cflag=1, version=1, A=4.0)
-#     return Oye(detype, cflag, version, A)
-# end
+numberofstates(::Oye) = 1
+numberofparams(::Oye) = 2 # chord, xcp (unused by this lift-only model)
+numberofloads(::Oye) = 3
+get_cn(airfoil, alpha) = airfoil.model.cflag == 2 ? airfoil.cn(alpha) : airfoil.cl(alpha)
+get_dcndalpha(airfoil) = airfoil.model.cflag == 2 ? airfoil.dcndalpha : airfoil.dcldalpha
 
-
-function numberofstates(dsmodel::Oye)
-    return 1
+function oye_attachment(airfoil, alpha)
+    f = separationpoint(airfoil, alpha)
+    isfinite(f) || throw(ArgumentError("Øye static attachment must be finite."))
+    return clamp(f, zero(f), one(f))
 end
 
-function numberofparams(dsmodel::Oye)
-    return 2
+function oye_rate(model::Oye, U, c)
+    isfinite(U) && U >= 0 || throw(ArgumentError("Øye relative speed must be finite and nonnegative."))
+    isfinite(c) && c > 0 || throw(ArgumentError("Øye chord must be finite and positive."))
+    return U/(model.A*c) # 1/tau; the state freezes at U=0.
 end
 
-function get_cn(airfoil, alpha)
-    if airfoil.model.cflag == 2
-        return airfoil.cn(alpha) #Static normal force
-    else
-        return airfoil.cl(alpha)
-    end
+function initialize(model::Oye, airfoil::Airfoil, tvec, y, p)
+    oye_rate(model, y[1], p[1])
+    states = [oye_attachment(airfoil, y[3])]
+    return states, collect(get_loads(model, airfoil, states, y, p))
 end
 
-function get_dcndalpha(airfoil)
-    if airfoil.model.cflag == 2
-        return airfoil.dcndalpha #Static normal force
-    else
-        return airfoil.dcldalpha
-    end
+function update_states(model::Oye, airfoil::Airfoil, oldstate, y, p, dt)
+    newstate = similar(oldstate)
+    return update_states!(model, airfoil, oldstate, newstate, y, p, dt)
 end
 
-
-
-function initialize(dsmodel::Oye, airfoil::Airfoil, tvec, y, p)
-    if isa(dsmodel.detype, Continuous)
-        @warn("Oye Continuous implementation isn't prepared yet. - initialize()")
-    else #Model is Discrete
-
-        # _, _, alpha, _, _ = y
-        alpha = y[3]
-
-        fst = separationpoint(airfoil, alpha)
-
-        if fst>1
-            fst = 1.0
-        end
-        
-        states = [fst]
-
-        loads = zeros(3)
-        get_loads!(dsmodel::Oye, airfoil, states, loads, y, p)
-        
-        return states, loads, y
-    end
+function update_states!(model::Oye, airfoil::Airfoil, oldstate, newstate, y, p, dt)
+    isfinite(dt) && dt >= 0 || throw(ArgumentError("Øye time step must be finite and nonnegative."))
+    rate = oye_rate(model, y[1], p[1])
+    fst = oye_attachment(airfoil, y[3])
+    newstate[1] = fst + (oldstate[1]-fst)*exp(-dt*rate)
+    return newstate
 end
 
-
-
-
-
-
-######## Indicial code
-function update_states(dsmodel::Oye, airfoil::Airfoil, oldstate, y, p, dt)
-    newstate = zero(oldstate)
-    update_states!(dsmodel, airfoil, oldstate, newstate, y, p, dt)
-end
-
-#=
-In-place version. 
-=#
-function update_states!(dsmodel::Oye, airfoil::Airfoil, oldstate, newstate, y, p, dt)
-    ### Unpack 
-    U, _, alpha, _ = y
-    c = p[1] #Extract the chord length from the parameters
-    fold = oldstate[1]
-
-
-    fst = separationpoint(airfoil, alpha) #Current static degree of attachment (separation point)  
-
-    tau = dsmodel.A*c/U #Time constant - From Hansen's 2008 paper (all other constants will need to be converted to Hansen's format)
-
-    f = fst + (fold - fst)*exp(-dt/tau) #Delay on separation point 
-
-    if f>1
-        f = 1.0
-    end
-
-    newstate[1] = f
-end
-
-function get_loads(dsmodel::Oye, airfoil::Airfoil, states, y, p)
-    ### Unpack
-    f = states[1]
-
-    # _, _, alpha, _ = y # U, alpha = y
+function get_loads(model::Oye, airfoil::Airfoil, states, y, p)
     alpha = y[3]
-
-
-    dcndalpha = get_dcndalpha(airfoil)
-
-    alpha0 = airfoil.alpha0
-
-    cn_inv = dcndalpha*(alpha-alpha0) #Hansen 2004 EQ 19.
-
-    if dsmodel.version==2 #Larsen (Faber) #TODO: I wonder if there is a good way to use multiple dispatch on this. 
-        cn_fs = cl_fullysep_faber(airfoil, alpha) #this was originally cl_fullysep_larsen, but it needs to be cl_fullysep_faber
-    else #Hansen
-        cn_fs = cl_fullysep_hansen(airfoil, alpha)
-    end
-
-    #Todo: Calculate the Cc, Cl, Cd, and potentially the Cm if possible. 
-    if dsmodel.cflag==2 #delay applied to normal and tangential loads
-        #Rotate loads
-    else 
-        Cl = f*cn_inv + (1-f)*cn_fs #Hansen 2004 EQ 17. Coefficient of lift
-        Cd = zero(Cl) #Coefficient of drag
-        Cm = zero(Cl) #Coefficient of moment
-    end
-
-    return Cl, Cd, Cm
+    cinv = get_dcndalpha(airfoil)*(alpha-airfoil.alpha0)
+    cfs = model.version == 2 ? cl_fullysep_faber(airfoil, alpha) : cl_fullysep_hansen(airfoil, alpha)
+    cl = states[1]*cinv + (1-states[1])*cfs
+    return cl, zero(cl), zero(cl)
 end
 
-function get_loads!(dsmodel::Oye, airfoil::Airfoil, states, loads, y, p)
-    loads .= get_loads(dsmodel, airfoil, states, y, p)
+function get_loads!(model::Oye, airfoil::Airfoil, states, loads, y, p)
+    loads .= get_loads(model, airfoil, states, y, p)
+    return loads
 end
 
-function cl_fullysep_hansen(airfoil, alpha) #Todo: Move to Hansen's file
-    cn = get_cn(airfoil, alpha) #Static lift
-    dcndalpha = get_dcndalpha(airfoil)
-
-    cn_inv = dcndalpha*(alpha-airfoil.alpha0) #Hansen 2004 EQ 19, inviscid lift
-    
-    # fst = (2*sqrt(abs(cn/cn_inv)) - 1)^2 #Hansen 2004 EQ 15.
-    fst = separationpoint(airfoil, alpha)
-    cn_fs = (cn-(cn_inv*fst))/(1-fst) #Hansen 2004 EQ 18, fully separated lift
-
-    return cn_fs
+function cl_fullysep_hansen(airfoil, alpha)
+    cstatic = get_cn(airfoil, alpha)
+    cinv = get_dcndalpha(airfoil)*(alpha-airfoil.alpha0)
+    fst = oye_attachment(airfoil, alpha)
+    # Removable 0/0: the Hansen relation's f->1 limit is Cinv/2.
+    # For a custom f=1, Cfs is unidentifiable; use this same convention.
+    # The fully attached load itself is independent of Cfs.
+    isone(fst) && return cinv/2
+    return (cstatic-cinv*fst)/(1-fst)
 end
 
-#=
-Larsen's fully separated lift coefficient from Faber's 2018 masters thesis. 
-=#
-function cl_fullysep_faber(airfoil, alpha) #Todo: Move to Larsen's file
+"""Faber/Larsen Hermite fully separated lift on alpha0 < alpha < alpha_sep.
+Outside that positive-incidence interval, use the static polar. No mirrored
+negative-stall calibration is introduced by this implementation.
+"""
+function cl_fullysep_faber(airfoil, alpha)
     alpha0 = airfoil.alpha0
     alpha_sep = airfoil.alphasep[2]
-
-    cn = get_cn(airfoil, alpha)
-    cn_sep = get_cn(airfoil, alpha_sep)
-    dcndalpha = get_dcndalpha(airfoil)
-
     if alpha0 < alpha < alpha_sep
-        #Hermite Interpolation as in Faber 2018
-        #TODO: Needs to be extended to work for angles less than alpha0, it should have a reflection to what is done here. 
-        t0 = (alpha - alpha0)/(alpha_sep - alpha0) #Faber 2018 EQ A.1a
-        #As alpha -> alpha_sep this will diverge. So... what keeps it from diverging? 
-        t1 = (alpha - alpha_sep)/(alpha_sep - alpha0) #Faber 2018 EQ A.1b
-        term1 = (alpha_sep - alpha0)*dcndalpha*(1 + t0*(7*t1/6 - 1))/2
-        term2 = cn_sep*t0*(1-( 2*t1))
-        clfs = t0*(term1+term2) #Faber 2018 EQ A.4
-
-        return clfs
-    else
-        return cn
+        t0 = (alpha-alpha0)/(alpha_sep-alpha0)
+        t1 = (alpha-alpha_sep)/(alpha_sep-alpha0)
+        term1 = (alpha_sep-alpha0)*get_dcndalpha(airfoil)*(1+t0*(7*t1/6-1))/2
+        term2 = get_cn(airfoil, alpha_sep)*t0*(1-2*t1)
+        return t0*(term1+term2)
     end
+    return get_cn(airfoil, alpha)
 end
 
-
 """
-    state_rates!(model::Oye, airfoil::Airfoil, dx, x, y, t)
+    state_rates!(model::Oye, airfoil, dx, x, y, p, t)
 
-Calculate the state rates of the Øye model. 
-
-**Arguments**
-- model::DSModel: The model to be used.
-- airfoil::Airfoil: The airfoil to be used.
-- dx::Vector: The vector to be filled with the state rates.
-- x::Vector: The current state.
-- y::Vector: The current input.
-- t::Float64: The current time.
+Evaluate df/dt=(f_static(alpha(t))-f)/tau, tau=A*c/U(t).
+The four entries of y are U, Udot, alpha, alphadot (numbers or functions).
+p contains chord and xcp; derivatives and xcp are unused by Øye.
 """
 function state_rates!(model::Oye, airfoil::Airfoil, dx, x, y, p, t)
-    
-    ### Evaluate environmental functions
     U, _, alpha, _ = evaluate_environment(y, t)
-
-    c = p[1] #Extract the chord length from the parameters
-    f = x[1] #Current state (degree of attachment)
-    
-    ### Prepare time constant
-    A = model.A
-    T_f = U/(A*c)
-
-    ### Fetch static separation point
-    fst = separationpoint(airfoil, alpha)
-
-    ### Calculate state rate
-    dx[1] = -T_f*(f-fst) 
+    dx[1] = oye_rate(model, U, p[1])*(oye_attachment(airfoil, alpha)-x[1])
+    return dx
 end
 
-export parsesolution
+"""
+    parsesolution(model::Oye, airfoil, sol, y, p)
 
-
+Return two rows: angle in radians and dynamic Cl at sol.t. Uses the same
+coefficient routine as the discrete solver. p contains chord and xcp.
+"""
 function parsesolution(model::Oye, airfoil::Airfoil, sol, y, p)
-    _, _, alphavec, _ = y
-    f = Array(sol) 
-    tvec = sol.t 
-
-
-    #preallocates a matrix to be filled with the dynamic lift and angle of attack values for each airfoil evaluated
-    Lift_aoa_Matrix = zeros(2*1 , length(tvec))  #needs to be changed for a list of airfoils
-
-
-
-    for w in 1:1 #this needs to be changed to loop through all of the airfoils
-
-        alpha0 = airfoil.alpha0 
-
-
-
-        if airfoil.model.cflag == 1 #checks to see if the user chose the coefficient of lift flag
-            cl_sep = airfoil.cl(airfoil.alphasep[2])
-        else
-            cl_sep = airfoil.cn(airfoil.alphasep[2]) #find the coefficient of normal force at the fully seperated angle of attack 
-        end
-
-
-
-        for i in eachindex(tvec) 
-
-
-            Lift_aoa_Matrix[w, i] = alphavec(tvec[i]) 
-            C_inv = airfoil.dcldalpha*(alphavec(tvec[i]) - alpha0) 
-
-
-
-            if airfoil.model.cflag == 1 #checks to see if the user used the coefficient of lift flag
-                cl = airfoil.cl(alphavec(tvec[i])) 
-            else
-                cl = airfoil.cn(alphavec(tvec[i])) #finds what the coefficient of static normal force value is at a given angle of attack
-            end
-
-
-
-
-            if airfoil.model.version == 1 #checks to see if the Hansen method is chosen for this Oye solve
-                fst = (2*sqrt(abs(cl/C_inv))-1)^2 
-                C_fs = (cl - (C_inv*fst))/(1-fst) #finds the fully separated coefficient of lift value 
-            elseif airfoil.model.version == 2
-                C_fs = cl_fullysep_faber(airfoil, alphavec(tvec[i])) #finds the fully separated coefficient of lift value for the Faber method
-            end
-
-
-
-
-            C_L_dyn = f[w,i]*C_inv+(1-f[w,i])*C_fs 
-            Lift_aoa_Matrix[w+1,i] = C_L_dyn 
-        end
-
+    states = Array(sol)
+    result = zeros(eltype(states), 2, length(sol.t))
+    for i in eachindex(sol.t)
+        env = collect(evaluate_environment(y, sol.t[i]))
+        result[1,i] = env[3]
+        result[2,i] = get_loads(model, airfoil, view(states,:,i), env, p)[1]
     end
-
-    return Lift_aoa_Matrix 
-
+    return result
 end
-
-

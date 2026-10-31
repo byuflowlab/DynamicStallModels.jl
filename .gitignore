@@ -1,2 +1,5 @@
 .DS_Store
 docs/build/
+test/Manifest.toml
+testing/Manifest.toml
+docs/Manifest.toml
